@@ -7,21 +7,20 @@
   const canvas = $('#board');
   const ctx = canvas.getContext('2d');
 
-  const OPS_BY_ID = Object.fromEntries(OPERATORS.map((o) => [o.id, o]));
+  const opById = (id) => OPERATORS.find((o) => o.id === id);
   const DIR_ANGLE = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
   const SLOW = 0.15;        // 배치/조작 중 시간 배속
   const MAX_DP = 99;
   const sfx = (name) => window.SFX && window.SFX.play(name);
 
   // ---------- 이미지 (선택) ----------
-  const IMG = {};
-  for (const o of OPERATORS) {
-    if (!o.image) continue;
-    const im = new Image();
-    im.src = o.image;
-    IMG[o.id] = im;
+  const IMG = new Map();   // 그림 주소 → Image (관리자가 실장한 오퍼레이터도 포함)
+  function imgOf(def) {
+    if (!def.image) return null;
+    let im = IMG.get(def.image);
+    if (!im) { im = new Image(); im.src = def.image; IMG.set(def.image, im); }
+    return im.complete && im.naturalWidth > 0 ? im : null;
   }
-  const imgReady = (id) => IMG[id] && IMG[id].complete && IMG[id].naturalWidth > 0;
   // 적 그림
   const EIMG = new Map();
   for (const e of Object.values(ENEMIES)) {
@@ -102,7 +101,7 @@
     }
     queue.sort((a, b) => a.t - b.t);
     squadIds = squadIds || UI.save.squad;
-    const squad = squadIds.map((id) => OPS_BY_ID[id]).filter(Boolean);
+    const squad = squadIds.map(opById).filter(Boolean);
 
     UI.go('battle');
     S = {
@@ -272,8 +271,8 @@
   $('#pause-resume').addEventListener('click', () => togglePause(false));
   const soundLabel = () => { $('#pause-sound').textContent = '효과음 ' + (window.SFX && SFX.enabled ? '켜짐' : '꺼짐'); };
   $('#pause-sound').addEventListener('click', () => { SFX.toggle(); soundLabel(); });
-  $('#pause-retry').addEventListener('click', () => beginBattle(S.idx, S.squadIds));
-  $('#pause-quit').addEventListener('click', () => { $('#pause').classList.add('hidden'); UI.go('operations'); });
+  $('#pause-retry').addEventListener('click', () => { const i = S.idx; UI.onBattleQuit(i); UI.startOperation(i, true); });
+  $('#pause-quit').addEventListener('click', () => { const i = S.idx; $('#pause').classList.add('hidden'); UI.onBattleQuit(i); UI.go('operations'); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) togglePause(true); });
 
   $('#ins-skill').addEventListener('click', () => { if (S && S.inspect) { activateSkill(S.inspect); refreshInspect(true); } });
@@ -758,6 +757,8 @@
     setMode('idle');
     const st = S.st;
     const stars = !win ? 0 : S.leaked === 0 ? 3 : S.life >= Math.ceil(S.maxLife / 2) ? 2 : 1;
+    const firstClear = win && !(UI.save.stars[st.code] > 0);
+    const rewardText = UI.onBattleEnd(S.idx, win, stars);
     if (win) {
       UI.save.stars[st.code] = Math.max(UI.save.stars[st.code] || 0, stars);
       UI.writeSave();
@@ -766,7 +767,13 @@
     title.textContent = win ? '작전 완료' : '작전 실패';
     title.classList.toggle('fail', !win);
     $('#result-stars').textContent = win ? starText(stars) : '';
-    $('#result-info').textContent = `처치 ${S.killed} · 돌파 ${S.leaked} · 남은 목숨 ${Math.max(0, S.life)}/${S.maxLife}`;
+    $('#result-info').innerHTML = '';
+    const info = document.createElement('div');
+    info.textContent = `처치 ${S.killed} · 돌파 ${S.leaked} · 남은 목숨 ${Math.max(0, S.life)}/${S.maxLife}`;
+    const rw = document.createElement('div');
+    rw.className = 'result-reward';
+    rw.textContent = rewardText || '';
+    $('#result-info').append(info, rw);
     const btns = $('#result-btns');
     btns.innerHTML = '';
     const idx = S.idx, ended = S;
@@ -779,12 +786,12 @@
     };
     if (win) {
       add('계속', 'primary', () => {
-        const after = st.after || [];
+        const after = firstClear ? st.after || [] : [];
         if (after.length) UI.playDialog(after, () => UI.go('operations'));
         else UI.go('operations');
       });
     } else {
-      add('다시 도전', 'primary', () => beginBattle(idx, ended.squadIds));
+      add('다시 도전', 'primary', () => UI.startOperation(idx, true));
     }
     add('작전 목록', '', () => UI.go('operations'));
     setTimeout(() => { if (S === ended) $('#result').classList.remove('hidden'); }, 400);
@@ -1040,8 +1047,9 @@
   }
   // 캐릭터 몸체(그림 또는 동그라미). 화면상 영역 [x0, y0, x1, y1]을 돌려줌
   function drawBody(def, X, Y, T, alpha = 1, flash = 0) {
-    if (imgReady(def.id)) {
-      const im = IMG[def.id], ih = T * 1.25, iw = (ih * im.naturalWidth) / im.naturalHeight;
+    const im = imgOf(def);
+    if (im) {
+      const ih = T * 1.25, iw = (ih * im.naturalWidth) / im.naturalHeight;
       const x0 = X - iw / 2, y0 = Y - ih * 0.96;
       ctx.globalAlpha = alpha;
       if (flash > 0) ctx.filter = 'brightness(1.6) sepia(1) saturate(4) hue-rotate(-40deg)';

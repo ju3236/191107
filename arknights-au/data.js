@@ -61,6 +61,7 @@ function area(x0, x1, y0, y1) {
 //      shield(최대 HP 대비 보호막), dodge(물리 회피), block(저지 수 +), range(지속 중 공격 범위),
 //      endBlast({mul, radius, selfDmg}: 종료 시 주변 폭발), dp(즉시 코스트)
 //  image: 'img/파일명.png' — 넣으면 임시 일러스트 대신 그림이 쓰입니다.
+//  starter: true — 처음부터 보유. 그 외 오퍼레이터는 헤드헌팅으로 얻습니다.
 // ---------------------------------------------------------------------
 const OPERATORS = [
   // ================= 행동대 「등대」 (박사님의 자캐) =================
@@ -147,7 +148,7 @@ const OPERATORS = [
 
   // ================= 지원 오퍼레이터 (임시 캐릭터 — 필요 없으면 지우세요) =================
   {
-    id: 'rea', name: '레아', class: 'vanguard', race: '페로', color: '#f2a541',
+    id: 'rea', starter: true, name: '레아', class: 'vanguard', race: '페로', color: '#f2a541',
     en: 'Rhea', rarity: 5, tags: ['근거리', '코스트 회복'], faction: '로도스 아일랜드 · 지원',
     voices: ['박사! 오늘도 같이 가자!', '선봉은 언제나 내 자리야.'],
     profile: '로도스 아일랜드 소속 뱅가드. 밝고 시끄럽지만, 동료가 다치는 걸 누구보다 두려워한다.',
@@ -160,7 +161,7 @@ const OPERATORS = [
     ],
   },
   {
-    id: 'khan', name: '칸', class: 'guard', race: '사르카즈', color: '#d9534f',
+    id: 'khan', starter: true, name: '칸', class: 'guard', race: '사르카즈', color: '#d9534f',
     en: 'Khan', rarity: 5, tags: ['근거리', '화력'], faction: '로도스 아일랜드 · 지원',
     voices: ['…명령을.', '칼은 손질해 뒀다.'],
     profile: '용병 출신 사르카즈 검사. 로도스 아일랜드와 계약한 뒤로 말없이 일을 처리한다.',
@@ -173,7 +174,7 @@ const OPERATORS = [
     ],
   },
   {
-    id: 'mujin', name: '무진', class: 'defender', race: '우르수스', color: '#8d6e63',
+    id: 'mujin', starter: true, name: '무진', class: 'defender', race: '우르수스', color: '#8d6e63',
     en: 'Mujin', rarity: 5, tags: ['근거리', '방어'], faction: '로도스 아일랜드 · 지원',
     voices: ['뒤는 걱정 말고.', '…차 한 잔 하겠나.'],
     profile: '전직 광산 경비대장. 느릿한 말투와 달리 그 방패는 단 한 번도 뚫린 적이 없다.',
@@ -186,7 +187,7 @@ const OPERATORS = [
     ],
   },
   {
-    id: 'noa', name: '노아', class: 'caster', race: '불포', color: '#a970ff',
+    id: 'noa', starter: true, name: '노아', class: 'caster', race: '불포', color: '#a970ff',
     en: 'Noa', rarity: 5, tags: ['원거리', '범위 공격'], faction: '로도스 아일랜드 · 지원',
     voices: ['실험… 아니, 작전 개시!', '오리지늄 아츠는 예술이라고!'],
     profile: '로도스 아일랜드 연구부 소속 캐스터. 호기심이 너무 많아 자주 사고를 친다. 방어력 높은 적에게 강하다.',
@@ -199,7 +200,7 @@ const OPERATORS = [
     ],
   },
   {
-    id: 'hayul', name: '하율', class: 'medic', race: '산크타', color: '#f7d774',
+    id: 'hayul', starter: true, name: '하율', class: 'medic', race: '산크타', color: '#f7d774',
     en: 'Hayul', rarity: 5, tags: ['원거리', '치료'], faction: '로도스 아일랜드 · 지원',
     voices: ['다치면 혼날 줄 알아요?', '오늘도 무사히 돌아와요.'],
     profile: '로도스 아일랜드 의료부 소속 메딕. 늘 웃고 있지만 치료 중에는 누구보다 무섭다.',
@@ -212,7 +213,7 @@ const OPERATORS = [
     ],
   },
   {
-    id: 'ciel', name: '시엘', class: 'sniper', race: '리베리', color: '#5cb85c',
+    id: 'ciel', starter: true, name: '시엘', class: 'sniper', race: '리베리', color: '#5cb85c',
     en: 'Ciel', rarity: 4, tags: ['원거리', '대공'], faction: '로도스 아일랜드 · 지원',
     voices: ['보여. 전부.', '망루는… 조용해서 좋아.'],
     profile: '말수가 적은 저격수. 로도스 아일랜드 함선 갑판 망루가 지정석이다.',
@@ -225,7 +226,7 @@ const OPERATORS = [
     ],
   },
   {
-    id: 'vito', name: '비토', class: 'guard', race: '루포', color: '#7fb3d5',
+    id: 'vito', starter: true, name: '비토', class: 'guard', race: '루포', color: '#7fb3d5',
     en: 'Vito', rarity: 4, tags: ['근거리', '다중 공격'], faction: '로도스 아일랜드 · 지원',
     voices: ['느려 터졌네, 다들.', '정찰은 끝났어.'],
     profile: '빠른 발과 쌍단검이 자랑인 로도스 아일랜드 정찰병.',
@@ -290,13 +291,14 @@ for (const [id, e] of Object.entries(ENEMIES)) if (e.image === undefined) e.imag
 
 // ---------------------------------------------------------------------
 //  스테이지
+//  sanity: 소모 이성 (작전 실패·포기 시 1만 소모하고 나머지는 돌려받음)
 //  map 기호: # 벽 · . 지면(배치 가능) · - 지면(배치 불가 통로) · ^ 고지대 · R 침입 지점 · B 방어 지점
 //  waves: { t: 시작(초), enemy, count, gap: 간격(초), spawn: 침입 지점 번호(위→아래, 왼→오른쪽 순) }
 //  스토리: { who: 오퍼레이터 id, text } / { name: '이름', text } / { text } (나레이션)
 // ---------------------------------------------------------------------
 const STAGES = [
   {
-    code: '1-1', name: '첫 출격', desc: '체르노보그 외곽 폐허. 리유니온 잔당과 원석충을 정리하라.',
+    code: '1-1', sanity: 6, name: '첫 출격', desc: '체르노보그 외곽 폐허. 리유니온 잔당과 원석충을 정리하라.',
     life: 3, startDp: 10, deployLimit: 8,
     map: ['############', '#^^^^#^^^^^#', 'R-........^#', '#^^^.^^^^.^#', '#^...^#^...B', '#^^^^^#^^^^#', '############'],
     waves: [
@@ -323,7 +325,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-2', name: '폐허의 사냥개', desc: '빠르게 달려드는 사냥개 무리. 양쪽 입구를 동시에 막아라.',
+    code: '1-2', sanity: 6, name: '폐허의 사냥개', desc: '빠르게 달려드는 사냥개 무리. 양쪽 입구를 동시에 막아라.',
     life: 3, startDp: 12, deployLimit: 8,
     map: ['R-...^^^^^^#', '#^^^.^#...-R', '#^^^...^.^^#', '##^^^.^..^^#', '#^^^.....^##', '#^^^.^^^^^^#', '####B#######'],
     waves: [
@@ -350,7 +352,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-3', name: '하늘의 눈', desc: '비행 유닛 요마가 정찰한다. 비행 유닛은 길을 따르지 않고 곧장 날아온다.',
+    code: '1-3', sanity: 9, name: '하늘의 눈', desc: '비행 유닛 요마가 정찰한다. 비행 유닛은 길을 따르지 않고 곧장 날아온다.',
     life: 3, startDp: 12, deployLimit: 8,
     map: ['#R##########', '#-^^^^^^^^^#', '#........^^#', '#^^^^^^^.^^#', '#^.......^^#', '#^.^^^^^^^^#', '#^.......--B', '############'],
     waves: [
@@ -376,7 +378,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-4', name: '철벽', desc: '방어력이 매우 높은 중기갑병. 물리 공격이 잘 통하지 않는다.',
+    code: '1-4', sanity: 9, name: '철벽', desc: '방어력이 매우 높은 중기갑병. 물리 공격이 잘 통하지 않는다.',
     life: 3, startDp: 14, deployLimit: 8,
     map: ['############', 'R....^^^^^^#', '#^^^.^^^^^^#', '#^^^......^#', '#^^^^^^^^.^#', 'R-.......-.B', '############'],
     waves: [
@@ -403,7 +405,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-5', name: '유탄의 거리', desc: '리유니온 간부 스컬슈레더 출현. 저지하지 않으면 유탄을 퍼붓는다.',
+    code: '1-5', sanity: 12, name: '유탄의 거리', desc: '리유니온 간부 스컬슈레더 출현. 저지하지 않으면 유탄을 퍼붓는다.',
     life: 3, startDp: 15, deployLimit: 8,
     map: ['#############', '#^^^^^^^^^^^#', 'R---.....^^^#', '#^^^^^^^.^^^#', '#^^^.....^^^#', '#^^^.^^^^^^^#', '#^^^.......-B', '#############'],
     waves: [
@@ -428,7 +430,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-6', name: '그림자 습격', desc: '크라운슬레이어의 기습. 저지당하면 뒤로 순간이동한다.',
+    code: '1-6', sanity: 12, name: '그림자 습격', desc: '크라운슬레이어의 기습. 저지당하면 뒤로 순간이동한다.',
     life: 3, startDp: 15, deployLimit: 8,
     map: ['#############', 'R-......^^^^#', '#^^^^^^.^^^^#', '#^^^^^^.....B', '#^^^^^^.^^^^#', 'R-......^^^^#', '#############'],
     waves: [
@@ -454,7 +456,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-7', name: '노래하는 자', desc: '메피스토가 숙주 병사를 치료하고, 파우스트는 저지되지 않은 채 멀리서 쏜다.',
+    code: '1-7', sanity: 15, name: '노래하는 자', desc: '메피스토가 숙주 병사를 치료하고, 파우스트는 저지되지 않은 채 멀리서 쏜다.',
     life: 3, startDp: 16, deployLimit: 8,
     map: ['#############', '#R-....^^^^^#', '#^^^^^.^^^^^#', '#^^.......^^#', '#^^.^^^^^.^^#', '#^^.^^^^^.^^#', '#^^....B....#', '#############'],
     waves: [
@@ -480,7 +482,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-8', name: '겨울의 등대', desc: '프로스트노바와 눈의 악마 소대. 첫 사망 시 부활하니 끝까지 버텨라.',
+    code: '1-8', sanity: 18, name: '겨울의 등대', desc: '프로스트노바와 눈의 악마 소대. 첫 사망 시 부활하니 끝까지 버텨라.',
     life: 3, startDp: 22, deployLimit: 8,
     map: ['##############', 'R-.....^^^^^^#', '#^^^^^.^^^^^^#', '#^^^^^......^#', '#^^^^^^^^^^.^#', '#^.........-^#', '#^.^^^^^^^^^^#', '#B...........R', '##############'],
     waves: [
@@ -511,3 +513,47 @@ const STAGES = [
     ],
   },
 ];
+
+// ---------------------------------------------------------------------
+//  아이템 · 구매센터 · 헤드헌팅 (원작 명칭)
+// ---------------------------------------------------------------------
+const ITEMS = {
+  orundum:   { name: '합성옥', short: '합성옥', color: '#e8505b', desc: '헤드헌팅에 사용하는 재화. 600개로 헤드헌팅 1회를 진행할 수 있다.' },
+  originite: { name: '오리지늄', short: '오리지늄', color: '#ffcf3a', desc: '오리지늄 결정체. 합성옥 180개로 교환하거나, 이성을 전부 회복할 수 있다.' },
+  permit:    { name: '헤드헌팅 허가증', short: '허가증', color: '#f2a541', desc: '헤드헌팅 1회를 진행할 수 있는 허가증.' },
+  permit10:  { name: '10회 헤드헌팅 허가증', short: '10회 허가증', color: '#ff7a2f', desc: '헤드헌팅 10회를 한 번에 진행할 수 있는 허가증.' },
+  lmd:       { name: '용문폐', short: '용문폐', color: '#cfd3d6', desc: '용문에서 통용되는 화폐. 작전을 완료하면 얻을 수 있다.' },
+  cert_hi:   { name: '고급 자격증', short: '고급 자격증', color: '#ffd23a', desc: '5·6성 오퍼레이터의 잠재력이 가득 찬 뒤 중복 획득하면 얻는다.' },
+  cert_lo:   { name: '초급 자격증', short: '초급 자격증', color: '#9fd6ff', desc: '3·4성 오퍼레이터를 획득하면 얻는다.' },
+};
+
+// 처음 시작할 때 주는 재화
+const STARTER_GIFT = { orundum: 6000, permit10: 1, lmd: 10000 };
+
+// 구매센터 상품. price는 표시용(원)이며 실제 결제는 없습니다.
+// 「결제 요청」을 보내면 관리자가 승인했을 때 items가 지급됩니다.
+const SHOP = {
+  originite: [
+    { id: 'op1',   name: '오리지늄',  items: { originite: 1 },   price: 1200 },
+    { id: 'op6',   name: '오리지늄',  items: { originite: 6 },   price: 6500 },
+    { id: 'op20',  name: '오리지늄',  items: { originite: 20 },  price: 19000 },
+    { id: 'op40',  name: '오리지늄',  items: { originite: 40 },  price: 38000 },
+    { id: 'op66',  name: '오리지늄',  items: { originite: 66 },  price: 65000 },
+    { id: 'op130', name: '오리지늄',  items: { originite: 130 }, price: 119000 },
+  ],
+  packages: [
+    { id: 'monthly',  name: '월간 보급 카드',       desc: '오리지늄 6 + 합성옥 6000', items: { originite: 6, orundum: 6000 }, price: 5900 },
+    { id: 'newbie',   name: '신규 박사 헤드헌팅 패키지', desc: '10회 헤드헌팅 허가증 1 + 오리지늄 10', items: { permit10: 1, originite: 10 }, price: 19000 },
+    { id: 'hh_pack',  name: '헤드헌팅 패키지',       desc: '헤드헌팅 허가증 10 + 합성옥 6000', items: { permit: 10, orundum: 6000 }, price: 32000 },
+    { id: 'big_pack', name: '정예 박사 패키지',      desc: '10회 헤드헌팅 허가증 3 + 오리지늄 40', items: { permit10: 3, originite: 40 }, price: 99000 },
+  ],
+};
+const ORIGINITE_TO_ORUNDUM = 180;
+
+// 헤드헌팅 확률 (원작 기준). 50회 연속 6성이 없으면 이후 1회마다 6성 확률 +2%
+const GACHA = {
+  cost: 600,
+  rates: { 6: 0.02, 5: 0.08, 4: 0.5, 3: 0.4 },
+  pityStart: 50, pityStep: 0.02,
+  standardName: '표준 헤드헌팅',
+};

@@ -85,6 +85,18 @@
     spawn:   () => { tone({ type: 'sine', f0: 220, f1: 330, d: 0.1, vol: 0.05 }); },
     win:     () => { [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f0: f, t: i * 0.11, d: i === 3 ? 0.5 : 0.14, vol: 0.2 })); },
     lose:    () => { [392, 330, 262, 196].forEach((f, i) => tone({ type: 'triangle', f0: f, t: i * 0.16, d: 0.22, vol: 0.18 })); },
+    gacha:   () => {
+      tone({ type: 'sawtooth', f0: 110, f1: 880, a: 0.05, d: 1.2, vol: 0.12 });
+      noise({ filter: 'bandpass', f0: 400, f1: 6000, a: 0.3, d: 1.0, vol: 0.12, q: 0.7 });
+    },
+    rev3:    () => { tone({ type: 'triangle', f0: 660, d: 0.15, vol: 0.15 }); },
+    rev4:    () => { tone({ type: 'triangle', f0: 660, d: 0.12, vol: 0.15 }); tone({ type: 'triangle', f0: 990, t: 0.08, d: 0.2, vol: 0.15 }); },
+    rev5:    () => { [784, 988, 1175].forEach((fq, i) => tone({ type: 'triangle', f0: fq, t: i * 0.08, d: 0.3, vol: 0.16 })); },
+    rev6:    () => {
+      tone({ type: 'sine', f0: 60, f1: 40, d: 0.6, vol: 0.5 });
+      [523, 659, 784, 1047, 1319].forEach((fq, i) => tone({ type: 'triangle', f0: fq, t: 0.1 + i * 0.09, d: i === 4 ? 0.8 : 0.25, vol: 0.18 }));
+      noise({ filter: 'highpass', f0: 5000, a: 0.05, d: 0.6, vol: 0.08 });
+    },
     text:    () => { tone({ type: 'square', f0: 1800 + Math.random() * 200, d: 0.015, vol: 0.025 }); },
   };
   // 같은 소리가 한꺼번에 몰리지 않도록 최소 간격(초)

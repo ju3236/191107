@@ -4,31 +4,19 @@
 // =====================================================================
 (() => {
   const $ = (s) => document.querySelector(s);
-  const OPS = Object.fromEntries(OPERATORS.map((o) => [o.id, o]));
+  // 오퍼레이터 목록은 관리자가 실장하면 늘어나므로 매번 찾아봄
+  const OPS = new Proxy({}, { get: (_, id) => OPERATORS.find((o) => o.id === id) });
   const CLASS_ORDER = Object.keys(CLASSES);
   const SQUAD_MAX = 12;
 
-  // ---------- 저장 ----------
-  const SAVE_KEY = 'ashen-beacon-save';
-  const save = (() => {
-    let s = null;
-    try { s = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch { /* 저장 불가 환경 */ }
-    if (!s || typeof s !== 'object') s = {};
-    s.stars = s.stars && typeof s.stars === 'object' ? s.stars : {};
-    s.squad = (Array.isArray(s.squad) ? s.squad : OPERATORS.map((o) => o.id)).filter((id) => OPS[id]).slice(0, SQUAD_MAX);
-    if (!OPS[s.assistant]) s.assistant = OPERATORS[0].id;
-    s.skills = s.skills && typeof s.skills === 'object' ? s.skills : {};
-    // 새로 추가된 오퍼레이터는 기존 편성에도 자동으로 넣기
-    if (!Array.isArray(s.known)) s.known = Array.isArray(s.squad) && s.squad.length ? [...s.squad] : [];
-    for (const o of OPERATORS) {
-      if (s.known.includes(o.id)) continue;
-      s.known.push(o.id);
-      if (!s.squad.includes(o.id) && s.squad.length < SQUAD_MAX) s.squad.push(o.id);
-    }
-    return s;
-  })();
-  function writeSave() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* 저장 불가 환경 */ }
+  // ---------- 저장 (account.js) ----------
+  const save = ACCOUNT.player;
+  const writeSave = () => ACCOUNT.save();
+  const owned = (id) => ACCOUNT.owns(id);
+  const ownedOps = () => OPERATORS.filter((o) => owned(o.id));
+  function fixPlayer() {
+    save.squad = save.squad.filter((id) => OPS[id] && owned(id));
+    if (!OPS[save.assistant] || !owned(save.assistant)) save.assistant = (ownedOps()[0] || OPERATORS[0]).id;
   }
 
   // ---------- 아이콘 ----------
@@ -52,6 +40,11 @@
     search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/>',
     play: '<path d="M7 4l13 8-13 8z"/>',
     lock: '<rect x="5" y="10" width="14" height="10"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    store: '<path d="M4 9h16l-1.5 11h-13z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/>',
+    headhunt: '<circle cx="12" cy="12" r="8"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/><circle cx="12" cy="12" r="2"/>',
+    depot: '<path d="M3 8 12 3l9 5v10l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v10"/>',
+    admin: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
   };
   function icon(name, cls = '') {
     return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name] || ''}</svg>`;
@@ -163,6 +156,7 @@
   let voiceIdx = 0;
 
   function setVoice(next) {
+    fixPlayer();
     const a = OPS[save.assistant];
     const lines = a.voices && a.voices.length ? a.voices : [a.quote];
     if (next) voiceIdx = (voiceIdx + 1) % lines.length;
@@ -171,16 +165,16 @@
   }
 
   RENDER.home = () => {
+    fixPlayer();
     const a = OPS[save.assistant];
     $('#home-art').innerHTML = artHTML(a);
     $('#home-banner').innerHTML = `<small>${esc(GAME_INFO.subtitle)}</small><b>${esc(GAME_INFO.title)}</b>`;
     const ts = totalStars();
     $('#home-lv').textContent = 1 + ts * 5;
-    $('#home-name').textContent = GAME_INFO.commander || '지휘관';
+    $('#home-name').textContent = save.nick || GAME_INFO.commander || '지휘관';
     $('#home-id').textContent = 'ID: ASHEN-' + String(1000 + ts).padStart(4, '0');
-    $('#home-stars').textContent = ts;
-    $('#home-stars-max').textContent = '/' + STAGES.length * 3;
-    $('#home-ops').textContent = OPERATORS.length;
+    renderResources();
+    $('#tile-admin').classList.toggle('hidden', !ACCOUNT.isAdmin);
     const done = STAGES.filter(cleared).length;
     $('#home-progress').textContent = done;
     $('#home-progress-max').textContent = '/' + STAGES.length;
@@ -218,19 +212,25 @@
     resetArmed = false;
     openModal(`<div class="modal-title">설정</div><div class="modal-sub">SETTINGS</div>
       <div class="set-row"><span>효과음</span><button class="btn" id="btn-sound">${window.SFX && SFX.enabled ? '켜짐' : '꺼짐'}</button></div>
-      <p class="modal-text">진행 상황, 편성, 비서 설정은 이 브라우저에만 저장됩니다.</p>
-      <button class="btn danger" id="btn-reset">데이터 초기화</button>`);
+      <div class="set-row"><span>닉네임</span><input id="nick-input" maxlength="16" value="${esc(save.nick || '')}" placeholder="${esc(GAME_INFO.commander || '박사')}"><button class="btn small" id="nick-save">저장</button></div>
+      <p class="modal-text">${ACCOUNT.mode === 'online'
+        ? '온라인 계정에 저장 중입니다. 다른 기기에서 같은 계정으로 열어도 이어서 플레이할 수 있습니다.'
+        : '이 브라우저에만 저장 중입니다. claude.ai 링크에서 로그인한 채로 열면 계정에 저장되고, 구매센터와 관리자 기능을 쓸 수 있습니다.'}</p>
+      <button class="btn danger" id="btn-reset">작전 진행도 초기화</button>`);
+    $('#nick-save').addEventListener('click', () => {
+      save.nick = $('#nick-input').value.trim().slice(0, 16);
+      writeSave();
+      toast('닉네임을 저장했습니다');
+      RENDER.home();
+    });
     $('#btn-sound').addEventListener('click', (e) => { e.target.textContent = SFX.toggle() ? '켜짐' : '꺼짐'; });
     $('#btn-reset').addEventListener('click', (e) => {
       if (!resetArmed) { resetArmed = true; e.target.textContent = '한 번 더 누르면 초기화됩니다'; return; }
       save.stars = {};
-      save.squad = OPERATORS.map((o) => o.id).slice(0, SQUAD_MAX);
-      save.assistant = OPERATORS[0].id;
-      save.known = OPERATORS.map((o) => o.id);
       writeSave();
       closeModal();
       RENDER.home();
-      toast('데이터를 초기화했습니다');
+      toast('작전 진행도를 초기화했습니다');
     });
   }
   $('#modal-body').addEventListener('click', (e) => {
@@ -247,14 +247,13 @@
   $('#btn-notice').addEventListener('click', openSynopsis);
   $('#btn-archive').addEventListener('click', openArchive);
   $('#tile-archive').addEventListener('click', openArchive);
-  $('#tile-profile').addEventListener('click', openSynopsis);
 
   // =====================================================================
   //  2. 오퍼레이터 목록
   // =====================================================================
   let filter = 'all', sortKey = 'class';
   function sortedOps() {
-    const list = OPERATORS.filter((o) => filter === 'all' || o.class === filter);
+    const list = OPERATORS.filter((o) => owned(o.id) && (filter === 'all' || o.class === filter));
     const byClass = (a, b) => CLASS_ORDER.indexOf(a.class) - CLASS_ORDER.indexOf(b.class);
     if (sortKey === 'class') list.sort(byClass);
     if (sortKey === 'rarity') list.sort((a, b) => (b.rarity || 3) - (a.rarity || 3) || byClass(a, b));
@@ -269,7 +268,7 @@
     const grid = $('#op-grid');
     const list = sortedOps();
     grid.innerHTML = list.map((o) => `<button class="card-btn" data-op="${o.id}">${cardHTML(o)}</button>`).join('') ||
-      '<div class="empty-note">이 직군에는 오퍼레이터가 없습니다.</div>';
+      '<div class="empty-note">보유한 오퍼레이터가 없습니다. 헤드헌팅에서 모집해 보세요.</div>';
   };
   $('#class-filter').addEventListener('click', (e) => {
     const b = e.target.closest('[data-f]');
@@ -303,6 +302,8 @@
       <span><i>◈</i><b>${o.res || 0}</b></span><span><i>⚡</i>${speedText(o.interval)}</span>`;
     $('#detail-block').innerHTML = Array.from({ length: 3 }, (_, i) => `<i class="${i < o.block ? 'on' : ''}"></i>`).join('');
     $('#detail-stars').textContent = stars(o.rarity);
+    const pot = ACCOUNT.potOf(o.id);
+    $('#detail-pot').textContent = pot ? `잠재 ${pot}` : '미보유';
     $('#detail-en').textContent = o.en || '';
     $('#detail-name').textContent = o.name;
     $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${esc(arch.name)}</small>` : ''}`;
@@ -321,8 +322,8 @@
     $('#detail-profile').textContent = o.profile;
     $('#detail-quote').textContent = `“${o.quote}”`;
     const isA = save.assistant === o.id;
-    $('#detail-assist').textContent = isA ? '현재 비서' : '비서로 지정';
-    $('#detail-assist').disabled = isA;
+    $('#detail-assist').textContent = !owned(o.id) ? '미보유 오퍼레이터' : isA ? '현재 비서' : '비서로 지정';
+    $('#detail-assist').disabled = isA || !owned(o.id);
   };
   function stepDetail(d) {
     const list = sortedOps().length ? sortedOps() : OPERATORS;
@@ -358,6 +359,7 @@
   };
   function renderFormation() {
     clearArmed = false;
+    fixPlayer();
     const grid = $('#slot-grid');
     let html = '';
     for (let i = 0; i < SQUAD_MAX; i++) {
@@ -393,7 +395,7 @@
     if (!b) return;
     const slot = Math.min(+b.dataset.slot, save.squad.length);
     const curId = save.squad[slot];
-    const pool = OPERATORS.filter((o) => !save.squad.includes(o.id) || o.id === curId);
+    const pool = ownedOps().filter((o) => !save.squad.includes(o.id) || o.id === curId);
     openModal(`<div class="modal-title">오퍼레이터 선택</div><div class="modal-sub">슬롯 ${slot + 1}</div>
       <div class="pick-grid">${pool.map((o) => `<button class="card-btn ${o.id === curId ? 'picked' : ''}" data-pick="${o.id}" data-slot-i="${slot}">${cardHTML(o, 'small')}</button>`).join('')}</div>
       ${curId ? `<button class="btn danger" data-unpick="${slot}">편성 해제</button>` : ''}`);
@@ -412,7 +414,7 @@
     renderFormation();
   });
   $('#btn-quick').addEventListener('click', () => {
-    const order = [...OPERATORS].sort((a, b) => CLASS_ORDER.indexOf(a.class) - CLASS_ORDER.indexOf(b.class));
+    const order = ownedOps().sort((a, b) => (b.rarity || 3) - (a.rarity || 3) || CLASS_ORDER.indexOf(a.class) - CLASS_ORDER.indexOf(b.class));
     save.squad = order.map((o) => o.id).slice(0, SQUAD_MAX);
     writeSave();
     renderFormation();
@@ -430,13 +432,48 @@
     startOperation(pendingStage);
   });
 
-  function startOperation(idx) {
+  const sanityCost = (st) => st.sanity || 6;
+  function startOperation(idx, skipStory) {
     const st = STAGES[idx];
+    fixPlayer();
     const squad = [...save.squad];
+    if (!squad.length) { toast('편성된 오퍼레이터가 없습니다'); return; }
+    if (!ACCOUNT.useSanity(sanityCost(st))) { openSanity(() => startOperation(idx, skipStory)); return; }
+    sfx('select');
     const run = () => window.Battle.begin(idx, squad);
-    if (st.before && st.before.length) playDialog(st.before, run);
+    if (!skipStory && st.before && st.before.length && !(save.stars[st.code] > 0)) playDialog(st.before, run);
     else run();
   }
+  // 이성 부족 → 오리지늄으로 회복
+  function openSanity(after) {
+    const have = ACCOUNT.bal('originite');
+    openModal(`<div class="modal-title">이성 회복</div><div class="modal-sub">SANITY</div>
+      <p class="modal-text">현재 이성 <b>${ACCOUNT.sanity()}</b> / ${ACCOUNT.SANITY_MAX}
+      ${ACCOUNT.sanity() < ACCOUNT.SANITY_MAX ? `· 다음 회복까지 ${Math.ceil(ACCOUNT.nextSanityMs() / 60000)}분` : ''}<br>
+      오리지늄 1개를 사용해 이성을 ${ACCOUNT.SANITY_MAX} 회복합니다. (보유 오리지늄 ${have})</p>
+      <div class="panel-btns"><button class="btn primary" id="sanity-use" ${have < 1 ? 'disabled' : ''}>오리지늄 1개 사용</button>
+      <button class="btn" id="sanity-store">구매센터로 가기</button></div>`);
+    $('#sanity-use').addEventListener('click', () => {
+      if (!ACCOUNT.refillSanity()) return;
+      closeModal();
+      toast('이성을 회복했습니다');
+      renderResources();
+      if (after) after();
+    });
+    $('#sanity-store').addEventListener('click', () => { closeModal(); go('store', 'originite'); });
+  }
+  // 전투 결과 → 보상 (game.js에서 호출)
+  function onBattleEnd(idx, win, starCount) {
+    const st = STAGES[idx], cost = sanityCost(st);
+    if (!win) { ACCOUNT.addSanity(cost - 1); return `이성 ${cost - 1} 반환`; }
+    const first = !(save.stars[st.code] > 0);
+    const reward = { lmd: cost * 12 };
+    if (first) reward.originite = 1;
+    ACCOUNT.earn(reward);
+    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}`).join(' · ');
+  }
+  function onBattleQuit(idx) { ACCOUNT.addSanity(sanityCost(STAGES[idx]) - 1); }
+  const sfx = (n) => window.SFX && SFX.play(n);
 
   // =====================================================================
   //  5. 작전 목록
@@ -485,7 +522,7 @@
       <div class="op-story">
         ${st.before && st.before.length ? `<button class="story-btn" id="op-story">${icon('play')}<span>스토리</span></button>` : ''}
         <div class="op-desc">
-          <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명</div>
+          <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명 · 첫 클리어 보상 오리지늄 1</div>
           <p>${esc(st.desc)}</p>
           <p class="op-warn">출현 적: ${enemyIds.map((id) => ENEMIES[id] ? esc(ENEMIES[id].name) : id).join(', ')}</p>
         </div>
@@ -496,7 +533,7 @@
       </div>
       <div class="op-actions">
         <button class="act-formation" id="op-formation">${icon('users')}<span>편성</span></button>
-        <button class="act-start" id="op-start"><b>작전개시</b><small>OPERATION START</small></button>
+        <button class="act-start" id="op-start"><b>작전개시</b><small>이성 -${sanityCost(st)}</small></button>
       </div>`;
     const story = $('#op-story');
     if (story) story.addEventListener('click', () => playDialog(st.before, () => {}));
@@ -605,6 +642,41 @@
   // ---------- 시작 ----------
   document.title = GAME_INFO.title;
   hydrateIcons();
-  window.UI = { save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex };
+  // ---------- 상단 재화 표시 (원작처럼 이성 · 용문폐 · 합성옥 · 오리지늄) ----------
+  function resourceHTML() {
+    const n = (v) => Number(v).toLocaleString('ko-KR');
+    return `<button class="res" data-res="sanity"><i class="ri sanity"></i><b>${ACCOUNT.sanity()}</b><small>/${ACCOUNT.SANITY_MAX}</small><span class="res-plus">${icon('plus')}</span></button>
+      <span class="res"><i class="ri lmd"></i><b>${n(ACCOUNT.bal('lmd'))}</b></span>
+      <button class="res" data-res="orundum"><i class="ri orundum"></i><b>${n(ACCOUNT.bal('orundum'))}</b><span class="res-plus">${icon('plus')}</span></button>
+      <button class="res" data-res="originite"><i class="ri originite"></i><b>${n(ACCOUNT.bal('originite'))}</b><span class="res-plus">${icon('plus')}</span></button>`;
+  }
+  function renderResources() {
+    document.querySelectorAll('[data-resbar]').forEach((el) => { el.innerHTML = resourceHTML(); });
+  }
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-res]');
+    if (!r) return;
+    if (r.dataset.res === 'sanity') openSanity(() => renderResources());
+    else go('store', r.dataset.res === 'orundum' ? 'exchange' : 'originite');
+  });
+  setInterval(() => { if (current !== 'battle') renderResources(); }, 30000);
+
+  // 공용 데이터가 바뀌면 지금 화면을 다시 그림
+  const rerender = () => { if (current !== 'battle' && RENDER[current]) RENDER[current](undefined, { back: true, refresh: true }); };
+  ACCOUNT.on('ops', rerender);
+  ACCOUNT.on('player', rerender);
+  ACCOUNT.on('mode', rerender);
+  ACCOUNT.on('wallet', renderResources);
+  ACCOUNT.on('granted', (g) => {
+    const items = Object.entries(g.items || {}).map(([k, v]) => (k.startsWith('op:') ? (OPS[k.slice(3)] ? OPS[k.slice(3)].name : '오퍼레이터') : `${ITEMS[k] ? ITEMS[k].name : k} ×${v}`)).join(', ');
+    toast(`지급 완료 — ${items}`);
+    sfx('win');
+  });
+
+  window.UI = {
+    save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
+    openModal, closeModal, cardHTML, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf,
+    get current() { return current; },
+  };
   RENDER.home();
 })();

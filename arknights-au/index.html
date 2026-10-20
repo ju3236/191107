@@ -37,8 +37,7 @@
     <div class="home-panel">
       <div class="hp-top">
         <span class="hp-clock" id="home-clock"></span>
-        <span class="hp-res"><i class="res-ico">◆</i><b id="home-stars">0</b><small id="home-stars-max">/9</small></span>
-        <span class="hp-res"><i class="res-ico alt">✦</i><b id="home-ops">0</b><small>명</small></span>
+        <div class="resbar" data-resbar></div>
       </div>
       <button class="tile tile-terminal" data-go="operations">
         <div class="tt-gauge">
@@ -57,8 +56,13 @@
         <button class="tile" data-go="roster"><span class="tile-ico" data-ico="guard"></span><span><span class="tile-en">OPERATOR</span><span class="tile-ko">오퍼레이터</span></span></button>
       </div>
       <div class="tile-row">
-        <button class="tile tile-accent" id="tile-archive"><span class="tile-ico" data-ico="book"></span><span><span class="tile-en">ARCHIVES</span><span class="tile-ko">기록</span></span></button>
-        <button class="tile" id="tile-profile"><span class="tile-ico" data-ico="mail"></span><span><span class="tile-en">PROFILE</span><span class="tile-ko">세계관</span></span></button>
+        <button class="tile tile-store" data-go="store"><span class="tile-ico" data-ico="store"></span><span><span class="tile-en">STORE</span><span class="tile-ko">구매센터</span></span></button>
+        <button class="tile tile-accent" data-go="headhunt"><span class="tile-ico" data-ico="headhunt"></span><span><span class="tile-en">HEADHUNT</span><span class="tile-ko">헤드헌팅</span></span></button>
+      </div>
+      <div class="tile-row">
+        <button class="tile" data-go="depot"><span class="tile-ico" data-ico="depot"></span><span><span class="tile-en">DEPOT</span><span class="tile-ko">창고</span></span></button>
+        <button class="tile" id="tile-archive"><span class="tile-ico" data-ico="book"></span><span><span class="tile-en">ARCHIVES</span><span class="tile-ko">기록</span></span></button>
+        <button class="tile tile-admin hidden" id="tile-admin" data-go="admin"><span class="tile-ico" data-ico="admin"></span><span><span class="tile-en">ADMIN</span><span class="tile-ko">관리자</span></span></button>
       </div>
     </div>
   </section>
@@ -103,7 +107,7 @@
       <div class="trust">
         <div class="trust-head"><b>저지 가능 수</b><span id="detail-block"></span></div>
       </div>
-      <div class="detail-stars" id="detail-stars"></div>
+      <div class="detail-stars"><span id="detail-stars"></span><span class="detail-pot" id="detail-pot"></span></div>
       <div class="detail-en" id="detail-en"></div>
       <div class="detail-name" id="detail-name"></div>
       <div class="detail-bottom">
@@ -168,6 +172,65 @@
     </header>
     <div class="ops-map" id="ops-map"></div>
     <aside class="ops-panel" id="ops-panel"></aside>
+  </section>
+
+  <!-- ===================== 구매센터 ===================== -->
+  <section id="screen-store" class="screen light">
+    <header class="topbar">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+        <span class="topbar-title">구매센터</span>
+      </div>
+      <div class="resbar dark-res" data-resbar></div>
+    </header>
+    <div class="store-body">
+      <nav class="store-tabs" id="store-tabs"></nav>
+      <div class="store-main" id="store-main"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 헤드헌팅 ===================== -->
+  <section id="screen-headhunt" class="screen">
+    <div class="hh-bg"></div>
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+      </div>
+      <div class="resbar" data-resbar></div>
+    </header>
+    <div class="hh-body">
+      <nav class="hh-banners" id="hh-banners"></nav>
+      <div class="hh-main" id="hh-main"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 창고 ===================== -->
+  <section id="screen-depot" class="screen light">
+    <header class="topbar">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+        <span class="topbar-title">창고</span>
+      </div>
+    </header>
+    <div class="depot-grid" id="depot-grid"></div>
+  </section>
+
+  <!-- ===================== 관리자 ===================== -->
+  <section id="screen-admin" class="screen">
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+        <span class="topbar-title light-title">관리자</span>
+      </div>
+    </header>
+    <div class="admin-body">
+      <nav class="admin-tabs" id="admin-tabs"></nav>
+      <div class="admin-main" id="admin-main"></div>
+    </div>
   </section>
 
   <!-- ===================== 전투 ===================== -->
@@ -259,12 +322,19 @@
     </div>
   </div>
 
+  <div id="gacha" class="overlay gacha hidden">
+    <div class="gacha-stage" id="gacha-stage"></div>
+    <button class="btn small gacha-skip" id="gacha-skip">SKIP ▶▶</button>
+  </div>
+
   <div id="ui-toast" class="ui-toast hidden"></div>
 </div>
 
 <script src="data.js"></script>
 <script src="sfx.js"></script>
+<script src="account.js"></script>
 <script src="ui.js"></script>
+<script src="shop.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
