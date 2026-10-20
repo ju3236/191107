@@ -22,14 +22,11 @@
     return im.complete && im.naturalWidth > 0 ? im : null;
   }
   // 적 그림
+  // 그림 경로로 저장 (통합전략처럼 능력치만 바꾼 적 정의도 같은 그림을 씀)
   const EIMG = new Map();
-  for (const e of Object.values(ENEMIES)) {
-    if (!e.image) continue;
-    const im = new Image();
-    im.src = e.image;
-    EIMG.set(e, im);
-  }
-  const eImg = (def) => { const im = EIMG.get(def); return im && im.complete && im.naturalWidth > 0 ? im : null; };
+  const loadE = (src) => { if (!EIMG.has(src)) { const im = new Image(); im.src = src; EIMG.set(src, im); } return EIMG.get(src); };
+  for (const e of Object.values(ENEMIES)) if (e.image) loadE(e.image);
+  const eImg = (def) => { const im = def.image && loadE(def.image); return im && im.complete && im.naturalWidth > 0 ? im : null; };
   function faceStyle(def) {
     return def.image ? `background-color:${def.color};background-image:url('${def.image}')` : `background-color:${def.color}`;
   }
@@ -39,7 +36,9 @@
   const starText = (n) => '◆'.repeat(n) + '◇'.repeat(3 - n);
 
   const key = (x, y) => x + ',' + y;
-  const walkable = (ch) => ch === '.' || ch === '-' || ch === 'R' || ch === 'B';
+  const walkable = (ch) => ch === '.' || ch === '-' || ch === 'R' || ch === 'B' || ch === '~';
+  // 명흔(~): 지면처럼 배치·통행 가능. 위에 있는 오퍼레이터는 방어력이 줄고 HP를 잃으며, 시본은 HP를 회복함
+  const onBrand = (x, y) => S.map[Math.floor(y)] && S.map[Math.floor(y)][Math.floor(x)] === '~';
 
   // 침입 지점에서 가장 가까운 방어 지점까지 BFS 경로
   function buildPath(map, start) {
@@ -84,8 +83,11 @@
     return { list, set: new Set(list.map(([x, y]) => key(x, y))) };
   }
 
-  function beginBattle(idx, squadIds) {
-    const st = STAGES[idx];
+  // opts (통합전략 등): defs 오퍼레이터 정의 목록, life 시작 목숨, enemies 적 정의 덮어쓰기,
+  //   mods { startDp, deployLimit, dpRate }, onEnd(결과) → { text, buttons }
+  function beginBattle(idx, squadIds, opts = {}) {
+    const st = typeof idx === 'object' ? idx : STAGES[idx];
+    if (typeof idx === 'object') idx = -1;
     const map = st.map.map((r) => r.split(''));
     const spawns = [];
     map.forEach((row, y) => row.forEach((ch, x) => { if (ch === 'R') spawns.push({ x, y }); }));
@@ -100,14 +102,16 @@
       for (let i = 0; i < (w.count || 1); i++) queue.push({ t: w.t + i * (w.gap || 2), enemy: w.enemy, spawn: w.spawn || 0 });
     }
     queue.sort((a, b) => a.t - b.t);
-    squadIds = squadIds || UI.save.squad;
-    const squad = squadIds.map(opById).filter(Boolean);
+    const squad = opts.defs || (squadIds || UI.save.squad).map(opById).filter(Boolean);
+    squadIds = squad.map((d) => d.id);
+    const mods = opts.mods || {}, life = opts.life ?? st.life ?? 3;
 
     UI.go('battle');
     S = {
       idx, st, squadIds, map, rows: map.length, cols: map[0].length, paths, flyPaths, queue,
       total: queue.length, killed: 0, leaked: 0, time: 0,
-      dp: st.startDp ?? 10, life: st.life ?? 3, maxLife: st.life ?? 3, deployLimit: st.deployLimit ?? 8,
+      dp: (st.startDp ?? 10) + (mods.startDp || 0), life, maxLife: opts.maxLife ?? life, deployLimit: (st.deployLimit ?? 8) + (mods.deployLimit || 0),
+      ext: opts, mods, edefs: opts.enemies || null,
       ops: [], enemies: [], effects: [],
       roster: squad.map((def) => ({ def, cd: 0, deployed: false })),
       speed: 1, paused: false, ended: false,
@@ -224,7 +228,7 @@
     if (tx < 0 || ty < 0 || tx >= S.cols || ty >= S.rows) return false;
     const ch = S.map[ty][tx];
     const need = CLASSES[def.class].tile === 'ground' ? '.' : '^';
-    return ch === need && !opAt(tx, ty);
+    return (ch === need || (need === '.' && ch === '~')) && !opAt(tx, ty);
   }
   function pickDir(p) {
     const dx = p.x - (S.tile.x + 0.5), dy = p.y - (S.tile.y + 0.5);
@@ -312,6 +316,7 @@
     if (!S || S.ended) return;
     S.paused = force ?? !S.paused;
     $('#pause').classList.toggle('hidden', !S.paused);
+    $('#pause-retry').classList.toggle('hidden', !!S.ext.onEnd);
     soundLabel();
   }
   $('#btn-pause').addEventListener('click', () => togglePause());
@@ -319,8 +324,12 @@
   $('#pause-resume').addEventListener('click', () => togglePause(false));
   const soundLabel = () => { $('#pause-sound').textContent = '효과음 ' + (window.SFX && SFX.enabled ? '켜짐' : '꺼짐'); };
   $('#pause-sound').addEventListener('click', () => { SFX.toggle(); soundLabel(); });
-  $('#pause-retry').addEventListener('click', () => { const i = S.idx; UI.onBattleQuit(i); UI.startOperation(i, true); });
-  $('#pause-quit').addEventListener('click', () => { const i = S.idx; $('#pause').classList.add('hidden'); UI.onBattleQuit(i); UI.go('operations'); });
+  $('#pause-retry').addEventListener('click', () => { if (S.ext.onEnd) return; const i = S.idx; UI.onBattleQuit(i); UI.startOperation(i, true); });
+  $('#pause-quit').addEventListener('click', () => {
+    $('#pause').classList.add('hidden');
+    if (S.ext.onEnd) { S.paused = false; S.quit = true; endBattle(false); return; }
+    const i = S.idx; UI.onBattleQuit(i); UI.go('operations');
+  });
   document.addEventListener('visibilitychange', () => { if (document.hidden) togglePause(true); });
 
   $('#ins-skill').addEventListener('click', () => { if (S && S.inspect) { activateSkill(S.inspect); refreshInspect(true); } });
@@ -379,7 +388,7 @@
   }
   const eff = (op) => (op.skillT > 0 ? op.skill.effect || {} : {});
   const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1);
-  const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0));
+  const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0)) * (op.brand ? 0.7 : 1);
   const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op);
   const inSquad = (id) => S.squadIds.includes(id);
   const isDebuffed = (e) => e.analysis > 0 || e.slowT > 0 || e.stun > 0;
@@ -437,6 +446,7 @@
   }
 
   function removeOp(op, died) {
+    if (!op.alive) return;
     op.alive = false;
     for (const e of op.blocked) if (e.blockedBy === op) e.blockedBy = null;
     op.blocked = [];
@@ -563,6 +573,9 @@
     op.flash = Math.max(0, op.flash - dt);
     op.chill = Math.max(0, op.chill - dt);
     if (op.resT > 0) op.resT -= dt;
+    op.brand = onBrand(op.x, op.y);
+    if (op.brand && !S.mods.brandImmune) { op.hp -= op.maxHp * 0.01 * dt; if (op.hp <= 0) { removeOp(op, true); return; } }
+    if (op.stun > 0) { op.stun -= dt; op.atkCd = Math.max(op.atkCd, 0.2); return; }
     if (op.hotT > 0) { op.hotT -= dt; healOp(op, op.hotAmt * dt, true); }
     op.blocked = op.blocked.filter((e) => e.alive && e.blockedBy === op);
 
@@ -677,6 +690,19 @@
     return Math.max(atk - def, atk * 0.05);
   }
 
+  // 신경 손상: 1000까지 쌓이면 큰 피해를 입고 잠시 기절
+  function addNeural(op, v) {
+    if (!op.alive || v <= 0) return;
+    const m = debuffMul(op);
+    op.neural = (op.neural || 0) + v * m;
+    if (op.neural < 1000) return;
+    op.neural = 0;
+    op.stun = 6 * m;
+    op.hp -= 800;
+    op.flash = 0.2;
+    addText(op.x + 0.5, op.y - 0.1, '신경 손상', '#c77dff', 1, true);
+    if (op.hp <= 0) removeOp(op, true);
+  }
   function hitOp(op, atk, type, src) {
     if (!op.alive) return;
     if (type === 'phys' && Math.random() < opDodge(op)) { addText(op.x + 0.5, op.y + 0.25, '회피', '#cfd3d6', 0.5); return; }
@@ -695,6 +721,7 @@
     addText(op.x + 0.5, op.y + 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ff8c8f', 0.6);
     if (op.skill.spType === 'hit' && op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + 1);
     if (src && src.def.chill) op.chill = 3 * debuffMul(op);
+    if (src && src.def.neural) addNeural(op, src.def.neural);
     const ls = op.tal.lastStand;
     if (ls && !op.lastStandUsed && op.hp > 0 && op.hp / op.maxHp <= ls.below) {
       op.lastStandUsed = true;
@@ -708,7 +735,7 @@
   //  적 — 특수 능력
   // =====================================================================
   function spawnEnemy(q) {
-    const def = ENEMIES[q.enemy];
+    const def = (S.edefs && S.edefs[q.enemy]) || ENEMIES[q.enemy];
     if (!def) { console.warn('알 수 없는 적:', q.enemy); S.total--; return; }
     const i = S.paths[q.spawn] ? q.spawn : 0;
     const path = isFly(def) ? S.flyPaths[i] : S.paths[i];
@@ -722,7 +749,9 @@
 
   function hitEnemy(e, atk, type, crit, src, ignore = 0) {
     if (!e.alive) return;
-    let def = e.def.def * (1 - ignore), res = e.def.res || 0, amp = 1;
+    if (e.def.dodge && Math.random() < e.def.dodge) { addText(e.x, e.y - 0.25, '회피', '#cfd3d6', 0.4); return; }
+    const hd = e.def.harden && e.hp / e.maxHp < e.def.harden.below ? e.def.harden.def : 1;
+    let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = 1;
     const a = e.ana;
     if (a && e.analysis > 0) {
       const st = Math.floor(e.analysis);
@@ -740,7 +769,18 @@
     e.hp -= dmg;
     e.flash = 0.1;
     addText(e.x, e.y - 0.25, Math.round(dmg) + (crit ? '!' : ''), crit ? '#ffcf3a' : type === 'arts' ? '#d9b3ff' : '#ffffff', 0.5, crit);
+    const bu = e.def.burst;
+    if (bu && e.hp > 0) {
+      const n = Math.floor((1 - e.hp / e.maxHp) / bu.step);
+      if (n > (e.bursts || 0)) {
+        e.bursts = n;
+        addFx({ type: 'ring', x: e.x, y: e.y, life: 0.5, color: '#c77dff', r: bu.radius });
+        S.shake = 0.25;
+        for (const op of [...S.ops]) if (Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y) <= bu.radius) { hitOp(op, enemyAtk(e) * bu.mul, 'arts', null); addNeural(op, bu.neural || 0); }
+      }
+    }
     if (e.hp > 0) return;
+    if (e.def.brandOnDeath) setBrand(e.x, e.y);
     if (e.def.revive && !e.revived) {
       e.revived = true;
       e.hp = e.maxHp;
@@ -757,6 +797,21 @@
     addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color });
   }
 
+  function setBrand(x, y) {
+    const tx = Math.floor(x), ty = Math.floor(y), row = S.map[ty];
+    if (row && (row[tx] === '-' || row[tx] === '.')) { row[tx] = '~'; addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.5, color: '#2ec4b6' }); }
+  }
+  // 소환: 소환한 적의 위치에서 같은 길을 따라 이어서 걸어감
+  function summonAt(e, id) {
+    const def = (S.edefs && S.edefs[id]) || ENEMIES[id];
+    if (!def) return;
+    S.total++;
+    S.enemies.push({
+      def, path: e.path, pi: e.pi, x: e.x, y: e.y, hp: def.hp, maxHp: def.hp, atkCd: def.interval, blockedBy: null, alive: true, flash: 0,
+      stun: 0, atkMul: 1, revived: false, blinked: false, analysis: 0, ana: null, slowT: 0, proofHits: 0, proof: null,
+    });
+    addFx({ type: 'ring', x: e.x, y: e.y, life: 0.4, color: def.color });
+  }
   function tryBlock(e) {
     const w = e.def.weight || 1;
     for (const op of S.ops) {
@@ -805,16 +860,25 @@
 
   function enemyAtk(e) {
     const en = e.def.enrage;
-    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1);
+    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1);
   }
 
   function updateEnemy(e, dt, healAura) {
     e.flash = Math.max(0, e.flash - dt);
     if (e.def.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * e.def.regen * healAura * dt);
     if (e.slowT > 0) e.slowT -= dt;
+    if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
+    if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
+    const na = e.def.neuralAura;
+    if (na) for (const op of [...S.ops]) if (Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y) <= na.radius) addNeural(op, na.amount * dt);
+    const sm = e.def.summon;
+    if (sm) {
+      e.sumT = (e.sumT ?? sm.every * 0.5) - dt;
+      if (e.sumT <= 0) { e.sumT = sm.every; for (let i = 0; i < (sm.count || 1); i++) summonAt(e, sm.enemy); }
+    }
     if (e.stun > 0) { e.stun -= dt; return; }
     if (e.blockedBy && !e.blockedBy.alive) e.blockedBy = null;
-    if (!e.blockedBy && !isFly(e.def) && !e.def.unblockable) tryBlock(e);
+    if (!e.blockedBy && !isFly(e.def) && !e.def.unblockable && !(e.def.brandUnblockable && onBrand(e.x, e.y))) tryBlock(e);
     if (!e.blockedBy) moveEnemy(e, dt);
     if (!e.alive) return;
 
@@ -838,14 +902,15 @@
     }
 
     let target = e.blockedBy;
-    if (!target && e.def.range > 0) {
-      let best = Infinity;
-      for (const op of S.ops) {
-        const d = Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y);
-        if (d <= e.def.range && d < best) { best = d; target = op; }
-      }
+    const inRange = e.def.range > 0 ? S.ops.filter((op) => Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y) <= e.def.range) : [];
+    if (!target && inRange.length) {
+      const dist = (op) => Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y);
+      inRange.sort((a, b) => (e.def.lowHp ? a.hp / a.maxHp - b.hp / b.maxHp : 0) || dist(a) - dist(b));
+      target = inRange[0];
     }
     if (!target) return;
+    // 여러 명 동시 공격
+    if (e.def.targets > 1) for (const op of inRange.filter((o) => o !== target).slice(0, e.def.targets - 1)) hitOp(op, enemyAtk(e), e.def.arts ? 'arts' : 'phys', e);
     const type = e.def.arts ? 'arts' : 'phys';
     if (e.def.range > 0 && !e.blockedBy) {
       addFx({ type: 'shot', x1: e.x, y1: e.y, x2: target.x + 0.5, y2: target.y + 0.5, life: 0.15, color: type === 'arts' ? '#b36bff' : '#ff9a5c' });
@@ -876,7 +941,7 @@
   // =====================================================================
   function update(dt) {
     S.time += dt;
-    S.dp = Math.min(MAX_DP, S.dp + dt);
+    S.dp = Math.min(MAX_DP, S.dp + dt * (S.mods.dpRate || 1));
     S.shake = Math.max(0, S.shake - dt);
     while (S.queue.length && S.queue[0].t <= S.time) spawnEnemy(S.queue.shift());
     for (const r of S.roster) if (r.cd > 0) r.cd = Math.max(0, r.cd - dt);
@@ -903,9 +968,10 @@
     setMode('idle');
     const st = S.st;
     const stars = !win ? 0 : S.leaked === 0 ? 3 : S.life >= Math.ceil(S.maxLife / 2) ? 2 : 1;
-    const firstClear = win && !(UI.save.stars[st.code] > 0);
-    const rewardText = UI.onBattleEnd(S.idx, win, stars, S.squadIds);
-    if (win) {
+    const ext = S.ext.onEnd ? S.ext.onEnd({ win, stars, life: Math.max(0, S.life), leaked: S.leaked, killed: S.killed, quit: !!S.quit }) : null;
+    const firstClear = !ext && win && !(UI.save.stars[st.code] > 0);
+    const rewardText = ext ? ext.text : UI.onBattleEnd(S.idx, win, stars, S.squadIds);
+    if (win && !ext) {
       UI.save.stars[st.code] = Math.max(UI.save.stars[st.code] || 0, stars);
       UI.writeSave();
     }
@@ -939,7 +1005,9 @@
       b.addEventListener('click', () => { $('#result').classList.add('hidden'); fn(); });
       btns.appendChild(b);
     };
-    if (win) {
+    if (ext) {
+      for (const b of ext.buttons || []) add(b.label, b.cls || '', b.fn);
+    } else if (win) {
       add('계속', 'primary', () => {
         const after = firstClear ? st.after || [] : [];
         if (after.length) UI.playDialog(after, () => UI.go('operations'));
@@ -948,7 +1016,7 @@
     } else {
       add('다시 도전', 'primary', () => UI.startOperation(idx, true));
     }
-    add('작전 목록', '', () => UI.go('operations'));
+    if (!ext) add('작전 목록', '', () => UI.go('operations'));
     setTimeout(() => { if (S === ended) $('#result').classList.remove('hidden'); }, 400);
   }
 
@@ -1058,15 +1126,16 @@
   // ---------- 배경 ----------
   function drawBackground() {
     const g = ctx.createRadialGradient(P.W / 2, P.H * 0.45, 40, P.W / 2, P.H * 0.5, Math.max(P.W, P.H) * 0.8);
-    g.addColorStop(0, '#1d2b2d');
-    g.addColorStop(1, '#040506');
+    const sea = S.st.theme === 'sea';
+    g.addColorStop(0, sea ? '#12324a' : '#1d2b2d');
+    g.addColorStop(1, sea ? '#02070d' : '#040506');
     ctx.fillStyle = g;
     ctx.fillRect(-20, -20, P.W + 40, P.H + 40);
     const m = 0.7;
     // 구덩이 벽 (보드 바깥 테두리)
     poly(quad(-m, -m, S.cols + m, S.rows + m, 0));
-    ctx.fillStyle = '#151c1e'; ctx.fill();
-    ctx.strokeStyle = 'rgba(110,190,180,.18)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = sea ? '#0d2230' : '#151c1e'; ctx.fill();
+    ctx.strokeStyle = sea ? 'rgba(90,180,230,.25)' : 'rgba(110,190,180,.18)'; ctx.lineWidth = 2; ctx.stroke();
     // 테두리 위 파이프와 상자 장식
     for (let i = 0; i < S.cols + 1; i++) {
       for (const [v, k] of [[-m, 1], [S.rows + 0.05, 2]]) {
@@ -1083,7 +1152,7 @@
   // ---------- 타일 ----------
   function drawGround(x, y, deployable) {
     poly(quad(x + 0.03, y + 0.03, x + 0.97, y + 0.97, 0));
-    ctx.fillStyle = '#343c40'; ctx.fill();
+    ctx.fillStyle = S.st.theme === 'sea' ? '#2e3d47' : '#343c40'; ctx.fill();
     if (!deployable) return;
     const s = proj(x + 0.5, y + 0.5)[2];
     poly(quad(x + 0.11, y + 0.11, x + 0.89, y + 0.89, 0));
@@ -1099,14 +1168,22 @@
   }
   function drawHigh(x, y) {
     const hi = (dx) => tileH(x + dx, y) === HIGH;
-    box(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0, HIGH, '#94786d', '#4f3d37', '#68534b', { right: hi(1), left: hi(-1) });
+    const sea = S.st.theme === 'sea';
+    box(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0, HIGH, sea ? '#7f9aa3' : '#94786d', sea ? '#3b4f57' : '#4f3d37', sea ? '#55707a' : '#68534b', { right: hi(1), left: hi(-1) });
     poly(quad(x + 0.1, y + 0.1, x + 0.9, y + 0.9, HIGH));
-    ctx.fillStyle = '#a68b80'; ctx.fill();
+    ctx.fillStyle = sea ? '#93b0b8' : '#a68b80'; ctx.fill();
     ctx.strokeStyle = 'rgba(255,230,215,.25)'; ctx.lineWidth = 1; ctx.stroke();
   }
   function drawWall(x, y) {
     poly(quad(x, y, x + 1, y + 1, 0));
-    ctx.fillStyle = '#1b2224'; ctx.fill();
+    ctx.fillStyle = S.st.theme === 'sea' ? '#0e2a36' : '#1b2224'; ctx.fill();
+    if (S.st.theme === 'sea') {
+      // 바닷물: 잔물결
+      const [X, Y, s] = proj(x + 0.5, y + 0.5, 0);
+      ctx.strokeStyle = 'rgba(120,200,240,.12)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X - P.T * 0.3 * s, Y + Math.sin(S.time + x + y) * 2); ctx.lineTo(X + P.T * 0.3 * s, Y + Math.sin(S.time + x + y + 1) * 2); ctx.stroke();
+      return;
+    }
     for (let k = 0; k < 2; k++) {
       if (hash(x, y, k) < 0.4) continue;
       const w = 0.3 + hash(x, y, k + 7) * 0.4, d = 0.3 + hash(x, y, k + 9) * 0.4;
@@ -1142,10 +1219,26 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('!', X, Y + r * 0.2);
   }
+  function drawBrand(x, y) {
+    poly(quad(x + 0.03, y + 0.03, x + 0.97, y + 0.97, 0));
+    ctx.fillStyle = '#123a3f'; ctx.fill();
+    const s = proj(x + 0.5, y + 0.5)[2];
+    ctx.strokeStyle = 'rgba(46,196,182,.55)'; ctx.lineWidth = Math.max(1, P.T * 0.03 * s);
+    for (const v of [0.3, 0.55, 0.8]) {
+      ctx.beginPath();
+      for (let k = 0; k <= 6; k++) {
+        const u = x + 0.1 + k * 0.13, w = y + v + Math.sin(S.time * 2 + k + x * 3) * 0.04;
+        const [X, Y] = proj(u, w, 0.002);
+        k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+      }
+      ctx.stroke();
+    }
+  }
   function drawTile(x, y) {
     const ch = S.map[y][x];
     if (ch === '#') drawWall(x, y);
     else if (ch === '^') drawHigh(x, y);
+    else if (ch === '~') drawBrand(x, y);
     else drawGround(x, y, ch === '.');
   }
   function drawGates() {
@@ -1250,6 +1343,13 @@
     bar(bx, by, bw, Math.max(3, T * 0.055), op.hp / op.maxHp, '#4cd964');
     const spRatio = op.skillT > 0 ? (op.skillT === Infinity ? 1 : op.skillT / sk.duration) : sk.sp ? op.sp / sk.sp : 0;
     bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
+    if (op.neural > 0) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), op.neural / 1000, '#c77dff');
+    if (op.stun > 0) {
+      ctx.fillStyle = '#c77dff';
+      ctx.font = `900 ${T * 0.2}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('기절', X, op.rect[1] - T * 0.05);
+    }
     if (sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp) {
       const bob = Math.sin(S.time * 6) * T * 0.04;
       const bx2 = op.rect[2] - T * 0.08, by2 = op.rect[1] + T * 0.12 + bob;

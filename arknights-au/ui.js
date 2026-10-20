@@ -656,14 +656,18 @@
     renderOpsPanel();
   });
 
-  function openEnemies(st) {
+  // 적 목록 HTML (작전 목록·통합전략 공용). defs로 적 정의를 덮어쓸 수 있음
+  function enemyRowsHTML(waves, defs) {
     const count = {};
-    for (const w of st.waves) count[w.enemy] = (count[w.enemy] || 0) + (w.count || 1);
-    const rows = Object.entries(count).map(([id, n]) => {
-      const e = ENEMIES[id];
+    for (const w of waves) count[w.enemy] = (count[w.enemy] || 0) + (w.count || 1);
+    return Object.entries(count).map(([id, n]) => {
+      const e = (defs && defs[id]) || ENEMIES[id];
       if (!e) return '';
-      const flags = [e.boss && '보스', e.elite && '엘리트', e.fly && '비행', e.unblockable && '저지 불가', e.range > 0 && `원거리 ${e.range}`, e.arts && '마법 피해',
-        e.aoe && '범위 공격', e.healer && '치료', e.blink && '순간이동', e.revive && '부활', e.enrage && '광폭화', e.chill && '냉기', e.regen && 'HP 회복'].filter(Boolean);
+      const flags = [e.boss && '보스', e.elite && '엘리트', e.sea && '시본', e.fly && '비행', e.unblockable && '저지 불가', e.range > 0 && `원거리 ${e.range}`, e.arts && '마법 피해',
+        e.aoe && '범위 공격', e.healer && '치료', e.blink && '순간이동', e.revive && '부활', e.enrage && '광폭화', e.chill && '냉기', e.regen && 'HP 회복',
+        e.neural && '신경 손상', e.neuralAura && '신경 손상 오라', e.dodge && '회피', e.targets > 1 && `동시 ${e.targets}명 공격`, e.lowHp && 'HP 낮은 대상 우선',
+        e.burst && '피격 시 폭발', e.brandOnDeath && '사망 시 명흔', e.brandTrail && '명흔 남김', e.brandUnblockable && '명흔 위 저지 불가', e.brandAtk && '명흔 위 공격력 증가',
+        e.harden && '빈사 시 방어 상승', e.summon && '소환'].filter(Boolean);
       return `<div class="enemy-row">
         <span class="enemy-ico" style="--c:${e.color}" title="${esc(e.code || '')}">${e.image ? `<img src="${esc(e.image)}" alt="">` : e.boss ? '王' : esc(e.name.replace(/[「」]/g, '')[0])}</span>
         <div class="enemy-info">
@@ -673,7 +677,9 @@
         </div>
       </div>`;
     }).join('');
-    openModal(`<div class="modal-title">적 정보</div><div class="modal-sub">${st.code} ${esc(st.name)}</div><div class="enemy-list">${rows}</div>`);
+  }
+  function openEnemies(st) {
+    openModal(`<div class="modal-title">적 정보</div><div class="modal-sub">${st.code} ${esc(st.name)}</div><div class="enemy-list">${enemyRowsHTML(st.waves)}</div>`);
   }
 
   function openMap(st) {
@@ -690,7 +696,7 @@
     cv.height = rows * T * dpr;
     const c = cv.getContext('2d');
     c.scale(dpr, dpr);
-    const color = { '#': '#15171c', '.': '#3b4049', '^': '#8a929f', R: '#e5484d', B: '#3fa3ff' };
+    const color = { '#': '#15171c', '.': '#3b4049', '^': '#8a929f', R: '#e5484d', B: '#3fa3ff', '~': '#1f6f73', '-': '#2b2f36' };
     st.map.forEach((row, y) => [...row].forEach((ch, x) => {
       c.fillStyle = color[ch] || color['#'];
       c.fillRect(x * T + 1, y * T + 1, T - 2, T - 2);
@@ -778,7 +784,7 @@
 
   window.UI = {
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    openModal, closeModal, cardHTML, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    openModal, closeModal, cardHTML, enemyRowsHTML, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
   };
   RENDER.home();

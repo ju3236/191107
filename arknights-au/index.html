@@ -51,6 +51,7 @@
           <div class="tt-current"><span class="chip">현재</span><span id="home-current"></span></div>
         </div>
       </button>
+      <button class="tile tile-is" data-go="is"><span class="tile-ico is-ico">≋</span><span><span class="tile-en">INTEGRATED STRATEGIES</span><span class="tile-ko">통합전략</span></span><span class="tile-is-sub" id="home-is"></span></button>
       <div class="tile-row">
         <button class="tile" data-go="formation"><span class="tile-ico" data-ico="users"></span><span><span class="tile-en">SQUADS</span><span class="tile-ko">편성</span></span></button>
         <button class="tile" data-go="roster"><span class="tile-ico" data-ico="guard"></span><span><span class="tile-en">OPERATOR</span><span class="tile-ko">오퍼레이터</span></span></button>
@@ -233,6 +234,26 @@
     </div>
   </section>
 
+  <!-- ===================== 통합전략 ===================== -->
+  <section id="screen-is" class="screen is-screen">
+    <div class="is-bg"></div>
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+        <span class="topbar-title light-title">통합전략</span>
+      </div>
+    </header>
+    <div class="is-hub" id="is-hub"></div>
+  </section>
+  <section id="screen-isrun" class="screen is-screen">
+    <div class="is-bg"></div>
+    <header class="is-top" id="is-top"></header>
+    <div class="is-map-wrap"><div class="is-map" id="is-map"></div></div>
+    <footer class="is-bottom" id="is-bottom"></footer>
+    <div class="is-overlay hidden" id="is-overlay"><div class="is-panel" id="is-panel"></div></div>
+  </section>
+
   <!-- ===================== 전투 ===================== -->
   <section id="screen-battle" class="screen">
     <div id="board-wrap">
@@ -332,10 +353,12 @@
 </div>
 
 <script src="data.js"></script>
+<script src="is-data.js"></script>
 <script src="sfx.js"></script>
 <script src="account.js"></script>
 <script src="ui.js"></script>
 <script src="shop.js"></script>
+<script src="roguelike.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
