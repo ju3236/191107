@@ -185,7 +185,7 @@
     if (r.deployed) return;
     if (r.cd > 0) { sfx('deny'); toast('재배치 대기 중입니다'); return; }
     if (S.dp < r.def.cost) { sfx('deny'); toast('배치 코스트가 부족합니다'); return; }
-    if (S.ops.length >= S.deployLimit) { sfx('deny'); toast('배치 가능 인원을 초과했습니다'); return; }
+    if (!r.def.summoned && deployedCount() >= S.deployLimit) { sfx('deny'); toast('배치 가능 인원을 초과했습니다'); return; }
     sfx('select');
     S.sel = r;
     setMode('placing');
@@ -496,6 +496,7 @@
       if (X.timedStack && X.timedStack.classes.includes(cls)) add('atk', X.timedStack.atk * Math.min(X.timedStack.max, Math.floor(t / X.timedStack.every)));
       if (op.zoneAtk) add('atk', op.zoneAtk);
       if (op.bonus) for (const [k, v] of Object.entries(op.bonus)) add(k, v);
+      charBuffs(op, add, dt);
       add('atk', perDep('atk'));
       add('aspd', perDep('aspd'));
       if (X.supporterAura) for (const o of S.ops) if (o.alive && o.def.class === 'supporter' && o.range.has(key(op.x, op.y))) { add('atk', X.supporterAura); break; }
@@ -518,6 +519,7 @@
       }
       if (X.spTick && (st === 'attack' || st === 'hit')) { op.spTickT = (op.spTickT || 0) + dt; if (op.spTickT >= X.spTick) { op.spTickT -= X.spTick; gainSp(op, 1); } }
     }
+    summonAuras();
     // 서포터 범위 안 적 약화
     if (X.supporterDebuff) for (const e of S.enemies) e.supDebuff = S.ops.some((o) => o.alive && o.def.class === 'supporter' && o.range.has(key(Math.floor(e.x), Math.floor(e.y))));
     // 전장 전체 주기 효과
@@ -541,6 +543,61 @@
     if (X.kingTools && S.life === 1) {
       S.kingT = (S.kingT || 0) + dt;
       if (S.kingT >= X.kingTools.every) { S.kingT = 0; for (const op of S.ops) { gainSp(op, X.kingTools.sp); healOp(op, op.maxHp * X.kingTools.hp, true); } }
+    }
+  }
+  const deployedCount = () => S.ops.filter((o) => !o.def.summoned).length;
+  // 오퍼레이터 재능·스킬로 생기는 매 프레임 버프 (키스 · 루시아 등)
+  function charBuffs(op, add, dt) {
+    const t = op.tal, ef = eff(op);
+    if (op.def.summoned && op.owner && op.owner.alive) {
+      const oe = eff(op.owner);
+      if (oe.guardAtk) add('atk', oe.guardAtk - 1);
+      if (oe.guardDef) add('def', oe.guardDef - 1);
+      if (oe.guardAspd) add('aspd', oe.guardAspd);
+      if (oe.guardBlock) add('block', oe.guardBlock);
+    }
+    if (t.houseEdge && S.ops.some((o) => o.owner === op && o.blocked.length)) add('aspd', t.houseEdge.aspd);
+    if (op.def.class === 'vanguard') for (const k of S.ops) if (k.alive && k !== op && k.tal.trustGuest && k.range.has(key(op.x, op.y))) { add('aspd', k.tal.trustGuest.aspd); break; }
+    const mc = t.mercenary;
+    if (mc) {
+      const m = ef.talentMul || 1;
+      if (op.blocked.length) { add('def', mc.def * m); add('dodge', mc.dodge * m); }
+      if (op.killAspdT > 0) { op.killAspdT -= dt; add('aspd', mc.killAspd * m * (op.killStacks || 0)); } else op.killStacks = 0;
+    }
+  }
+  // 소환물이 적에게 거는 효과 (취약 · 공격력 감소)
+  function summonAuras() {
+    for (const g of S.ops) {
+      if (!g.def.summoned || !g.owner || !g.owner.alive) continue;
+      const ot = g.owner.tal, oe = eff(g.owner);
+      for (const e of g.blocked) {
+        if (ot.houseEdge) { e.vulnAmp = Math.max(e.vulnT > 0 ? e.vulnAmp : 0, ot.houseEdge.vuln); e.vulnT = 0.3; }
+        if (oe.guardAtkDown) { e.atkDown = oe.guardAtkDown; e.atkDownT = 0.3; }
+      }
+      if (oe.guardVuln) for (const e of S.enemies) if (e.alive && Math.hypot(e.x - (g.x + 0.5), e.y - (g.y + 0.5)) <= oe.guardVuln.radius) { e.vulnAmp = Math.max(e.vulnT > 0 ? e.vulnAmp : 0, oe.guardVuln.amp); e.vulnT = 0.3; }
+    }
+  }
+  // 오퍼레이터가 적을 처치했을 때
+  function onOpKill(op) {
+    const t = op.tal, ef = eff(op);
+    op.kills = (op.kills || 0) + 1;
+    if (t.mercenary) { op.killStacks = Math.min(t.mercenary.max, (op.killStacks || 0) + 1); op.killAspdT = t.mercenary.dur; }
+    if (op.skillT > 0) {
+      op.skillKills = (op.skillKills || 0) + 1;
+      if (t.dailyPay) S.dp = Math.min(S.maxDp, S.dp + t.dailyPay.dp);
+      if (ef.killHeal) healOp(op, op.maxHp * ef.killHeal);
+      if (ef.killExtend && op.skillT !== Infinity && (op.extended || 0) < ef.killExtend.max) { op.skillT += ef.killExtend.sec; op.extended = (op.extended || 0) + ef.killExtend.sec; }
+    }
+  }
+  // 스킬 발동 시 재능 효과
+  function charSkill(op) {
+    const t = op.tal;
+    op.skillKills = 0; op.extended = 0;
+    if (t.dailyPay) healOp(op, op.maxHp * t.dailyPay.heal);
+    if (op.def.class === 'vanguard') {
+      S.vgFirst = S.vgFirst || {};
+      const keith = S.ops.find((k) => k.alive && k.tal.trustGuest);
+      if (keith && !S.vgFirst[op.def.id]) { S.vgFirst[op.def.id] = true; S.dp = Math.min(S.maxDp, S.dp + keith.tal.trustGuest.dp); addText(op.x + 0.5, op.y - 0.35, '+' + keith.tal.trustGuest.dp + ' COST', '#ffd27a', 0.9, true); }
     }
   }
   // 배치 직후
@@ -642,7 +699,7 @@
 
   function deploy(r, tx, ty, dir) {
     if (S.dp < r.def.cost) { toast('배치 코스트가 부족합니다'); setMode('idle'); return; }
-    if (S.ops.length >= S.deployLimit) { toast('배치 가능 인원을 초과했습니다'); setMode('idle'); return; }
+    if (!r.def.summoned && deployedCount() >= S.deployLimit) { toast('배치 가능 인원을 초과했습니다'); setMode('idle'); return; }
     const def = r.def, tal = talentFx(def), skill = chosenSkill(def);
     S.dp -= def.cost;
     const maxHp = Math.round(def.hp * tal.hp);
@@ -654,6 +711,13 @@
     };
     setRange(op, def.range);
     S.ops.push(op);
+    if (r.owner) op.owner = r.owner;
+    // 소환물을 가진 오퍼레이터: 배치하면 소환물 카드가 생김
+    if (def.summon) {
+      r.summonR = r.summonR || { def: { ...def.summon, id: def.summon.id || def.id + '_summon', skills: [{ name: '-', desc: '', sp: 999, duration: 0, effect: {} }], talents: [], rarity: 0 }, cd: 0, deployed: false };
+      r.summonR.owner = op;
+      if (!S.roster.includes(r.summonR)) { S.roster.splice(S.roster.indexOf(r) + 1, 0, r.summonR); buildCards(); }
+    }
     relicDeploy(op, r);
     sfx('deploy');
     r.deployed = true;
@@ -666,6 +730,12 @@
   function removeOp(op, died) {
     if (!op.alive) return;
     op.alive = false;
+    // 주인이 퇴각하면 소환물도 함께 퇴각, 카드도 사라짐
+    if (op.def.summon) {
+      for (const sm of S.ops.filter((o) => o.owner === op)) removeOp(sm, false);
+      const sr = op.roster.summonR;
+      if (sr) { S.roster = S.roster.filter((x) => x !== sr); sr.deployed = false; if (S.sel === sr) setMode('idle'); buildCards(); }
+    }
     for (const e of op.blocked) if (e.blockedBy === op) e.blockedBy = null;
     op.blocked = [];
     S.ops = S.ops.filter((o) => o !== op);
@@ -717,6 +787,7 @@
     }
     op.sp = 0;
     relicSkill(op);
+    charSkill(op);
     op.skillT = sk.duration === -1 ? Infinity : sk.duration || 0;
     op.charges = ef.charges || 0;
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
@@ -732,6 +803,8 @@
     const ef = op.skill.effect || {};
     op.skillT = 0;
     op.charges = 0;
+    if (ef.endHealPerKill && op.skillKills) healOp(op, op.maxHp * ef.endHealPerKill * op.skillKills);
+    if (ef.guardRetreat) for (const sm of S.ops.filter((o) => o.owner === op)) { addText(sm.x + 0.5, sm.y + 0.2, '퇴각', '#9aa1ab', 0.8, true); removeOp(sm, false); }
     if (ef.range) setRange(op, op.def.range);
     if (ef.shield) op.shield = 0;
     if (ef.proofBlast) {
@@ -769,7 +842,7 @@
     const ground = isGround(op.def);
     const antiAir = op.def.class === 'sniper';
     // 공격수: 저지 중인 적 전부 동시 공격
-    if (op.def.archetype === 'centurion') n = Math.max(n, op.blocked.length);
+    if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && isFly(e.def)))));
     const prio = eff(op).priority;
@@ -806,6 +879,7 @@
         if (op.skillT <= 0) endSkill(op);
       }
       if (ef.regen) healOp(op, op.maxHp * ef.regen * dt, true);
+      if (ef.dpRegen) S.dp = Math.min(S.maxDp, S.dp + ef.dpRegen * dt);
       if (ef.allyRegen) for (const a of alliesNear(op, ef.allyRegen.radius)) healOp(a, opAtk(op) * ef.allyRegen.mul * dt, true);
     } else if (sk.spType !== 'deploy') {
       if (!sk.spType || sk.spType === 'time') op.sp = Math.min(sk.sp, op.sp + dt);
@@ -1004,6 +1078,7 @@
     if (src && src.def && X.ignoreDef && X.ignoreDef.classes.includes(src.def.class)) ignore = Math.min(1, ignore + X.ignoreDef.v);
     let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = relicDealt(e, type, src);
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
+    if (e.vulnT > 0) amp += e.vulnAmp;
     const a = e.ana;
     if (a && e.analysis > 0) {
       const st = Math.floor(e.analysis);
@@ -1051,6 +1126,7 @@
     }
     e.alive = false;
     S.killed++;
+    if (src && src.def && src.tal) onOpKill(src);
     relicKill(e);
     sfx('kill');
     addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color });
@@ -1122,13 +1198,15 @@
 
   function enemyAtk(e) {
     const en = e.def.enrage;
-    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1);
+    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1);
   }
 
   function updateEnemy(e, dt, healAura) {
     e.flash = Math.max(0, e.flash - dt);
     if (e.def.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * e.def.regen * healAura * dt);
     if (e.slowT > 0) e.slowT -= dt;
+    if (e.vulnT > 0) e.vulnT -= dt;
+    if (e.atkDownT > 0) e.atkDownT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
     const na = e.def.neuralAura;
@@ -1296,7 +1374,7 @@
   function updateHud() {
     $('#dp-num').textContent = Math.floor(S.dp);
     $('#dp-fill').style.width = (S.dp >= S.maxDp ? 100 : (S.dp % 1) * 100) + '%';
-    $('#deploy-left').textContent = S.deployLimit - S.ops.length;
+    $('#deploy-left').textContent = S.deployLimit - deployedCount();
     $('#hud-enemy').textContent = `${S.killed + S.leaked}/${S.total}`;
     $('#hud-life').textContent = Math.max(0, S.life);
     updateCards();
