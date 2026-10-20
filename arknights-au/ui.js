@@ -46,6 +46,8 @@
     depot: '<path d="M3 8 12 3l9 5v10l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v10"/>',
     admin: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+    shrink: '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>',
   };
   function icon(name, cls = '') {
     return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name] || ''}</svg>`;
@@ -297,6 +299,36 @@
   $('#btn-settings').addEventListener('click', openSettings);
   $('#btn-notice').addEventListener('click', openSynopsis);
   $('#btn-archive').addEventListener('click', openArchive);
+
+  // 전체 화면: 주소창과 claude.ai 상단 바를 가림. 브라우저·앱이 허용할 때만 버튼을 보여 줌
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const fsOk = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  async function toggleFullscreen() {
+    try {
+      if (fsEl()) { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      const el = document.documentElement;
+      await (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      // 폰이면 가로로 고정 (지원하는 브라우저만)
+      try { await screen.orientation.lock('landscape'); } catch { /* 지원 안 함 */ }
+    } catch {
+      toast('이 브라우저에서는 전체 화면을 쓸 수 없습니다');
+    }
+  }
+  function fsLabel() {
+    const on = !!fsEl();
+    $('#btn-fullscreen').innerHTML = icon(on ? 'shrink' : 'fullscreen');
+    $('#btn-fullscreen').setAttribute('aria-label', on ? '전체 화면 끝내기' : '전체 화면');
+    $('#pause-fullscreen').textContent = on ? '전체 화면 끝내기' : '전체 화면';
+  }
+  if (fsOk) {
+    $('#btn-fullscreen').classList.remove('hidden');
+    $('#pause-fullscreen').classList.remove('hidden');
+    $('#btn-fullscreen').addEventListener('click', toggleFullscreen);
+    $('#pause-fullscreen').addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', fsLabel);
+    document.addEventListener('webkitfullscreenchange', fsLabel);
+    fsLabel();
+  }
   $('#tile-archive').addEventListener('click', openArchive);
 
   // =====================================================================
