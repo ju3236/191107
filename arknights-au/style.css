@@ -848,3 +848,13 @@ button.res:hover { border-color: var(--beacon); }
 .voice-line { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 128px; max-width: min(520px, 70%); background: linear-gradient(90deg, rgba(0,0,0,.85), rgba(0,0,0,.4)); border-left: 3px solid var(--beacon); padding: 8px 14px; z-index: 4; pointer-events: none; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .voice-line b { font-size: 13px; }
 .ui-toast { white-space: normal; max-width: min(640px, calc(100% - 32px)); text-align: center; line-height: 1.5; }
+
+/* PC 단축키 표시 (마우스를 쓰는 기기에서만) */
+kbd { display: none; font-family: var(--f-en); font-size: 10px; font-weight: 500; line-height: 1; padding: 2px 4px; border: 1px solid rgba(255,255,255,.45); border-radius: 3px; color: #ddd; background: rgba(0,0,0,.4); }
+@media (hover: hover) and (pointer: fine) {
+  kbd { display: inline-block; }
+  .hud-sq { position: relative; }
+  .hud-sq kbd { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); }
+  .ins-btns .btn kbd { margin-left: 6px; vertical-align: 1px; }
+  .btn.primary kbd { color: #1a1205; border-color: rgba(0,0,0,.4); background: rgba(255,255,255,.35); }
+}

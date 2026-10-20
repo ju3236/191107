@@ -115,7 +115,7 @@
       shake: 0, T: 40, dpr: 1,
     };
     $('#hud-stage').textContent = `${st.code} ${st.name}`;
-    $('#btn-speed').innerHTML = '1X<small>▶</small>';
+    $('#btn-speed').innerHTML = '1X<small>▶</small><kbd>F</kbd>';
     ['#result', '#pause', '#inspect', '#hint', '#toast'].forEach((s) => $(s).classList.add('hidden'));
     buildCards();
     resize();
@@ -256,7 +256,10 @@
     }
     else if (S.mode === 'inspect') setMode('idle');
   });
+  let hoverPt = null;   // PC 단축키용: 마우스가 올라가 있는 위치
+  canvas.addEventListener('pointerleave', () => { hoverPt = null; });
   canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') hoverPt = { clientX: e.clientX, clientY: e.clientY };
     if (!S || S.mode !== 'direction') return;
     pickDir(toTile(e, tileH(S.tile.x, S.tile.y)));
   });
@@ -269,17 +272,42 @@
     if (far) { pickDir(p); deploy(S.sel, S.tile.x, S.tile.y, S.dir); }
     else if (from === 'inDirection') setMode('idle');
   });
+  // ---------- PC 단축키: Q 철수 · E 스킬 · F 배속 · Space 일시정지 · Esc 취소 ----------
+  // 대상은 정보창이 열린 오퍼레이터, 없으면 마우스를 올린 오퍼레이터
+  function keyTarget() {
+    if (S.inspect && S.inspect.alive) return S.inspect;
+    if (!hoverPt) return null;
+    const p = toTile(hoverPt);
+    return opAtScreen(hoverPt) || opAt(Math.floor(p.x), Math.floor(p.y)) || null;
+  }
   window.addEventListener('keydown', (e) => {
-    if (!S || S.ended) return;
-    if (e.key === 'Escape') setMode('idle');
-    if (e.key === ' ') { e.preventDefault(); togglePause(); }
+    if (!S || S.ended || UI.current !== 'battle') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target && e.target.closest && e.target.closest('input, textarea, select')) return;
+    if (!$('#dialog').classList.contains('hidden')) return;
+    const code = e.code;
+    if (code === 'Escape') { setMode('idle'); return; }
+    if (code === 'Space') { e.preventDefault(); if (!e.repeat) togglePause(); return; }
+    if (e.repeat || S.paused) return;
+    if (code === 'KeyF') { e.preventDefault(); toggleSpeed(); return; }
+    if (code !== 'KeyQ' && code !== 'KeyE') return;
+    e.preventDefault();
+    const op = keyTarget();
+    if (!op) { toast('오퍼레이터를 선택하거나 마우스를 올려 주세요'); return; }
+    if (code === 'KeyQ') { retreat(op); setMode('idle'); return; }
+    const sk = op.skill;
+    if (sk.trigger !== 'manual') toast(`${op.def.name}의 스킬은 자동 발동입니다`);
+    else if (op.skillT > 0) toast('스킬 발동 중입니다');
+    else if (op.sp < sk.sp) toast(`SP가 부족합니다 (${Math.floor(op.sp)}/${sk.sp})`);
+    else { activateSkill(op); if (S.inspect === op) refreshInspect(true); }
   });
 
-  $('#btn-speed').addEventListener('click', () => {
+  function toggleSpeed() {
     if (!S) return;
     S.speed = S.speed === 1 ? 2 : 1;
-    $('#btn-speed').innerHTML = S.speed + 'X<small>' + (S.speed > 1 ? '▶▶' : '▶') + '</small>';
-  });
+    $('#btn-speed').innerHTML = S.speed + 'X<small>' + (S.speed > 1 ? '▶▶' : '▶') + '</small><kbd>F</kbd>';
+  }
+  $('#btn-speed').addEventListener('click', toggleSpeed);
   function togglePause(force) {
     if (!S || S.ended) return;
     S.paused = force ?? !S.paused;
@@ -327,7 +355,7 @@
       $('#ins-sp-text').textContent = sk.spType === 'deploy' ? '배치 시 발동 (재배치하면 다시 발동)' : `SP ${Math.floor(op.sp)}/${sk.sp}`;
     }
     $('#ins-skill').disabled = !(sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp);
-    $('#ins-skill').textContent = sk.trigger === 'auto' ? '자동 발동' : '스킬 발동';
+    $('#ins-skill').innerHTML = sk.trigger === 'auto' ? '자동 발동' : '스킬 발동<kbd>E</kbd>';
   }
 
   // =====================================================================
