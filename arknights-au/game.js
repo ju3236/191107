@@ -11,6 +11,7 @@
   const DIR_ANGLE = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
   const SLOW = 0.15;        // 배치/조작 중 시간 배속
   const MAX_DP = 99;
+  const sfx = (name) => window.SFX && window.SFX.play(name);
 
   // ---------- 이미지 (선택) ----------
   const IMG = {};
@@ -137,11 +138,12 @@
   }
   function onCard(r) {
     if (!S || S.ended) return;
-    if (S.sel === r && S.mode !== 'idle' && S.mode !== 'inspect') { setMode('idle'); return; }
+    if (S.sel === r && S.mode !== 'idle' && S.mode !== 'inspect') { sfx('cancel'); setMode('idle'); return; }
     if (r.deployed) return;
-    if (r.cd > 0) { toast('재배치 대기 중입니다'); return; }
-    if (S.dp < r.def.cost) { toast('배치 코스트가 부족합니다'); return; }
-    if (S.ops.length >= S.deployLimit) { toast('배치 가능 인원을 초과했습니다'); return; }
+    if (r.cd > 0) { sfx('deny'); toast('재배치 대기 중입니다'); return; }
+    if (S.dp < r.def.cost) { sfx('deny'); toast('배치 코스트가 부족합니다'); return; }
+    if (S.ops.length >= S.deployLimit) { sfx('deny'); toast('배치 가능 인원을 초과했습니다'); return; }
+    sfx('select');
     S.sel = r;
     setMode('placing');
   }
@@ -249,10 +251,13 @@
     if (!S || S.ended) return;
     S.paused = force ?? !S.paused;
     $('#pause').classList.toggle('hidden', !S.paused);
+    soundLabel();
   }
   $('#btn-pause').addEventListener('click', () => togglePause());
   $('#btn-gear').addEventListener('click', () => togglePause(true));
   $('#pause-resume').addEventListener('click', () => togglePause(false));
+  const soundLabel = () => { $('#pause-sound').textContent = '효과음 ' + (window.SFX && SFX.enabled ? '켜짐' : '꺼짐'); };
+  $('#pause-sound').addEventListener('click', () => { SFX.toggle(); soundLabel(); });
   $('#pause-retry').addEventListener('click', () => beginBattle(S.idx, S.squadIds));
   $('#pause-quit').addEventListener('click', () => { $('#pause').classList.add('hidden'); UI.go('operations'); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) togglePause(true); });
@@ -311,6 +316,7 @@
       range: rg.set, rangeList: rg.list, born: S.time,
     };
     S.ops.push(op);
+    sfx('deploy');
     r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
     addText(tx + 0.5, ty - 0.1, def.quote, def.color, 1.6, true);
@@ -325,11 +331,12 @@
     op.roster.deployed = false;
     op.roster.cd = op.def.redeploy;
     if (S.inspect === op) setMode('idle');
-    if (died) addText(op.x + 0.5, op.y + 0.2, '전투 불능', '#ff6b6e', 1.2, true);
+    if (died) { sfx('down'); addText(op.x + 0.5, op.y + 0.2, '전투 불능', '#ff6b6e', 1.2, true); }
   }
   function retreat(op) {
     S.dp = Math.min(MAX_DP, S.dp + Math.floor(op.def.cost / 2));
     addText(op.x + 0.5, op.y + 0.2, '철수', '#9aa1ab', 0.8, true);
+    sfx('retreat');
     removeOp(op, false);
   }
 
@@ -338,6 +345,7 @@
     if (op.skillT > 0 || op.sp < sk.sp) return;
     if (ef.dp) S.dp = Math.min(MAX_DP, S.dp + ef.dp);
     if (ef.heal) healOp(op, op.maxHp * ef.heal);
+    sfx(ef.strike ? 'strike' : 'skill');
     if (ef.strike) {
       for (const t of pickTargets(op, 99)) {
         addFx({ type: 'slash', x: t.x, y: t.y, life: 0.3, color: '#ffcf3a' });
@@ -407,6 +415,7 @@
         healOp(a, opAtk(op));
         addFx({ type: 'beam', x1: cx, y1: cy, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.25, color: '#7dff9a' });
       }
+      sfx('heal');
       op.atkCd = opInterval(op);
       return;
     }
@@ -415,6 +424,7 @@
     if (!targets.length) return;
     const type = op.def.dmgType || (op.def.class === 'caster' ? 'arts' : 'phys');
     const atk = opAtk(op), splash = eff(op).splash;
+    sfx(type === 'arts' ? 'arts' : isGround(op.def) ? 'slash' : 'shot');
     for (const t of targets) {
       if (isGround(op.def)) addFx({ type: 'slash', x: t.x, y: t.y, life: 0.15, color: op.def.color });
       else addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x, y2: t.y, life: 0.15, color: type === 'arts' ? '#c89bff' : '#fff2b3' });
@@ -438,6 +448,7 @@
     const dmg = calcDamage(atk, type, opDef(op), op.def.res || 0);
     op.hp -= dmg;
     op.flash = 0.12;
+    sfx('hurt');
     addText(op.x + 0.5, op.y + 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ff8c8f', 0.6);
     if (op.hp <= 0 && op.alive) removeOp(op, true);
   }
@@ -453,7 +464,7 @@
       def, path, pi: 1, x: path[0].x, y: path[0].y,
       hp: def.hp, maxHp: def.hp, atkCd: def.interval * 0.5, blockedBy: null, alive: true, flash: 0,
     });
-    if (def.boss) { toast(`경고 — ${def.name} 출현`); S.shake = 0.5; }
+    if (def.boss) { sfx('boss'); toast(`경고 — ${def.name} 출현`); S.shake = 0.5; } else sfx('spawn');
   }
 
   function hitEnemy(e, atk, type) {
@@ -462,7 +473,7 @@
     e.hp -= dmg;
     e.flash = 0.1;
     addText(e.x, e.y - 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ffffff', 0.5);
-    if (e.hp <= 0) { e.alive = false; S.killed++; addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color }); }
+    if (e.hp <= 0) { e.alive = false; S.killed++; sfx('kill'); addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color }); }
   }
 
   function tryBlock(e) {
@@ -498,6 +509,7 @@
     S.leaked++;
     S.life -= e.def.lifeCost || 1;
     S.shake = 0.3;
+    sfx('leak');
     toast('방어선이 돌파당했습니다!');
   }
 
@@ -558,6 +570,7 @@
 
   function endBattle(win) {
     S.ended = true;
+    sfx(win ? 'win' : 'lose');
     setMode('idle');
     const st = S.st;
     const stars = !win ? 0 : S.leaked === 0 ? 3 : S.life >= Math.ceil(S.maxLife / 2) ? 2 : 1;

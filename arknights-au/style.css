@@ -467,6 +467,8 @@ button:focus-visible { outline: 2px solid var(--beacon); outline-offset: 2px; }
 .modal-title { font-size: 22px; font-weight: 900; }
 .modal-sub { font-family: var(--f-en); color: var(--muted); font-size: 12px; letter-spacing: .08em; margin-bottom: 12px; }
 .modal-text { white-space: pre-line; line-height: 1.8; color: #d9dbde; }
+.set-row { display: flex; align-items: center; justify-content: space-between; background: var(--panel2); padding: 8px 12px; margin-bottom: 4px; }
+.set-row .btn { min-width: 84px; }
 .arc-list { display: flex; flex-direction: column; gap: 6px; }
 .arc-row { display: flex; align-items: center; gap: 10px; background: var(--panel2); padding: 8px 12px; }
 .arc-row b { font-family: var(--f-en); font-size: 18px; color: var(--beacon); font-weight: 500; }

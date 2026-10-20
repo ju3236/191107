@@ -207,8 +207,10 @@
   function openSettings() {
     resetArmed = false;
     openModal(`<div class="modal-title">설정</div><div class="modal-sub">SETTINGS</div>
+      <div class="set-row"><span>효과음</span><button class="btn" id="btn-sound">${window.SFX && SFX.enabled ? '켜짐' : '꺼짐'}</button></div>
       <p class="modal-text">진행 상황, 편성, 비서 설정은 이 브라우저에만 저장됩니다.</p>
       <button class="btn danger" id="btn-reset">데이터 초기화</button>`);
+    $('#btn-sound').addEventListener('click', (e) => { e.target.textContent = SFX.toggle() ? '켜짐' : '꺼짐'; });
     $('#btn-reset').addEventListener('click', (e) => {
       if (!resetArmed) { resetArmed = true; e.target.textContent = '한 번 더 누르면 초기화됩니다'; return; }
       save.stars = {};
@@ -564,6 +566,7 @@
       timer = setInterval(() => {
         n++;
         textEl.textContent = full.slice(0, n);
+        if (n % 2 && window.SFX) SFX.play('text');
         if (n >= full.length) { clearInterval(timer); timer = null; }
       }, 22);
     }
