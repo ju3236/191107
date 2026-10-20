@@ -25,6 +25,7 @@ const CLASSES = {
   sniper:   { name: '스나이퍼', tile: 'high', icon: '➶' },
   caster:   { name: '캐스터', tile: 'high', icon: '✦' },
   medic:    { name: '메딕',   tile: 'high', icon: '✚' },
+  specialist: { name: '스페셜리스트', tile: 'ground', icon: '⚓' },
 };
 
 // 공격 범위 도우미: 오른쪽을 바라볼 때 기준 상대 좌표 (x: 앞쪽 +, y: 아래쪽 +)
@@ -40,11 +41,63 @@ function area(x0, x1, y0, y1) {
 //  interval: 공격 간격(초) / range: 공격 범위
 //  skill.trigger: 'manual'(직접 발동) 또는 'auto'(SP가 차면 자동 발동)
 //  skill.effect: atk/def/interval 배율, dp(즉시 코스트), heal(즉시 자기 회복 비율),
-//                splash(범위 피해 반경, 타일), targets(동시 공격 수)
+//                splash(범위 피해 반경, 타일), targets(동시 공격 수),
+//                strike(발동 즉시 범위 안 모든 적에게 공격력×배율 피해), regen(지속 중 초당 최대 체력 비율 회복)
 //  en: 영문 이름 / rarity: 레어도(별 1~6) / tags: 특성 태그 / voices: 메인 화면 비서 대사
 //  image: 'img/파일명.png' 처럼 그림 경로를 넣으면 동그라미·임시 일러스트 대신 그림이 표시됩니다.
 // ---------------------------------------------------------------------
 const OPERATORS = [
+  // ---------------- 등대지기님의 자캐 (프로필·대사·스킬 이름은 임시) ----------------
+  {
+    id: 'byeol', name: '천사별', class: 'sniper', race: '산크타', color: '#8fc9f0',
+    en: 'Cheonsabyeol', rarity: 6, tags: ['원거리', '대공', '연사'],
+    voices: ['등대지기, 오늘 하늘 맑아요!', '별이 보이는 밤엔 조준이 더 잘 돼요.', '헤헤, 저만 믿어요!'],
+    image: 'img/byeol.png',
+    profile: '산크타 출신 저격수. 반짝이는 눈만큼이나 조준도 정확하다. 비행 적을 우선으로 노린다.',
+    quote: '반짝, 명중이에요!',
+    cost: 14, redeploy: 35, block: 0,
+    hp: 1500, atk: 620, def: 140, res: 0, interval: 1.0,
+    range: [...area(0, 3, -1, 1), [4, 0]],
+    skill: { name: '별빛 연사', desc: '15초간 공격 속도 2.5배, 공격력 +10%', sp: 30, initSp: 15, duration: 15, trigger: 'manual', effect: { interval: 0.4, atk: 1.1 } },
+  },
+  {
+    id: 'simhae', name: '안심해', class: 'defender', race: '리베리', color: '#c9ced6',
+    en: 'Ahn Simhae', rarity: 6, tags: ['근거리', '방어', '회복'],
+    voices: ['…괜찮아. 안심해.', '내 뒤에 있으면 돼.', '졸리네. 그래도 지킬 건 지켜.'],
+    image: 'img/simhae.png',
+    profile: '리베리 출신 디펜더. 무심한 표정과 달리 한 번 맡은 자리는 끝까지 지킨다.',
+    quote: '안심해. 여긴 안 뚫려.',
+    cost: 20, redeploy: 45, block: 3,
+    hp: 3800, atk: 400, def: 780, res: 10, interval: 1.2,
+    range: area(0, 0, 0, 0),
+    skill: { name: '안심해', desc: '즉시 체력 30% 회복, 20초간 방어력 +60%, 매초 체력 3% 회복', sp: 35, initSp: 20, duration: 20, trigger: 'manual', effect: { def: 1.6, heal: 0.3, regen: 0.03 } },
+  },
+  {
+    id: 'iai', name: '이아이', class: 'specialist', race: '사르카즈', color: '#7a8796',
+    en: 'Iai', rarity: 6, tags: ['근거리', '빠른 재배치', '폭발력'],
+    voices: ['…부르셨어요?', '금방 끝내고 올게요.', '조용한 게 좋아요.'],
+    image: 'img/iai.png',
+    profile: '사르카즈 출신 스페셜리스트. 재배치가 매우 빨라 필요한 곳에 몇 번이고 다시 나타난다.',
+    quote: '…베고, 돌아갈게요.',
+    cost: 9, redeploy: 15, block: 1,
+    hp: 1600, atk: 680, def: 260, res: 0, interval: 0.95,
+    range: area(0, 1, 0, 0),
+    skill: { name: '일섬', desc: '즉시 범위 안의 모든 적에게 공격력 250% 물리 피해', sp: 10, initSp: 10, duration: 0, trigger: 'manual', effect: { strike: 2.5 } },
+  },
+  {
+    id: 'gaeul', name: '김가을', class: 'guard', race: '페린', color: '#4f7fd1',
+    en: 'Kim Gaeul', rarity: 6, tags: ['근거리', '화력', '다중 공격'],
+    voices: ['보고서는… 나중에 쓸게요.', '등대지기님, 안경 어디 갔는지 봤어요?', '맡겨 주세요. 정리할게요.'],
+    image: 'img/gaeul.png',
+    profile: '페린 출신 가드. 차분하고 꼼꼼한 성격으로, 전장에서도 할 일을 하나씩 정리해 나간다.',
+    quote: '하나씩, 정리하겠습니다.',
+    cost: 17, redeploy: 40, block: 2,
+    hp: 2600, atk: 700, def: 380, res: 0, interval: 1.05,
+    range: area(0, 1, 0, 0),
+    skill: { name: '가을바람', desc: '12초간 공격력 +60%, 동시에 2명 공격', sp: 25, initSp: 10, duration: 12, trigger: 'auto', effect: { atk: 1.6, targets: 2 } },
+  },
+
+  // ---------------- 임시 캐릭터 (스토리에 등장 — 필요 없으면 지우고 스토리 대사도 바꾸세요) ----------------
   {
     id: 'rea', name: '레아', class: 'vanguard', race: '페로', color: '#f2a541',
     en: 'Rhea', rarity: 5, tags: ['근거리', '코스트 회복'], voices: ['등대지기! 오늘도 같이 가자!', '선봉은 언제나 내 자리야.', '비토 녀석, 또 늦잠이야?'],

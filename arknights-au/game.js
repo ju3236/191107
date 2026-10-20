@@ -101,7 +101,7 @@
       shake: 0, T: 40, dpr: 1,
     };
     $('#hud-stage').textContent = `${st.code} ${st.name}`;
-    $('#btn-speed').textContent = '1x';
+    $('#btn-speed').innerHTML = '1X<small>▶</small>';
     ['#result', '#pause', '#inspect', '#hint', '#toast'].forEach((s) => $(s).classList.add('hidden'));
     buildCards();
     resize();
@@ -117,7 +117,7 @@
       const c = document.createElement('button');
       c.className = 'card';
       c.style.setProperty('--c', r.def.color);
-      c.innerHTML = `<span class="card-face" style="${r.def.image ? `background-image:url('${r.def.image}')` : ''}">${faceText(r.def)}</span>
+      c.innerHTML = `<span class="card-face">${r.def.image ? `<img src="${r.def.image}" alt="">` : r.def.name[0]}</span>
         <span class="card-cost">${r.def.cost}</span><span class="card-class">${UI.icon(r.def.class)}</span>
         <span class="card-name">${r.def.name}</span><span class="card-cd"></span>`;
       c.addEventListener('click', () => onCard(r));
@@ -171,9 +171,21 @@
   // =====================================================================
   //  입력
   // =====================================================================
-  function toTile(e) {
+  // 화면 좌표 → 타일 좌표. 고지대는 위로 솟아 있으므로 높이를 고려해 먼저 검사
+  function toTile(e, h) {
     const r = canvas.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * S.cols, y: ((e.clientY - r.top) / r.height) * S.rows };
+    const X = e.clientX - r.left, Y = e.clientY - r.top;
+    if (h !== undefined) return unproject(X, Y, h);
+    const hi = unproject(X, Y, HIGH);
+    if (tileH(Math.floor(hi.x), Math.floor(hi.y)) === HIGH) return hi;
+    return unproject(X, Y, 0);
+  }
+  // 캐릭터 그림을 직접 눌렀을 때
+  function opAtScreen(e) {
+    const r = canvas.getBoundingClientRect();
+    const X = e.clientX - r.left, Y = e.clientY - r.top;
+    const list = [...S.ops].sort((a, b) => b.y - a.y);
+    return list.find((o) => o.rect && X >= o.rect[0] && X <= o.rect[2] && Y >= o.rect[1] && Y <= o.rect[3]);
   }
   const opAt = (tx, ty) => S.ops.find((o) => o.x === tx && o.y === ty);
   function canPlace(def, tx, ty) {
@@ -202,20 +214,20 @@
       setMode('idle');
     } else if (S.mode === 'direction') {
       S.press = 'inDirection';
-      pickDir(p);
+      pickDir(toTile(e, tileH(S.tile.x, S.tile.y)));
       return;
     }
-    const op = opAt(tx, ty);
+    const op = opAtScreen(e) || opAt(tx, ty);
     if (op) { S.inspect = op; setMode('inspect'); refreshInspect(true); }
     else if (S.mode === 'inspect') setMode('idle');
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!S || S.mode !== 'direction') return;
-    pickDir(toTile(e));
+    pickDir(toTile(e, tileH(S.tile.x, S.tile.y)));
   });
   window.addEventListener('pointerup', (e) => {
     if (!S || S.mode !== 'direction' || !S.press) return;
-    const p = toTile(e);
+    const p = toTile(e, tileH(S.tile.x, S.tile.y));
     const far = Math.hypot(p.x - (S.tile.x + 0.5), p.y - (S.tile.y + 0.5)) > 0.55;
     const from = S.press;
     S.press = null;
@@ -231,7 +243,7 @@
   $('#btn-speed').addEventListener('click', () => {
     if (!S) return;
     S.speed = S.speed === 1 ? 2 : 1;
-    $('#btn-speed').textContent = S.speed + 'x';
+    $('#btn-speed').innerHTML = S.speed + 'X<small>' + (S.speed > 1 ? '▶▶' : '▶') + '</small>';
   });
   function togglePause(force) {
     if (!S || S.ended) return;
@@ -239,6 +251,7 @@
     $('#pause').classList.toggle('hidden', !S.paused);
   }
   $('#btn-pause').addEventListener('click', () => togglePause());
+  $('#btn-gear').addEventListener('click', () => togglePause(true));
   $('#pause-resume').addEventListener('click', () => togglePause(false));
   $('#pause-retry').addEventListener('click', () => beginBattle(S.idx, S.squadIds));
   $('#pause-quit').addEventListener('click', () => { $('#pause').classList.add('hidden'); UI.go('operations'); });
@@ -325,6 +338,12 @@
     if (op.skillT > 0 || op.sp < sk.sp) return;
     if (ef.dp) S.dp = Math.min(MAX_DP, S.dp + ef.dp);
     if (ef.heal) healOp(op, op.maxHp * ef.heal);
+    if (ef.strike) {
+      for (const t of pickTargets(op, 99)) {
+        addFx({ type: 'slash', x: t.x, y: t.y, life: 0.3, color: '#ffcf3a' });
+        hitEnemy(t, opAtk(op) * ef.strike, 'phys');
+      }
+    }
     op.sp = 0;
     op.skillT = sk.duration || 0;
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.5, color: '#ffcf3a' });
@@ -361,6 +380,7 @@
 
     if (op.skillT > 0) {
       op.skillT = Math.max(0, op.skillT - dt);
+      if (sk.effect && sk.effect.regen) op.hp = Math.min(op.maxHp, op.hp + op.maxHp * sk.effect.regen * dt);
     } else {
       op.sp = Math.min(sk.sp, op.sp + dt);
       if (sk.trigger === 'auto' && op.sp >= sk.sp) {
@@ -599,95 +619,202 @@
   }
 
   // =====================================================================
-  //  렌더링
+  //  렌더링 — 원근감 있는 3D풍 보드
   // =====================================================================
+  const HIGH = 0.24;     // 고지대 높이 (타일 단위)
+  const PERSP = 0.055;   // 원근 정도 (뒷줄일수록 작게)
+  const TILT = 0.82;     // 바닥 기울기 (세로 압축)
+  const DIRV = { right: [1, 0], down: [0, 1], left: [-1, 0], up: [0, -1] };
+  let P = { T: 40, cx: 0, yb: 0, W: 0, H: 0 };
+
+  const tileH = (x, y) => (S && S.map[y] && S.map[y][x] === '^' ? HIGH : 0);
+
+  // 타일 좌표(u, v, 높이 h) → 화면 좌표 [X, Y, 축척]
+  function proj(u, v, h = 0) {
+    const t = S.rows - v, w = 1 + PERSP * t;
+    return [P.cx + (P.T * (u - S.cols / 2)) / w, P.yb - (P.T * (TILT * t + h)) / w, 1 / w];
+  }
+  // 화면 좌표 → 높이 h 평면 위의 타일 좌표
+  function unproject(X, Y, h = 0) {
+    const m = (P.yb - Y) / P.T;
+    const t = (m - h) / (TILT - PERSP * m);
+    const w = 1 + PERSP * t;
+    return { x: ((X - P.cx) * w) / P.T + S.cols / 2, y: S.rows - t };
+  }
+
   function resize() {
     if (!S) return;
     const wrap = $('#board-wrap');
-    const T = Math.max(16, Math.floor(Math.min((wrap.clientWidth - 8) / S.cols, (wrap.clientHeight - 8) / S.rows)));
+    const W = wrap.clientWidth, H = wrap.clientHeight;
     const dpr = window.devicePixelRatio || 1;
-    canvas.style.width = T * S.cols + 'px';
-    canvas.style.height = T * S.rows + 'px';
-    canvas.width = Math.round(T * S.cols * dpr);
-    canvas.height = Math.round(T * S.rows * dpr);
-    S.T = T;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    // 위쪽 HUD와 아래쪽 카드 줄만 피하고, 코스트 상자는 원작처럼 보드 위에 겹쳐 둠
+    const top = H < 480 ? 40 : 50, bottom = $('#cards').offsetHeight + 2;
+    const far = 1 / (1 + PERSP * S.rows);
+    const unitsH = TILT * S.rows * far + 0.3 + 1.05 * far; // 보드 + 앞면 두께 + 뒷줄 캐릭터 머리
+    const T = Math.max(16, Math.min((W * 0.96) / (S.cols + 0.6), (H - top - bottom) / unitsH));
+    const y0 = top + Math.max(0, (H - top - bottom - T * unitsH) / 2);
+    P = { T, cx: W / 2, yb: y0 + T * (1.05 * far + TILT * S.rows * far), W, H };
     S.dpr = dpr;
+    S.T = T;
   }
   window.addEventListener('resize', resize);
 
-  const TILE_COLOR = { '#': '#15171c', '.': '#3b4049', '^': '#727a87', R: '#4a1a1e', B: '#16304f' };
-
-  function drawTile(x, y, ch) {
-    const T = S.T, px = x * T, py = y * T, g = Math.max(1, T * 0.03);
-    ctx.fillStyle = TILE_COLOR[ch] || TILE_COLOR['#'];
-    ctx.fillRect(px + g, py + g, T - 2 * g, T - 2 * g);
-    if (ch === '^') {
-      ctx.fillStyle = '#8a929f';
-      ctx.fillRect(px + g, py + g, T - 2 * g, T * 0.12);
-    } else if (ch === '#') {
-      ctx.strokeStyle = '#1f2228';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(px + g, py + T - g); ctx.lineTo(px + T - g, py + g);
-      ctx.stroke();
-    } else if (ch === 'R' || ch === 'B') {
-      const c = ch === 'R' ? '#ff4d57' : '#3fa3ff';
-      ctx.strokeStyle = c;
-      ctx.lineWidth = Math.max(2, T * 0.06);
-      ctx.strokeRect(px + T * 0.12, py + T * 0.12, T * 0.76, T * 0.76);
-      ctx.fillStyle = c;
-      ctx.font = `900 ${T * 0.3}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(ch === 'R' ? '!' : '◆', px + T / 2, py + T / 2);
+  // ---------- 도형 도우미 ----------
+  function poly(pts) {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+  }
+  const quad = (x0, y0, x1, y1, h) => [proj(x0, y0, h), proj(x1, y0, h), proj(x1, y1, h), proj(x0, y1, h)];
+  function hash(x, y, k = 0) {
+    let n = (x * 374761393 + y * 668265263 + k * 2147483647) | 0;
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  }
+  function ellipse(X, Y, rx, ry) {
+    ctx.beginPath();
+    ctx.ellipse(X, Y, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2);
+  }
+  // 상자: 윗면 + 앞면 + (보드 중앙을 향한) 옆면
+  function box(x0, y0, x1, y1, h0, h1, top, front, side, skipSide = {}) {
+    const mid = S.cols / 2;
+    poly([proj(x0, y1, h0), proj(x1, y1, h0), proj(x1, y1, h1), proj(x0, y1, h1)]);
+    ctx.fillStyle = front; ctx.fill();
+    if (x1 <= mid && !skipSide.right) {
+      poly([proj(x1, y0, h0), proj(x1, y1, h0), proj(x1, y1, h1), proj(x1, y0, h1)]);
+      ctx.fillStyle = side; ctx.fill();
     }
+    if (x0 >= mid && !skipSide.left) {
+      poly([proj(x0, y0, h0), proj(x0, y1, h0), proj(x0, y1, h1), proj(x0, y0, h1)]);
+      ctx.fillStyle = side; ctx.fill();
+    }
+    poly(quad(x0, y0, x1, y1, h1));
+    ctx.fillStyle = top; ctx.fill();
   }
 
+  // ---------- 배경 ----------
+  function drawBackground() {
+    const g = ctx.createRadialGradient(P.W / 2, P.H * 0.45, 40, P.W / 2, P.H * 0.5, Math.max(P.W, P.H) * 0.8);
+    g.addColorStop(0, '#1d2b2d');
+    g.addColorStop(1, '#040506');
+    ctx.fillStyle = g;
+    ctx.fillRect(-20, -20, P.W + 40, P.H + 40);
+    const m = 0.7;
+    // 구덩이 벽 (보드 바깥 테두리)
+    poly(quad(-m, -m, S.cols + m, S.rows + m, 0));
+    ctx.fillStyle = '#151c1e'; ctx.fill();
+    ctx.strokeStyle = 'rgba(110,190,180,.18)'; ctx.lineWidth = 2; ctx.stroke();
+    // 테두리 위 파이프와 상자 장식
+    for (let i = 0; i < S.cols + 1; i++) {
+      for (const [v, k] of [[-m, 1], [S.rows + 0.05, 2]]) {
+        if (hash(i, k) < 0.55) continue;
+        const sz = 0.25 + hash(i, k, 3) * 0.35;
+        box(i - 0.2, v + 0.05, i - 0.2 + sz, v + 0.05 + 0.45, 0, 0.1 + hash(i, k, 5) * 0.35, '#2c3538', '#1b2225', '#232b2e');
+      }
+    }
+    // 앞쪽 두께
+    poly([proj(-m, S.rows + m, 0), proj(S.cols + m, S.rows + m, 0), proj(S.cols + m, S.rows + m, -0.45), proj(-m, S.rows + m, -0.45)]);
+    ctx.fillStyle = '#0d1214'; ctx.fill();
+  }
+
+  // ---------- 타일 ----------
+  function drawGround(x, y, deployable) {
+    poly(quad(x + 0.03, y + 0.03, x + 0.97, y + 0.97, 0));
+    ctx.fillStyle = '#343c40'; ctx.fill();
+    if (!deployable) return;
+    const s = proj(x + 0.5, y + 0.5)[2];
+    poly(quad(x + 0.11, y + 0.11, x + 0.89, y + 0.89, 0));
+    ctx.lineWidth = Math.max(1.5, P.T * 0.05 * s);
+    ctx.strokeStyle = '#c8a033'; ctx.stroke();
+    ctx.setLineDash([P.T * 0.06 * s, P.T * 0.06 * s]);
+    ctx.strokeStyle = '#15181a'; ctx.stroke();
+    ctx.setLineDash([]);
+    for (const [a, b] of [[0.2, 0.2], [0.52, 0.2], [0.2, 0.52], [0.52, 0.52]]) {
+      poly(quad(x + a, y + b, x + a + 0.28, y + b + 0.28, 0));
+      ctx.fillStyle = '#272d31'; ctx.fill();
+    }
+  }
+  function drawHigh(x, y) {
+    const hi = (dx) => tileH(x + dx, y) === HIGH;
+    box(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0, HIGH, '#94786d', '#4f3d37', '#68534b', { right: hi(1), left: hi(-1) });
+    poly(quad(x + 0.1, y + 0.1, x + 0.9, y + 0.9, HIGH));
+    ctx.fillStyle = '#a68b80'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,230,215,.25)'; ctx.lineWidth = 1; ctx.stroke();
+  }
+  function drawWall(x, y) {
+    poly(quad(x, y, x + 1, y + 1, 0));
+    ctx.fillStyle = '#1b2224'; ctx.fill();
+    for (let k = 0; k < 2; k++) {
+      if (hash(x, y, k) < 0.4) continue;
+      const w = 0.3 + hash(x, y, k + 7) * 0.4, d = 0.3 + hash(x, y, k + 9) * 0.4;
+      const ox = x + hash(x, y, k + 11) * (1 - w), oy = y + hash(x, y, k + 13) * (1 - d);
+      const h = 0.12 + hash(x, y, k + 15) * 0.5;
+      const shade = 40 + Math.floor(hash(x, y, k + 17) * 20);
+      box(ox, oy, ox + w, oy + d, 0, h, `rgb(${shade},${shade + 8},${shade + 10})`, `rgb(${shade - 18},${shade - 12},${shade - 10})`, `rgb(${shade - 10},${shade - 4},${shade - 2})`);
+    }
+  }
+  function wireCube(x, y, color, fill) {
+    const a = x + 0.08, b = y + 0.08, c = x + 0.92, d = y + 0.92, h = 0.95;
+    poly(quad(a, b, c, d, 0)); ctx.fillStyle = fill; ctx.fill();
+    poly([proj(a, d, 0), proj(c, d, 0), proj(c, d, h), proj(a, d, h)]); ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.5, P.T * 0.035);
+    ctx.shadowColor = color; ctx.shadowBlur = 10;
+    poly(quad(a, b, c, d, 0)); ctx.stroke();
+    poly(quad(a, b, c, d, h)); ctx.stroke();
+    ctx.beginPath();
+    for (const [u, v] of [[a, b], [c, b], [c, d], [a, d]]) {
+      const p0 = proj(u, v, 0), p1 = proj(u, v, h);
+      ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // 경고 표시
+    const [X, Y, s] = proj(x + 0.5, d, h * 0.5);
+    const r = P.T * 0.2 * s;
+    poly([[X, Y - r], [X + r, Y + r * 0.75], [X - r, Y + r * 0.75]]);
+    ctx.lineWidth = Math.max(1.5, P.T * 0.03); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.font = `900 ${r}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', X, Y + r * 0.2);
+  }
+  function drawTile(x, y) {
+    const ch = S.map[y][x];
+    if (ch === '#') drawWall(x, y);
+    else if (ch === '^') drawHigh(x, y);
+    else drawGround(x, y, ch === '.');
+  }
+  function drawGates() {
+    for (let y = 0; y < S.rows; y++) {
+      for (let x = 0; x < S.cols; x++) {
+        const ch = S.map[y][x];
+        if (ch === 'R') wireCube(x, y, '#ff3b47', 'rgba(255,40,50,.16)');
+        if (ch === 'B') wireCube(x, y, '#3fa3ff', 'rgba(60,150,255,.16)');
+      }
+    }
+  }
   function fillTiles(list, fill, stroke) {
-    const T = S.T;
-    ctx.fillStyle = fill;
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 2;
     for (const [x, y] of list) {
       if (x < 0 || y < 0 || x >= S.cols || y >= S.rows) continue;
-      ctx.fillRect(x * T + 2, y * T + 2, T - 4, T - 4);
-      if (stroke) ctx.strokeRect(x * T + 3, y * T + 3, T - 6, T - 6);
+      const h = tileH(x, y);
+      poly(quad(x + 0.05, y + 0.05, x + 0.95, y + 0.95, h + 0.005));
+      ctx.fillStyle = fill; ctx.fill();
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
     }
   }
 
+  // ---------- 유닛 ----------
   function bar(x, y, w, h, ratio, color) {
-    ctx.fillStyle = 'rgba(0,0,0,.7)';
+    ctx.fillStyle = 'rgba(0,0,0,.75)';
     ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
     ctx.fillStyle = color;
     ctx.fillRect(x, y, w * Math.max(0, Math.min(1, ratio)), h);
   }
-
-  function drawFace(def, cx, cy, r, alpha = 1) {
-    ctx.globalAlpha = alpha;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = def.color;
-    ctx.fill();
-    if (imgReady(def.id)) {
-      ctx.save();
-      ctx.clip();
-      ctx.drawImage(IMG[def.id], cx - r, cy - r, r * 2, r * 2);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = 'rgba(0,0,0,.65)';
-      ctx.font = `900 ${r * 1.05}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(def.name[0], cx, cy + r * 0.05);
-    }
-    ctx.lineWidth = Math.max(2, r * 0.12);
-    ctx.strokeStyle = 'rgba(255,255,255,.9)';
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
-
   function drawArrowHead(cx, cy, ang, size, color) {
     ctx.save();
     ctx.translate(cx, cy);
@@ -701,174 +828,188 @@
     ctx.fill();
     ctx.restore();
   }
+  function drawToken(def, X, Y, r, alpha = 1) {
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(X, Y, r, 0, Math.PI * 2);
+    ctx.fillStyle = def.color; ctx.fill();
+    ctx.lineWidth = Math.max(2, r * 0.12);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
+    ctx.font = `900 ${r * 1.05}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(def.name[0], X, Y + r * 0.05);
+    ctx.globalAlpha = 1;
+  }
+  // 캐릭터 몸체(그림 또는 동그라미). 화면상 영역 [x0, y0, x1, y1]을 돌려줌
+  function drawBody(def, X, Y, T, alpha = 1, flash = 0) {
+    if (imgReady(def.id)) {
+      const im = IMG[def.id], ih = T * 1.25, iw = (ih * im.naturalWidth) / im.naturalHeight;
+      const x0 = X - iw / 2, y0 = Y - ih * 0.96;
+      ctx.globalAlpha = alpha;
+      if (flash > 0) ctx.filter = 'brightness(1.6) sepia(1) saturate(4) hue-rotate(-40deg)';
+      ctx.drawImage(im, x0, y0, iw, ih);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
+      return [x0, y0, x0 + iw, y0 + ih];
+    }
+    const r = T * 0.3;
+    drawToken(def, X, Y - T * 0.42, r, alpha);
+    if (flash > 0) {
+      ctx.beginPath(); ctx.arc(X, Y - T * 0.42, r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,80,80,.5)'; ctx.fill();
+    }
+    return [X - r, Y - T * 0.42 - r, X + r, Y];
+  }
 
   function drawOp(op) {
-    const T = S.T, cx = (op.x + 0.5) * T, cy = (op.y + 0.5) * T, r = T * 0.32;
-    const sk = op.def.skill;
+    const h = tileH(op.x, op.y);
+    const [X, Y, s] = proj(op.x + 0.5, op.y + 0.58, h);
+    const T = P.T * s, sk = op.def.skill;
+    ellipse(X, Y, T * 0.34, T * 0.12);
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill();
     if (op.skillT > 0) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r * 1.35 + Math.sin(S.time * 8) * 2, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,207,58,.25)';
-      ctx.fill();
+      ellipse(X, Y, T * (0.44 + Math.sin(S.time * 8) * 0.03), T * 0.17);
+      ctx.strokeStyle = '#ffcf3a'; ctx.lineWidth = Math.max(2, T * 0.05); ctx.stroke();
     }
-    drawFace(op.def, cx, cy, r);
-    if (op.flash > 0) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,80,80,.5)';
-      ctx.fill();
-    }
-    // 방향 표시
-    const a = DIR_ANGLE[op.dir];
-    drawArrowHead(cx + Math.cos(a) * r * 1.25, cy + Math.sin(a) * r * 1.25, a, T * 0.08, '#fff');
+    // 바라보는 방향 (주황 화살표)
+    const [dx, dy] = DIRV[op.dir];
+    const [ax, ay] = proj(op.x + 0.5 + dx * 0.44, op.y + 0.58 + dy * 0.44, h);
+    drawArrowHead(ax, ay, Math.atan2(ay - Y, ax - X), T * 0.11, '#ff9a1f');
+    op.rect = drawBody(op.def, X, Y, T, 1, op.flash);
     // 체력/SP
-    const bw = T * 0.76, bx = cx - bw / 2, by = cy + r + T * 0.05;
-    bar(bx, by, bw, Math.max(3, T * 0.06), op.hp / op.maxHp, '#4cd964');
+    const bw = T * 0.72, bx = X - bw / 2, by = Y + T * 0.1;
+    bar(bx, by, bw, Math.max(3, T * 0.055), op.hp / op.maxHp, '#4cd964');
     const spRatio = op.skillT > 0 ? op.skillT / sk.duration : op.sp / sk.sp;
-    bar(bx, by + Math.max(4, T * 0.08), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
-    // 수동 스킬 준비 완료
+    bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
     if (sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp) {
-      const bob = Math.sin(S.time * 6) * T * 0.03;
-      ctx.fillStyle = '#ffcf3a';
-      ctx.beginPath();
-      ctx.arc(cx + r * 0.85, cy - r * 0.95 + bob, T * 0.12, 0, Math.PI * 2);
-      ctx.fill();
+      const bob = Math.sin(S.time * 6) * T * 0.04;
+      const bx2 = op.rect[2] - T * 0.08, by2 = op.rect[1] + T * 0.12 + bob;
+      ctx.beginPath(); ctx.arc(bx2, by2, T * 0.13, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffcf3a'; ctx.fill();
       ctx.fillStyle = '#000';
-      ctx.font = `900 ${T * 0.16}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('!', cx + r * 0.85, cy - r * 0.93 + bob);
+      ctx.font = `900 ${T * 0.18}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('!', bx2, by2 + T * 0.01);
     }
   }
 
   function drawEnemy(e) {
-    const T = S.T, cx = e.x * T, cy = e.y * T, r = T * (e.def.boss ? 0.36 : 0.25);
-    ctx.save();
-    if (e.def.flying) {
-      ctx.fillStyle = 'rgba(0,0,0,.35)';
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + r * 1.1, r * 0.8, r * 0.3, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.translate(0, -r * 0.4);
-    }
+    const [X, Y, s] = proj(e.x, e.y, 0);
+    const T = P.T * s, r = T * (e.def.boss ? 0.34 : 0.23);
+    const lift = e.def.flying ? T * 0.6 + Math.sin(S.time * 4 + e.x) * T * 0.04 : T * 0.02;
+    ellipse(X, Y, r * 1.05, r * 0.4);
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
+    const cy = Y - r - lift;
     ctx.beginPath();
     if (e.def.flying) {
-      ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath();
+      ctx.moveTo(X, cy - r); ctx.lineTo(X + r, cy); ctx.lineTo(X, cy + r); ctx.lineTo(X - r, cy); ctx.closePath();
     } else {
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.arc(X, cy, r, 0, Math.PI * 2);
     }
-    ctx.fillStyle = e.flash > 0 ? '#fff' : '#22090c';
-    ctx.fill();
+    ctx.fillStyle = e.flash > 0 ? '#fff' : '#22090c'; ctx.fill();
     ctx.lineWidth = Math.max(2, r * 0.18);
-    ctx.strokeStyle = e.def.color;
-    ctx.stroke();
+    ctx.strokeStyle = e.def.color; ctx.stroke();
     ctx.fillStyle = e.def.color;
     ctx.font = `900 ${r * 0.9}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(e.def.boss ? '王' : e.def.name.replace(/[「」]/g, '')[0], cx, cy + r * 0.05);
-    if (e.blockedBy) {
-      ctx.strokeStyle = 'rgba(255,255,255,.5)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    const bw = T * (e.def.boss ? 0.8 : 0.55);
-    bar(cx - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, '#ff4d57');
-    ctx.restore();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(e.def.boss ? '王' : e.def.name.replace(/[「」]/g, '')[0], X, cy + r * 0.05);
+    const bw = T * (e.def.boss ? 0.8 : 0.5);
+    bar(X - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, '#ff4d57');
   }
 
   function drawFx(f) {
-    const T = S.T, k = f.t / f.life;
+    const k = f.t / f.life;
     ctx.globalAlpha = 1 - k;
     if (f.type === 'shot' || f.type === 'beam') {
+      const [x1, y1, s] = proj(f.x1, f.y1, 0.5), [x2, y2] = proj(f.x2, f.y2, 0.35);
       ctx.strokeStyle = f.color;
-      ctx.lineWidth = f.type === 'beam' ? Math.max(2, T * 0.06) : Math.max(1.5, T * 0.035);
-      ctx.beginPath();
-      ctx.moveTo(f.x1 * T, f.y1 * T);
-      ctx.lineTo(f.x2 * T, f.y2 * T);
-      ctx.stroke();
+      ctx.lineWidth = (f.type === 'beam' ? 0.06 : 0.035) * P.T * s + 1;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     } else if (f.type === 'slash') {
+      const [X, Y, s] = proj(f.x, f.y, 0.35);
       ctx.strokeStyle = f.color;
-      ctx.lineWidth = Math.max(2, T * 0.06);
+      ctx.lineWidth = Math.max(2, P.T * 0.06 * s);
       ctx.beginPath();
-      ctx.arc(f.x * T, f.y * T, T * 0.3, -2.4 + k * 1.5, -0.8 + k * 1.5);
+      ctx.arc(X, Y, P.T * 0.3 * s, -2.4 + k * 1.5, -0.8 + k * 1.5);
       ctx.stroke();
     } else if (f.type === 'ring') {
-      ctx.strokeStyle = f.color;
-      ctx.lineWidth = Math.max(2, T * 0.05);
-      ctx.beginPath();
-      ctx.arc(f.x * T, f.y * T, T * (f.r || 0.5) * (0.4 + k * 0.8), 0, Math.PI * 2);
-      ctx.stroke();
+      const [X, Y, s] = proj(f.x, f.y, 0.02);
+      const r = P.T * (f.r || 0.5) * (0.4 + k * 0.8) * s;
+      ellipse(X, Y, r, r * 0.42);
+      ctx.strokeStyle = f.color; ctx.lineWidth = Math.max(2, P.T * 0.05 * s); ctx.stroke();
     } else if (f.type === 'text') {
+      const [X, Y, s] = proj(f.x, f.y, 0.9);
+      const T = P.T * s;
+      ctx.font = `${f.big ? 700 : 900} ${Math.max(11, T * (f.big ? 0.24 : 0.22))}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 3;
+      const y = Y - k * 0.35 * T;
+      ctx.strokeText(f.text, X, y);
       ctx.fillStyle = f.color;
-      ctx.font = `${f.big ? 700 : 900} ${T * (f.big ? 0.24 : 0.22)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.strokeStyle = 'rgba(0,0,0,.8)';
-      ctx.lineWidth = 3;
-      const y = (f.y - k * 0.35) * T;
-      ctx.strokeText(f.text, f.x * T, y);
-      ctx.fillText(f.text, f.x * T, y);
+      ctx.fillText(f.text, X, y);
     }
     ctx.globalAlpha = 1;
   }
 
   function draw() {
-    const T = S.T;
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
     if (S.shake > 0) ctx.translate((Math.random() - 0.5) * 8 * S.shake, (Math.random() - 0.5) * 8 * S.shake);
-    ctx.fillStyle = '#0b0c0f';
-    ctx.fillRect(-10, -10, S.cols * T + 20, S.rows * T + 20);
-    for (let y = 0; y < S.rows; y++) for (let x = 0; x < S.cols; x++) drawTile(x, y, S.map[y][x]);
+    drawBackground();
+    for (let y = 0; y < S.rows; y++) for (let x = 0; x < S.cols; x++) drawTile(x, y);
 
-    // 적 이동 경로 (흐릿하게)
-    ctx.strokeStyle = 'rgba(255,77,87,.18)';
-    ctx.lineWidth = Math.max(2, T * 0.05);
-    ctx.setLineDash([T * 0.12, T * 0.12]);
+    // 적 이동 경로
+    ctx.strokeStyle = 'rgba(255,70,80,.35)';
+    ctx.lineWidth = Math.max(2, P.T * 0.04);
+    ctx.setLineDash([P.T * 0.1, P.T * 0.12]);
     for (const path of S.paths) {
       ctx.beginPath();
-      path.forEach((p, i) => (i ? ctx.lineTo(p.x * T, p.y * T) : ctx.moveTo(p.x * T, p.y * T)));
+      path.forEach((p, i) => { const [X, Y] = proj(p.x, p.y, 0.01); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
       ctx.stroke();
     }
     ctx.setLineDash([]);
+    drawGates();
 
     if (S.mode === 'placing') {
       const valid = [];
       for (let y = 0; y < S.rows; y++) for (let x = 0; x < S.cols; x++) if (canPlace(S.sel.def, x, y)) valid.push([x, y]);
-      fillTiles(valid, 'rgba(76,217,100,.22)', 'rgba(76,217,100,.6)');
+      fillTiles(valid, 'rgba(76,217,100,.28)', 'rgba(120,255,140,.75)');
     } else if (S.mode === 'direction') {
-      fillTiles(computeRange(S.sel.def.range, S.dir, S.tile.x, S.tile.y).list, 'rgba(255,170,60,.3)', 'rgba(255,170,60,.85)');
+      fillTiles(computeRange(S.sel.def.range, S.dir, S.tile.x, S.tile.y).list, 'rgba(255,150,40,.35)', 'rgba(255,170,60,.9)');
     } else if (S.mode === 'inspect' && S.inspect) {
-      fillTiles(S.inspect.rangeList, 'rgba(255,170,60,.25)', 'rgba(255,170,60,.7)');
+      fillTiles(S.inspect.rangeList, 'rgba(255,150,40,.3)', 'rgba(255,170,60,.8)');
     }
 
-    for (const op of S.ops) drawOp(op);
-    for (const e of S.enemies) if (!e.def.flying) drawEnemy(e);
-    for (const e of S.enemies) if (e.def.flying) drawEnemy(e);
-
-    if (S.mode === 'direction') {
-      const cx = (S.tile.x + 0.5) * T, cy = (S.tile.y + 0.5) * T;
-      ctx.fillStyle = 'rgba(0,0,0,.35)';
-      ctx.beginPath();
-      ctx.arc(cx, cy, T * 1.15, 0, Math.PI * 2);
-      ctx.fill();
-      drawFace(S.sel.def, cx, cy, T * 0.32, 0.75);
-      for (const [d, a] of Object.entries(DIR_ANGLE)) {
-        const on = d === S.dir;
-        drawArrowHead(cx + Math.cos(a) * T * 0.85, cy + Math.sin(a) * T * 0.85, a, T * (on ? 0.2 : 0.14), on ? '#ffcf3a' : 'rgba(255,255,255,.75)');
-      }
-    }
+    // 뒤쪽부터 앞쪽 순서로 유닛 그리기
+    const units = [
+      ...S.ops.map((o) => ({ y: o.y + 0.58, f: () => drawOp(o) })),
+      ...S.enemies.map((e) => ({ y: e.y + (e.def.flying ? 50 : 0), f: () => drawEnemy(e) })),
+    ].sort((a, b) => a.y - b.y);
+    for (const u of units) u.f();
 
     for (const f of S.effects) drawFx(f);
+
+    if (S.mode === 'direction') {
+      const h = tileH(S.tile.x, S.tile.y);
+      const [X, Y, s] = proj(S.tile.x + 0.5, S.tile.y + 0.58, h);
+      const T = P.T * s;
+      ellipse(X, Y, T * 1.15, T * 0.55);
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
+      drawBody(S.sel.def, X, Y, T, 0.8);
+      for (const [d, [dx, dy]] of Object.entries(DIRV)) {
+        const on = d === S.dir;
+        const [ax, ay] = proj(S.tile.x + 0.5 + dx * 0.95, S.tile.y + 0.58 + dy * 0.95, h);
+        drawArrowHead(ax, ay, Math.atan2(ay - Y, ax - X), T * (on ? 0.22 : 0.15), on ? '#ffcf3a' : 'rgba(255,255,255,.8)');
+      }
+    }
   }
 
   requestAnimationFrame(frame);
 
   // 디버그/테스트용
   window.Battle = { begin: beginBattle, stop: () => { S = null; } };
-  window.__game = { get state() { return S; }, beginBattle, deploy: (id, x, y, dir) => {
+  window.__game = { get state() { return S; }, beginBattle, proj: (u, v, h) => proj(u, v, h), deploy: (id, x, y, dir) => {
     const r = S.roster.find((q) => q.def.id === id);
     if (r) deploy(r, x, y, dir || 'right');
   } };

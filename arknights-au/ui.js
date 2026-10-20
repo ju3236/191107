@@ -17,6 +17,13 @@
     s.stars = s.stars && typeof s.stars === 'object' ? s.stars : {};
     s.squad = (Array.isArray(s.squad) ? s.squad : OPERATORS.map((o) => o.id)).filter((id) => OPS[id]).slice(0, SQUAD_MAX);
     if (!OPS[s.assistant]) s.assistant = OPERATORS[0].id;
+    // 새로 추가된 오퍼레이터는 기존 편성에도 자동으로 넣기
+    if (!Array.isArray(s.known)) s.known = Array.isArray(s.squad) && s.squad.length ? [...s.squad] : [];
+    for (const o of OPERATORS) {
+      if (s.known.includes(o.id)) continue;
+      s.known.push(o.id);
+      if (!s.squad.includes(o.id) && s.squad.length < SQUAD_MAX) s.squad.push(o.id);
+    }
     return s;
   })();
   function writeSave() {
@@ -31,6 +38,7 @@
     sniper: '<path d="M5 4c8 1.5 13.5 7 15 15"/><path d="M5 4 20 19"/><path d="M14 4h6v6"/><path d="M3 21l4-4"/>',
     caster: '<path d="M12 2.5l2.4 7.1 7.1 2.4-7.1 2.4L12 21.5l-2.4-7.1L2.5 12l7.1-2.4z"/>',
     medic: '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
+    specialist: '<path d="M15 3v9.5a5 5 0 1 1-10 0V11"/><path d="M5 11l-2 3M5 11l2.5 2.5"/><path d="M12 3h6"/>',
     home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/>',
     back: '<path d="M15 4l-8 8 8 8"/>',
     gear: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
@@ -56,7 +64,7 @@
   // ---------- 공통 그림 ----------
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function artHTML(def) {
-    if (def.image) return `<div class="art has-img" style="--c:${def.color}"><img src="${esc(def.image)}" alt="${esc(def.name)}"></div>`;
+    if (def.image) return `<div class="art has-img" style="--c:${def.color}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(def.image)}" alt="${esc(def.name)}"></div>`;
     return `<div class="art" style="--c:${def.color}">
       <span class="art-ico">${icon(def.class)}</span>
       <span class="art-en">${esc(def.en || '')}</span>
@@ -206,6 +214,7 @@
       save.stars = {};
       save.squad = OPERATORS.map((o) => o.id).slice(0, SQUAD_MAX);
       save.assistant = OPERATORS[0].id;
+      save.known = OPERATORS.map((o) => o.id);
       writeSave();
       closeModal();
       RENDER.home();
