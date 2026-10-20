@@ -1035,3 +1035,98 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
 .is-lineup > b { display: block; margin-bottom: 6px; font-size: 14px; }
 .is-lineup > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .is-bottom small { color: var(--muted); margin-left: 1px; }
+
+/* =====================================================================
+   아주 낮은 화면 (가로로 든 폰에서 브라우저·claude.ai 상단 바를 뺀 높이 약 300~380px)
+   ===================================================================== */
+@media (max-height: 380px) {
+  .topbar { height: 40px; padding-top: 2px; }
+  .nav-btn { height: 32px; width: 54px; font-size: 18px; }
+  .nav-btn.home { width: 64px; }
+  .res { height: 24px; }
+  .res b { font-size: 13px; }
+  /* 메인 */
+  .home-side { top: 44px; bottom: 6px; gap: 6px; }
+  .home-banner { padding: 5px 12px; }
+  .home-banner small { font-size: 8px; }
+  .home-banner b { font-size: 17px; }
+  .lv-ring { width: 54px; height: 54px; border-width: 2px; box-shadow: none; }
+  .lv-ring b { font-size: 22px; }
+  .lv-ring small { font-size: 9px; }
+  .home-name { padding: 3px 12px 3px 30px; }
+  .home-name b { font-size: 17px; }
+  .home-name small { font-size: 10px; }
+  .home-voice { min-height: 0; padding: 4px 12px 6px 14px; }
+  #home-voice-text { font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .voice-tag { display: none; }
+  .home-panel { top: 2%; bottom: 2%; gap: 5px; }
+  .hp-top { padding-bottom: 3px; gap: 8px; }
+  .hp-clock { display: none; }
+  .tile-row { gap: 5px; }
+  .tile { padding: 3px 10px; gap: 8px; min-height: 0; }
+  .tile-en { font-size: 16px; }
+  .tile-ko { font-size: 10px; margin-top: 1px; }
+  .tile-ico { font-size: 20px; }
+  .tile-terminal { gap: 10px; }
+  .tt-gauge { width: 54px; height: 54px; }
+  .tt-gauge::before { inset: 5px; }
+  .tt-num { font-size: 20px; }
+  .tt-sub { font-size: 10px; }
+  .tt-cap { display: none; }
+  .tt-body .tile-en { font-size: 22px; }
+  .tt-current { margin-top: 2px; font-size: 11px; padding-bottom: 1px; border-bottom-width: 2px; }
+  .tile-is .tile-en { font-size: 14px; }
+  .tile-is .is-ico { font-size: 22px; }
+  .tile-is-sub { font-size: 10px; }
+  /* 작전 목록 */
+  .ops-map, .ops-panel { top: 40px; }
+  .ops-panel { gap: 5px; }
+  .op-head b { font-size: 24px; }
+  .op-head small { font-size: 9px; }
+  .hex { width: 20px; height: 23px; }
+  .story-btn { width: 48px; font-size: 11px; }
+  .story-btn .ico { width: 34px; height: 34px; padding: 8px; }
+  .op-desc p { font-size: 12px; line-height: 1.45; margin-top: 4px; }
+  .tool-box { height: 40px; width: 96px; padding: 3px 8px; font-size: 12px; flex-direction: row; align-items: center; }
+  .tool-box .ico { font-size: 18px; }
+  .op-actions { height: 42px; }
+  /* 전투 */
+  .card { width: 54px; height: 66px; }
+  .card-face { font-size: 20px; }
+  .dp { width: 130px; }
+  .dp-num { font-size: 26px; }
+  .voice-line { bottom: 92px; font-size: 12px; }
+  .inspect { top: 46px; width: 190px; }
+  /* 통합전략 */
+  .is-top { min-height: 48px; height: 48px; }
+  .is-map-wrap { top: 48px; bottom: 48px; }
+  .is-bottom { height: 48px; }
+  .is-bottom .btn { padding: 6px 10px; font-size: 13px; }
+  .ist-floor b { font-size: 16px; }
+  .ist-res > span { padding: 2px 6px; font-size: 12px; }
+  .ist-res b { font-size: 14px; }
+  .is-node { width: 92px; padding: 4px; }
+  .is-node i { font-size: 18px; }
+  .is-node b { font-size: 12px; }
+  .is-hub { inset: 44px 0 0 0; padding-top: 6px; }
+  .is-title { font-size: 34px; }
+  .is-intro { margin: 8px 0; font-size: 13px; line-height: 1.6; }
+  .btn.big { padding: 8px 14px; font-size: 15px; }
+  .is-panel { padding: 12px 14px; }
+  .isp-head b { font-size: 18px; margin-bottom: 6px; }
+}
+
+/* 세로 화면 전투: HUD가 화면 안에 들어오도록 줄이고, 가로 모드 안내 */
+.rotate-hint { display: none; }
+@media (orientation: portrait) and (max-width: 760px) {
+  .hud { gap: 6px; }
+  .hud-stage { display: none; }
+  .hud-sq { width: 44px; height: 40px; font-size: 17px; }
+  .hud-sq > span { font-size: 24px; }
+  .hud-stats { padding: 2px 10px; flex: 1; min-width: 0; justify-content: center; }
+  .hud-stats .stat { padding: 0 8px; }
+  .hud-stats b { font-size: 20px; }
+  .hud-btns { gap: 4px; }
+  .rotate-hint { display: block; position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 3; pointer-events: none;
+    background: rgba(0,0,0,.6); color: #ffd27a; font-size: 12px; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+}
