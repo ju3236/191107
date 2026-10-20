@@ -31,7 +31,7 @@
   const starText = (n) => '◆'.repeat(n) + '◇'.repeat(3 - n);
 
   const key = (x, y) => x + ',' + y;
-  const walkable = (ch) => ch === '.' || ch === 'R' || ch === 'B';
+  const walkable = (ch) => ch === '.' || ch === '-' || ch === 'R' || ch === 'B';
 
   // 침입 지점에서 가장 가까운 방어 지점까지 BFS 경로
   function buildPath(map, start) {
@@ -82,6 +82,11 @@
     const spawns = [];
     map.forEach((row, y) => row.forEach((ch, x) => { if (ch === 'R') spawns.push({ x, y }); }));
     const paths = spawns.map((sp) => buildPath(map, sp));
+    // 비행 유닛은 길을 무시하고 방어 지점까지 곧장 날아감
+    const flyPaths = paths.map((p) => {
+      const a = p[0], b = p[p.length - 1], d = Math.hypot(b.x - a.x, b.y - a.y);
+      return [{ x: a.x, y: a.y, rem: d }, { x: b.x, y: b.y, rem: 0 }];
+    });
     const queue = [];
     for (const w of st.waves) {
       for (let i = 0; i < (w.count || 1); i++) queue.push({ t: w.t + i * (w.gap || 2), enemy: w.enemy, spawn: w.spawn || 0 });
@@ -92,7 +97,7 @@
 
     UI.go('battle');
     S = {
-      idx, st, squadIds, map, rows: map.length, cols: map[0].length, paths, queue,
+      idx, st, squadIds, map, rows: map.length, cols: map[0].length, paths, flyPaths, queue,
       total: queue.length, killed: 0, leaked: 0, time: 0,
       dp: st.startDp ?? 10, life: st.life ?? 3, maxLife: st.life ?? 3, deployLimit: st.deployLimit ?? 8,
       ops: [], enemies: [], effects: [],
@@ -268,14 +273,15 @@
   function refreshInspect(full) {
     const op = S.inspect;
     if (!op) return;
-    const d = op.def, sk = d.skill;
+    const d = op.def, sk = op.skill;
     if (full) {
       const face = $('#ins-face');
       face.className = 'face ins-face';
       face.style.cssText = faceStyle(d);
       face.textContent = faceText(d);
       $('#ins-name').textContent = d.name;
-      $('#ins-class').textContent = `${CLASSES[d.class].name} · 저지 ${d.block}`;
+      const arch = d.archetype && ARCHETYPES[d.archetype];
+      $('#ins-class').textContent = `${CLASSES[d.class].name}${arch ? ' · ' + arch.name : ''} · 저지 ${opBlock(op)}`;
       $('#ins-skill-name').textContent = sk.name + (sk.trigger === 'auto' ? ' (자동)' : '');
       $('#ins-skill-desc').textContent = sk.desc;
     }
@@ -283,44 +289,75 @@
       <span>방어 <b>${Math.round(opDef(op))}</b></span><span>저항 <b>${d.res || 0}</b></span>`;
     const fill = $('#ins-sp-fill');
     if (op.skillT > 0) {
-      fill.style.width = (op.skillT / sk.duration) * 100 + '%';
+      const inf = op.skillT === Infinity;
+      fill.style.width = (inf ? 100 : (op.skillT / sk.duration) * 100) + '%';
       fill.classList.add('active');
-      $('#ins-sp-text').textContent = `발동 중 ${op.skillT.toFixed(1)}s`;
+      $('#ins-sp-text').textContent = op.charges > 0 ? `발동 중 · ${op.charges}회 남음` : inf ? '발동 중' : `발동 중 ${op.skillT.toFixed(1)}s`;
     } else {
-      fill.style.width = Math.min(1, op.sp / sk.sp) * 100 + '%';
+      fill.style.width = (sk.sp ? Math.min(1, op.sp / sk.sp) : 0) * 100 + '%';
       fill.classList.remove('active');
-      $('#ins-sp-text').textContent = `SP ${Math.floor(op.sp)}/${sk.sp}`;
+      $('#ins-sp-text').textContent = sk.spType === 'deploy' ? '배치 시 발동 (재배치하면 다시 발동)' : `SP ${Math.floor(op.sp)}/${sk.sp}`;
     }
     $('#ins-skill').disabled = !(sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp);
     $('#ins-skill').textContent = sk.trigger === 'auto' ? '자동 발동' : '스킬 발동';
   }
 
   // =====================================================================
-  //  오퍼레이터
+  //  오퍼레이터 — 재능 · 스킬 · 세부 직군 특성
   // =====================================================================
-  const eff = (op) => (op.skillT > 0 ? op.def.skill.effect || {} : {});
-  const opAtk = (op) => op.def.atk * (eff(op).atk || 1);
-  const opDef = (op) => op.def.def * (eff(op).def || 1);
-  const opInterval = (op) => op.def.interval * (eff(op).interval || 1);
+  const skillsOf = (def) => def.skills || (def.skill ? [def.skill] : []);
+  function chosenSkill(def) {
+    const list = skillsOf(def);
+    return list[UI.skillIndex(def)] || list[0] || { name: '-', desc: '', sp: 999, duration: 0, effect: {} };
+  }
+  function talentFx(def) {
+    const t = { atk: 1, hp: 1, def: 1, speed: 1, dodge: 0 };
+    for (const tal of def.talents || []) {
+      for (const [k, v] of Object.entries(tal.effect || {})) {
+        if (k in t && k !== 'dodge') t[k] *= v;
+        else if (k === 'dodge') t.dodge += v;
+        else t[k] = v;
+      }
+    }
+    return t;
+  }
+  const eff = (op) => (op.skillT > 0 ? op.skill.effect || {} : {});
+  const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1);
+  const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0));
+  const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1);
+  const opBlock = (op) => op.def.block + (eff(op).block || 0);
+  const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0);
   const isGround = (def) => CLASSES[def.class].tile === 'ground';
+  const isFly = (def) => !!(def.fly || def.flying);
+
+  function setRange(op, range) {
+    const rg = computeRange(range, op.dir, op.x, op.y);
+    op.range = rg.set;
+    op.rangeList = rg.list;
+  }
+  const alliesNear = (op, r) => S.ops.filter((o) => o.alive && Math.hypot(o.x - op.x, o.y - op.y) <= r);
+  const enemiesNear = (op, r) => S.enemies.filter((e) => e.alive && Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) <= r);
 
   function deploy(r, tx, ty, dir) {
     if (S.dp < r.def.cost) { toast('배치 코스트가 부족합니다'); setMode('idle'); return; }
     if (S.ops.length >= S.deployLimit) { toast('배치 가능 인원을 초과했습니다'); setMode('idle'); return; }
-    const def = r.def;
+    const def = r.def, tal = talentFx(def), skill = chosenSkill(def);
     S.dp -= def.cost;
-    const rg = computeRange(def.range, dir, tx, ty);
+    const maxHp = Math.round(def.hp * tal.hp);
     const op = {
-      def, roster: r, x: tx, y: ty, dir, hp: def.hp, maxHp: def.hp, atkCd: 0.3,
-      sp: def.skill.initSp || 0, skillT: 0, blocked: [], alive: true, flash: 0,
-      range: rg.set, rangeList: rg.list, born: S.time,
+      def, tal, skill, roster: r, x: tx, y: ty, dir, hp: maxHp, maxHp, atkCd: 0.3,
+      sp: skill.initSp || 0, skillT: 0, charges: 0, charge: 0, burst: null, shield: 0, chill: 0, auraDef: 0,
+      firstStrike: !!tal.firstStrike, lastStandUsed: false,
+      blocked: [], alive: true, flash: 0, born: S.time,
     };
+    setRange(op, def.range);
     S.ops.push(op);
     sfx('deploy');
     r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
     addText(tx + 0.5, ty - 0.1, def.quote, def.color, 1.6, true);
     setMode('idle');
+    if (skill.spType === 'deploy') activateSkill(op);
   }
 
   function removeOp(op, died) {
@@ -341,27 +378,60 @@
   }
 
   function activateSkill(op) {
-    const sk = op.def.skill, ef = sk.effect || {};
-    if (op.skillT > 0 || op.sp < sk.sp) return;
+    const sk = op.skill, ef = sk.effect || {};
+    if (op.skillT > 0 || op.sp < sk.sp) return false;
+    sfx(ef.strike ? 'strike' : 'skill');
+    const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
     if (ef.dp) S.dp = Math.min(MAX_DP, S.dp + ef.dp);
     if (ef.heal) healOp(op, op.maxHp * ef.heal);
-    sfx(ef.strike ? 'strike' : 'skill');
-    if (ef.strike) {
-      for (const t of pickTargets(op, 99)) {
-        addFx({ type: 'slash', x: t.x, y: t.y, life: 0.3, color: '#ffcf3a' });
-        hitEnemy(t, opAtk(op) * ef.strike, 'phys');
+    if (ef.shield) op.shield = op.maxHp * ef.shield;
+    if (ef.nextHit) op.charge = ef.nextHit;
+    if (ef.hits && !sk.duration) op.burst = ef.hits;
+    if (ef.allyHeal) {
+      for (const a of alliesNear(op, ef.allyHeal.radius)) {
+        if (a.hp >= a.maxHp) continue;
+        healOp(a, atk * ef.allyHeal.mul);
+        addFx({ type: 'beam', x1: op.x + 0.5, y1: op.y + 0.5, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.3, color: '#7dff9a' });
       }
+      sfx('heal');
+    }
+    if (ef.strike) {
+      for (const t of enemiesNear(op, ef.strike.radius)) {
+        addFx({ type: 'slash', x: t.x, y: t.y, life: 0.3, color: '#ffcf3a' });
+        hitEnemy(t, atk * ef.strike.mul, 'phys');
+        if (ef.strike.stun) t.stun = Math.max(t.stun || 0, ef.strike.stun);
+      }
+      addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.4, color: '#ffcf3a', r: ef.strike.radius });
     }
     op.sp = 0;
-    op.skillT = sk.duration || 0;
+    op.skillT = sk.duration === -1 ? Infinity : sk.duration || 0;
+    op.charges = ef.charges || 0;
+    if (ef.range && op.skillT > 0) setRange(op, ef.range);
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.5, color: '#ffcf3a' });
     addText(op.x + 0.5, op.y - 0.1, sk.name, '#ffcf3a', 1.2, true);
+    return true;
   }
 
-  function healOp(op, amt) {
+  // 지속형 스킬이 끝날 때
+  function endSkill(op) {
+    const ef = op.skill.effect || {};
+    op.skillT = 0;
+    op.charges = 0;
+    if (ef.range) setRange(op, op.def.range);
+    if (ef.shield) op.shield = 0;
+    if (ef.endBlast) {
+      const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
+      for (const t of enemiesNear(op, ef.endBlast.radius)) hitEnemy(t, atk * ef.endBlast.mul, 'phys');
+      addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.5, color: '#ff9a1f', r: ef.endBlast.radius });
+      sfx('strike');
+      if (ef.endBlast.selfDmg) op.hp = Math.max(1, op.hp - op.maxHp * ef.endBlast.selfDmg);
+    }
+  }
+
+  function healOp(op, amt, quiet) {
     const before = op.hp;
     op.hp = Math.min(op.maxHp, op.hp + amt);
-    if (op.hp > before) addText(op.x + 0.5, op.y + 0.3, '+' + Math.round(op.hp - before), '#7dff9a', 0.7);
+    if (!quiet && op.hp > before) addText(op.x + 0.5, op.y + 0.3, '+' + Math.round(op.hp - before), '#7dff9a', 0.7);
   }
 
   function remaining(e) {
@@ -371,33 +441,41 @@
 
   function pickTargets(op, n) {
     const ground = isGround(op.def);
-    const sniper = op.def.class === 'sniper';
+    const antiAir = op.def.class === 'sniper';
+    // 공격수: 저지 중인 적 전부 동시 공격
+    if (op.def.archetype === 'centurion') n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
-      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && e.def.flying))));
+      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && isFly(e.def)))));
     list.sort((a, b) =>
       (b.blockedBy === op) - (a.blockedBy === op) ||
-      (sniper ? (!!b.def.flying) - (!!a.def.flying) : 0) ||
+      (antiAir ? isFly(b.def) - isFly(a.def) : 0) ||
       remaining(a) - remaining(b));
     return list.slice(0, n);
   }
 
+  function hasWork(op) {
+    const ef = op.skill.effect || {};
+    if (ef.allyHeal) return alliesNear(op, ef.allyHeal.radius).some((o) => o.hp < o.maxHp);
+    if (op.def.class === 'medic') return S.ops.some((o) => o.hp < o.maxHp && op.range.has(key(o.x, o.y)));
+    return pickTargets(op, 1).length > 0;
+  }
+
   function updateOp(op, dt) {
-    const sk = op.def.skill;
+    const sk = op.skill, ef = sk.effect || {};
     op.flash = Math.max(0, op.flash - dt);
+    op.chill = Math.max(0, op.chill - dt);
     op.blocked = op.blocked.filter((e) => e.alive && e.blockedBy === op);
 
     if (op.skillT > 0) {
-      op.skillT = Math.max(0, op.skillT - dt);
-      if (sk.effect && sk.effect.regen) op.hp = Math.min(op.maxHp, op.hp + op.maxHp * sk.effect.regen * dt);
-    } else {
-      op.sp = Math.min(sk.sp, op.sp + dt);
-      if (sk.trigger === 'auto' && op.sp >= sk.sp) {
-        // 자동 스킬은 공격 대상이 있을 때만 발동
-        const hasWork = op.def.class === 'medic'
-          ? S.ops.some((o) => o.hp < o.maxHp && op.range.has(key(o.x, o.y)))
-          : pickTargets(op, 1).length > 0;
-        if (hasWork) activateSkill(op);
+      if (op.skillT !== Infinity) {
+        op.skillT -= dt;
+        if (op.skillT <= 0) endSkill(op);
       }
+      if (ef.regen) healOp(op, op.maxHp * ef.regen * dt, true);
+      if (ef.allyRegen) for (const a of alliesNear(op, ef.allyRegen.radius)) healOp(a, opAtk(op) * ef.allyRegen.mul * dt, true);
+    } else if (sk.spType !== 'deploy') {
+      if (!sk.spType || sk.spType === 'time') op.sp = Math.min(sk.sp, op.sp + dt);
+      if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && hasWork(op)) activateSkill(op);
     }
 
     op.atkCd -= dt;
@@ -416,26 +494,42 @@
         addFx({ type: 'beam', x1: cx, y1: cy, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.25, color: '#7dff9a' });
       }
       sfx('heal');
-      op.atkCd = opInterval(op);
+      afterAttack(op);
       return;
     }
 
     const targets = pickTargets(op, n);
     if (!targets.length) return;
     const type = op.def.dmgType || (op.def.class === 'caster' ? 'arts' : 'phys');
-    const atk = opAtk(op), splash = eff(op).splash;
+    let mul = 1;
+    if (op.firstStrike) { mul *= op.tal.firstStrike; op.firstStrike = false; addText(cx, op.y + 0.1, '발도!', '#ffcf3a', 0.8, true); }
+    if (op.charge) { mul *= op.charge; op.charge = 0; }
+    const hits = op.burst || eff(op).hits;
+    op.burst = null;
+    const count = hits ? hits.count : 1, hitMul = hits ? hits.mul : 1;
+    const atk = opAtk(op) * mul * hitMul, splash = eff(op).splash;
     sfx(type === 'arts' ? 'arts' : isGround(op.def) ? 'slash' : 'shot');
     for (const t of targets) {
-      if (isGround(op.def)) addFx({ type: 'slash', x: t.x, y: t.y, life: 0.15, color: op.def.color });
-      else addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x, y2: t.y, life: 0.15, color: type === 'arts' ? '#c89bff' : '#fff2b3' });
-      hitEnemy(t, atk, type);
-      if (splash) {
-        addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#c89bff', r: splash });
-        for (const o of S.enemies) {
-          if (o !== t && o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= splash) hitEnemy(o, atk, type);
+      for (let i = 0; i < count; i++) {
+        if (isGround(op.def)) addFx({ type: 'slash', x: t.x, y: t.y, life: 0.15, color: op.def.color });
+        else addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x + (i ? (Math.random() - 0.5) * 0.2 : 0), y2: t.y, life: 0.15, color: type === 'arts' ? '#c89bff' : '#fff2b3' });
+        const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
+        hitEnemy(t, atk * crit, type, crit > 1);
+        if (splash) {
+          for (const o of S.enemies) {
+            if (o !== t && o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= splash) hitEnemy(o, atk, type);
+          }
         }
       }
+      if (splash) addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#c89bff', r: splash });
     }
+    afterAttack(op);
+  }
+
+  function afterAttack(op) {
+    const sk = op.skill;
+    if (sk.spType === 'attack' && op.skillT <= 0) op.sp = Math.min(sk.sp, op.sp + 1);
+    if (op.charges > 0 && --op.charges === 0 && op.skillT > 0) endSkill(op);
     op.atkCd = opInterval(op);
   }
 
@@ -444,36 +538,70 @@
     return Math.max(atk - def, atk * 0.05);
   }
 
-  function hitOp(op, atk, type) {
-    const dmg = calcDamage(atk, type, opDef(op), op.def.res || 0);
+  function hitOp(op, atk, type, src) {
+    if (!op.alive) return;
+    if (type === 'phys' && Math.random() < opDodge(op)) { addText(op.x + 0.5, op.y + 0.25, '회피', '#cfd3d6', 0.5); return; }
+    let dmg = calcDamage(atk, type, opDef(op), op.def.res || 0);
+    const g = op.tal.guard;
+    if (g && op.hp / op.maxHp <= g.below) dmg *= g.taken;
+    if (op.shield > 0) {
+      const absorbed = Math.min(op.shield, dmg);
+      op.shield -= absorbed;
+      dmg -= absorbed;
+      if (dmg <= 0) { addText(op.x + 0.5, op.y + 0.25, '보호막', '#7fd8ff', 0.5); return; }
+    }
     op.hp -= dmg;
     op.flash = 0.12;
     sfx('hurt');
     addText(op.x + 0.5, op.y + 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ff8c8f', 0.6);
-    if (op.hp <= 0 && op.alive) removeOp(op, true);
+    if (op.skill.spType === 'hit' && op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + 1);
+    if (src && src.def.chill) op.chill = 3;
+    const ls = op.tal.lastStand;
+    if (ls && !op.lastStandUsed && op.hp > 0 && op.hp / op.maxHp <= ls.below) {
+      op.lastStandUsed = true;
+      healOp(op, op.maxHp * ls.heal);
+      addText(op.x + 0.5, op.y - 0.1, '마지막 정리', '#ffcf3a', 1, true);
+    }
+    if (op.hp <= 0) removeOp(op, true);
   }
 
   // =====================================================================
-  //  적
+  //  적 — 특수 능력
   // =====================================================================
   function spawnEnemy(q) {
     const def = ENEMIES[q.enemy];
     if (!def) { console.warn('알 수 없는 적:', q.enemy); S.total--; return; }
-    const path = S.paths[q.spawn] || S.paths[0];
+    const i = S.paths[q.spawn] ? q.spawn : 0;
+    const path = isFly(def) ? S.flyPaths[i] : S.paths[i];
     S.enemies.push({
       def, path, pi: 1, x: path[0].x, y: path[0].y,
       hp: def.hp, maxHp: def.hp, atkCd: def.interval * 0.5, blockedBy: null, alive: true, flash: 0,
+      stun: 0, atkMul: 1, revived: false, blinked: false,
     });
     if (def.boss) { sfx('boss'); toast(`경고 — ${def.name} 출현`); S.shake = 0.5; } else sfx('spawn');
   }
 
-  function hitEnemy(e, atk, type) {
+  function hitEnemy(e, atk, type, crit) {
     if (!e.alive) return;
     const dmg = calcDamage(atk, type, e.def.def, e.def.res || 0);
     e.hp -= dmg;
     e.flash = 0.1;
-    addText(e.x, e.y - 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ffffff', 0.5);
-    if (e.hp <= 0) { e.alive = false; S.killed++; sfx('kill'); addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color }); }
+    addText(e.x, e.y - 0.25, Math.round(dmg) + (crit ? '!' : ''), crit ? '#ffcf3a' : type === 'arts' ? '#d9b3ff' : '#ffffff', 0.5, crit);
+    if (e.hp > 0) return;
+    if (e.def.revive && !e.revived) {
+      e.revived = true;
+      e.hp = e.maxHp;
+      e.atkMul = e.def.revive.atk || 1;
+      sfx('boss');
+      S.shake = 0.4;
+      addText(e.x, e.y - 0.4, '부활', '#aee3ff', 1.2, true);
+      toast(`${e.def.name}이(가) 다시 일어섰습니다!`);
+      return;
+    }
+    e.alive = false;
+    S.killed++;
+    sfx('kill');
+    addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color });
   }
 
   function tryBlock(e) {
@@ -481,8 +609,17 @@
     for (const op of S.ops) {
       if (!op.alive || !isGround(op.def)) continue;
       const load = op.blocked.reduce((s, b) => s + (b.alive && b.blockedBy === op ? b.def.weight || 1 : 0), 0);
-      if (load + w > op.def.block) continue;
+      if (load + w > opBlock(op)) continue;
       if (Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) < 0.7) {
+        if (e.def.blink && !e.blinked) {
+          // 크라운슬레이어: 저지당하면 목표의 뒤로 순간이동
+          e.blinked = true;
+          addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color });
+          moveEnemy(e, 1.6 / e.def.speed);
+          addText(e.x, e.y - 0.4, '순간이동', e.def.color, 0.8, true);
+          sfx('retreat');
+          return;
+        }
         e.blockedBy = op;
         op.blocked.push(e);
         return;
@@ -492,7 +629,7 @@
 
   function moveEnemy(e, dt) {
     let step = e.def.speed * dt;
-    while (step > 0) {
+    while (step > 0 && e.alive) {
       const p = e.path[e.pi];
       const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
       if (d <= step) {
@@ -513,15 +650,39 @@
     toast('방어선이 돌파당했습니다!');
   }
 
-  function updateEnemy(e, dt) {
+  function enemyAtk(e) {
+    const en = e.def.enrage;
+    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1);
+  }
+
+  function updateEnemy(e, dt, healAura) {
     e.flash = Math.max(0, e.flash - dt);
+    if (e.def.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * e.def.regen * healAura * dt);
+    if (e.stun > 0) { e.stun -= dt; return; }
     if (e.blockedBy && !e.blockedBy.alive) e.blockedBy = null;
-    if (!e.blockedBy && !e.def.flying) tryBlock(e);
+    if (!e.blockedBy && !isFly(e.def) && !e.def.unblockable) tryBlock(e);
     if (!e.blockedBy) moveEnemy(e, dt);
     if (!e.alive) return;
 
     e.atkCd -= dt;
     if (e.atkCd > 0) return;
+
+    // 메피스토: 공격 대신 주변 적 치료
+    if (e.def.healer) {
+      const hurt = S.enemies
+        .filter((o) => o.alive && o !== e && o.hp < o.maxHp && Math.hypot(o.x - e.x, o.y - e.y) <= e.def.range)
+        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)
+        .slice(0, e.def.healer.count);
+      if (!hurt.length) return;
+      for (const o of hurt) {
+        o.hp = Math.min(o.maxHp, o.hp + enemyAtk(e));
+        addFx({ type: 'beam', x1: e.x, y1: e.y, x2: o.x, y2: o.y, life: 0.3, color: '#b6ff6b' });
+        addText(o.x, o.y - 0.3, '+' + Math.round(enemyAtk(e)), '#b6ff6b', 0.6);
+      }
+      e.atkCd = e.def.interval;
+      return;
+    }
+
     let target = e.blockedBy;
     if (!target && e.def.range > 0) {
       let best = Infinity;
@@ -537,7 +698,14 @@
     } else {
       addFx({ type: 'slash', x: target.x + 0.5, y: target.y + 0.5, life: 0.15, color: '#ff5c5c' });
     }
-    hitOp(target, e.def.atk, type);
+    const atk = enemyAtk(e);
+    if (e.def.aoe) {
+      addFx({ type: 'ring', x: target.x + 0.5, y: target.y + 0.5, life: 0.35, color: e.def.arts ? '#aee3ff' : '#ff7a2f', r: e.def.aoe });
+      for (const op of [...S.ops]) {
+        if (op !== target && Math.hypot(op.x - target.x, op.y - target.y) <= e.def.aoe) hitOp(op, atk, type, e);
+      }
+    }
+    hitOp(target, atk, type, e);
     e.atkCd = e.def.interval;
   }
 
@@ -558,8 +726,15 @@
     S.shake = Math.max(0, S.shake - dt);
     while (S.queue.length && S.queue[0].t <= S.time) spawnEnemy(S.queue.shift());
     for (const r of S.roster) if (r.cd > 0) r.cd = Math.max(0, r.cd - dt);
+    // 가디언 재능: 주변 아군 방어력 오라
+    for (const op of S.ops) op.auraDef = 0;
+    for (const g of S.ops) {
+      const a = g.tal.auraDef;
+      if (a) for (const o of alliesNear(g, a.radius)) o.auraDef = Math.max(o.auraDef, a.def);
+    }
     for (const op of [...S.ops]) if (op.alive) updateOp(op, dt);
-    for (const e of S.enemies) if (e.alive) updateEnemy(e, dt);
+    const healAura = S.enemies.reduce((m, e) => (e.alive && e.def.healAura ? Math.max(m, e.def.healAura) : m), 1);
+    for (const e of S.enemies) if (e.alive) updateEnemy(e, dt, healAura);
     S.enemies = S.enemies.filter((e) => e.alive);
     for (const f of S.effects) f.t += dt;
     S.effects = S.effects.filter((f) => f.t < f.life);
@@ -878,12 +1053,20 @@
   function drawOp(op) {
     const h = tileH(op.x, op.y);
     const [X, Y, s] = proj(op.x + 0.5, op.y + 0.58, h);
-    const T = P.T * s, sk = op.def.skill;
+    const T = P.T * s, sk = op.skill;
     ellipse(X, Y, T * 0.34, T * 0.12);
     ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill();
     if (op.skillT > 0) {
       ellipse(X, Y, T * (0.44 + Math.sin(S.time * 8) * 0.03), T * 0.17);
       ctx.strokeStyle = '#ffcf3a'; ctx.lineWidth = Math.max(2, T * 0.05); ctx.stroke();
+    }
+    if (op.shield > 0) {
+      ellipse(X, Y - T * 0.5, T * 0.42, T * 0.62);
+      ctx.strokeStyle = 'rgba(127,216,255,.7)'; ctx.lineWidth = Math.max(1.5, T * 0.03); ctx.stroke();
+    }
+    if (op.chill > 0) {
+      ellipse(X, Y, T * 0.36, T * 0.13);
+      ctx.fillStyle = 'rgba(174,227,255,.35)'; ctx.fill();
     }
     // 바라보는 방향 (주황 화살표)
     const [dx, dy] = DIRV[op.dir];
@@ -893,7 +1076,7 @@
     // 체력/SP
     const bw = T * 0.72, bx = X - bw / 2, by = Y + T * 0.1;
     bar(bx, by, bw, Math.max(3, T * 0.055), op.hp / op.maxHp, '#4cd964');
-    const spRatio = op.skillT > 0 ? op.skillT / sk.duration : op.sp / sk.sp;
+    const spRatio = op.skillT > 0 ? (op.skillT === Infinity ? 1 : op.skillT / sk.duration) : sk.sp ? op.sp / sk.sp : 0;
     bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
     if (sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp) {
       const bob = Math.sin(S.time * 6) * T * 0.04;
@@ -910,12 +1093,12 @@
   function drawEnemy(e) {
     const [X, Y, s] = proj(e.x, e.y, 0);
     const T = P.T * s, r = T * (e.def.boss ? 0.34 : 0.23);
-    const lift = e.def.flying ? T * 0.6 + Math.sin(S.time * 4 + e.x) * T * 0.04 : T * 0.02;
+    const lift = isFly(e.def) ? T * 0.6 + Math.sin(S.time * 4 + e.x) * T * 0.04 : T * 0.02;
     ellipse(X, Y, r * 1.05, r * 0.4);
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
     const cy = Y - r - lift;
     ctx.beginPath();
-    if (e.def.flying) {
+    if (isFly(e.def)) {
       ctx.moveTo(X, cy - r); ctx.lineTo(X + r, cy); ctx.lineTo(X, cy + r); ctx.lineTo(X - r, cy); ctx.closePath();
     } else {
       ctx.arc(X, cy, r, 0, Math.PI * 2);
@@ -928,7 +1111,12 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(e.def.boss ? '王' : e.def.name.replace(/[「」]/g, '')[0], X, cy + r * 0.05);
     const bw = T * (e.def.boss ? 0.8 : 0.5);
-    bar(X - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, '#ff4d57');
+    bar(X - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
+    if (e.stun > 0) {
+      ctx.fillStyle = '#ffcf3a';
+      ctx.font = `900 ${T * 0.2}px sans-serif`;
+      ctx.fillText('★', X + r * 0.9, cy - r);
+    }
   }
 
   function drawFx(f) {
@@ -996,7 +1184,7 @@
     // 뒤쪽부터 앞쪽 순서로 유닛 그리기
     const units = [
       ...S.ops.map((o) => ({ y: o.y + 0.58, f: () => drawOp(o) })),
-      ...S.enemies.map((e) => ({ y: e.y + (e.def.flying ? 50 : 0), f: () => drawEnemy(e) })),
+      ...S.enemies.map((e) => ({ y: e.y + (isFly(e.def) ? 50 : 0), f: () => drawEnemy(e) })),
     ].sort((a, b) => a.y - b.y);
     for (const u of units) u.f();
 

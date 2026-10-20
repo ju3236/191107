@@ -17,6 +17,7 @@
     s.stars = s.stars && typeof s.stars === 'object' ? s.stars : {};
     s.squad = (Array.isArray(s.squad) ? s.squad : OPERATORS.map((o) => o.id)).filter((id) => OPS[id]).slice(0, SQUAD_MAX);
     if (!OPS[s.assistant]) s.assistant = OPERATORS[0].id;
+    s.skills = s.skills && typeof s.skills === 'object' ? s.skills : {};
     // 새로 추가된 오퍼레이터는 기존 편성에도 자동으로 넣기
     if (!Array.isArray(s.known)) s.known = Array.isArray(s.squad) && s.squad.length ? [...s.squad] : [];
     for (const o of OPERATORS) {
@@ -72,10 +73,19 @@
     </div>`;
   }
   const stars = (n) => '★'.repeat(n || 3);
+  const skillsOf = (def) => def.skills || (def.skill ? [def.skill] : []);
+  function skillIndex(def) {
+    const n = skillsOf(def).length;
+    const i = save.skills[def.id];
+    return Number.isInteger(i) && i >= 0 && i < n ? i : n - 1;
+  }
+  const SP_TYPE = { time: '자동 회복', attack: '공격 회복', hit: '피격 회복', deploy: '배치 시 발동' };
+  const durText = (sk) => (sk.duration > 0 ? ` · ${sk.duration}초` : sk.duration === -1 ? ' · 지속' : '');
   function cardHTML(def, extra = '') {
     return `<div class="op-card ${extra}" style="--c:${def.color}">
       <div class="oc-art">${artHTML(def)}</div>
       <div class="oc-top"><span class="oc-class">${icon(def.class)}</span><span class="oc-stars">${stars(def.rarity)}</span></div>
+      ${skillsOf(def).length > 1 ? `<span class="oc-skill">S${skillIndex(def) + 1}</span>` : ''}
       <div class="oc-foot">
         <div class="oc-cost"><b>${def.cost}</b><small>COST</small></div>
         <div class="oc-name">${esc(def.name)}</div>
@@ -283,7 +293,7 @@
 
   RENDER.detail = (id) => {
     if (id) detailId = id;
-    const o = OPS[detailId], sk = o.skill, cls = CLASSES[o.class];
+    const o = OPS[detailId], cls = CLASSES[o.class], arch = o.archetype && ARCHETYPES[o.archetype];
     $('#detail-bg').style.setProperty('--c', o.color);
     $('#detail-art').innerHTML = artHTML(o);
     $('#detail-stats').innerHTML = `
@@ -295,13 +305,19 @@
     $('#detail-stars').textContent = stars(o.rarity);
     $('#detail-en').textContent = o.en || '';
     $('#detail-name').textContent = o.name;
-    $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>`;
+    $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${esc(arch.name)}</small>` : ''}`;
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
     $('#detail-tags').innerHTML = [cls.tile === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
     $('#detail-cost').textContent = o.cost;
-    $('#detail-skill').innerHTML = `<div class="sk-ico" style="--c:${o.color}">${icon(o.class)}<small>SP ${sk.sp}</small></div>
-      <div><b>${esc(sk.name)}</b><em>${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'}${sk.duration ? ` · ${sk.duration}초` : ''}</em><p>${esc(sk.desc)}</p></div>`;
-    $('#detail-race').textContent = `${o.race} · ${cls.name}`;
+    const list = skillsOf(o), cur = skillIndex(o);
+    $('#detail-skill').innerHTML = list.map((sk, i) => `
+      <button class="skill-row ${i === cur ? 'on' : ''}" data-skill="${i}">
+        <div class="sk-ico" style="--c:${o.color}"><b>S${i + 1}</b><small>${sk.spType === 'deploy' ? '배치' : 'SP ' + sk.sp}</small></div>
+        <div><b>${esc(sk.name)}</b><em>${SP_TYPE[sk.spType || 'time']} · ${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'}${durText(sk)}</em><p>${esc(sk.desc)}</p></div>
+      </button>`).join('') + (list.length > 1 ? '<div class="skill-hint">눌러서 전투에 쓸 스킬을 고르세요</div>' : '');
+    $('#detail-talents').innerHTML = `<div class="trait"><span class="chip">특성</span>${esc(arch ? arch.trait : cls.trait)}</div>` +
+      (o.talents || []).map((t) => `<div class="talent"><b>${esc(t.name)}</b><p>${esc(t.desc)}</p></div>`).join('');
+    $('#detail-race').textContent = `${o.race} · ${o.faction || cls.name}`;
     $('#detail-profile').textContent = o.profile;
     $('#detail-quote').textContent = `“${o.quote}”`;
     const isA = save.assistant === o.id;
@@ -314,6 +330,13 @@
     i = (i + d + list.length) % list.length;
     RENDER.detail(list[i].id);
   }
+  $('#detail-skill').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-skill]');
+    if (!b) return;
+    save.skills[detailId] = +b.dataset.skill;
+    writeSave();
+    RENDER.detail();
+  });
   $('#detail-prev').addEventListener('click', () => stepDetail(-1));
   $('#detail-next').addEventListener('click', () => stepDetail(1));
   $('#detail-assist').addEventListener('click', () => {
@@ -499,11 +522,12 @@
     const rows = Object.entries(count).map(([id, n]) => {
       const e = ENEMIES[id];
       if (!e) return '';
-      const flags = [e.boss && '보스', e.flying && '비행', e.range > 0 && '원거리', e.arts && '마법 피해'].filter(Boolean);
+      const flags = [e.boss && '보스', e.elite && '엘리트', e.fly && '비행', e.unblockable && '저지 불가', e.range > 0 && `원거리 ${e.range}`, e.arts && '마법 피해',
+        e.aoe && '범위 공격', e.healer && '치료', e.blink && '순간이동', e.revive && '부활', e.enrage && '광폭화', e.chill && '냉기', e.regen && 'HP 회복'].filter(Boolean);
       return `<div class="enemy-row">
-        <span class="enemy-ico" style="--c:${e.color}">${e.boss ? '王' : esc(e.name.replace(/[「」]/g, '')[0])}</span>
+        <span class="enemy-ico" style="--c:${e.color}" title="${esc(e.code || '')}">${e.boss ? '王' : esc(e.name.replace(/[「」]/g, '')[0])}</span>
         <div class="enemy-info">
-          <b>${esc(e.name)} <small>×${n}</small></b>
+          <b><small class="e-code">${esc(e.code || '')}</small> ${esc(e.name)} <small>×${n}</small></b>
           <div class="enemy-stats">체력 ${e.hp} · 공격 ${e.atk} · 방어 ${e.def} · 저항 ${e.res || 0}</div>
           <div class="enemy-desc">${flags.map((f) => `<span class="flag">${f}</span>`).join('')}${esc(e.desc || '')}</div>
         </div>
@@ -581,6 +605,6 @@
   // ---------- 시작 ----------
   document.title = GAME_INFO.title;
   hydrateIcons();
-  window.UI = { save, writeSave, go, back, icon, toast, playDialog, startOperation };
+  window.UI = { save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex };
   RENDER.home();
 })();
