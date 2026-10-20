@@ -28,6 +28,7 @@
     caster: '<path d="M12 2.5l2.4 7.1 7.1 2.4-7.1 2.4L12 21.5l-2.4-7.1L2.5 12l7.1-2.4z"/>',
     medic: '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
     specialist: '<path d="M15 3v9.5a5 5 0 1 1-10 0V11"/><path d="M5 11l-2 3M5 11l2.5 2.5"/><path d="M12 3h6"/>',
+    supporter: '<path d="M6 21V9"/><circle cx="6" cy="6" r="3"/><path d="M10 6c4 0 8 2 9 6M10 10c3 0 6 1.5 7 4.5"/>',
     home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/>',
     back: '<path d="M15 4l-8 8 8 8"/>',
     gear: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
@@ -76,11 +77,14 @@
     return '';
   }
   const trustOf = (id) => Math.min(200, (save.trust && save.trust[id]) || 0);
+  // 신뢰도로 해금되는 대사 (정예화가 없으므로 승진 후 대화는 신뢰도 120%에서 해금)
+  const VOICE_UNLOCK = { trust40: 40, trust100: 100, promo: 120, trust150: 150, trust200: 200 };
   function homeLines(def) {
     const v = def.voice;
     if (!v) return def.voices && def.voices.length ? def.voices : [def.quote || '…'];
-    const t = trustOf(def.id);
-    return [...(v.talk || []), ...(t >= 100 && v.trust100 ? [v.trust100] : []), ...(t >= 200 && v.trust200 ? [v.trust200] : [])];
+    const t = trustOf(def.id), out = [...(v.talk || [])];
+    for (const [k, need] of Object.entries(VOICE_UNLOCK)) if (t >= need && v[k]) out.push(...[].concat(v[k]));
+    return out;
   }
   function say(def, key) {
     const t = line(def, key);
@@ -204,7 +208,13 @@
     setVoice(false);
   };
   $('#home-voice').addEventListener('click', () => setVoice(true));
-  $('#home-art').addEventListener('click', () => setVoice(true));
+  $('#home-art').addEventListener('click', () => {
+    // 비서 터치 대사 (신뢰도 100% 이상이면 신뢰 터치)
+    const a = OPS[save.assistant], v = a && a.voice;
+    const key = v && v.trustTouch && trustOf(a.id) >= 100 && Math.random() < 0.5 ? 'trustTouch' : 'touch';
+    if (v && v[key]) { $('#home-voice-text').textContent = line(a, key); sfx('click'); }
+    else setVoice(true);
+  });
 
   function tickClock() {
     const d = new Date(), p = (n) => String(n).padStart(2, '0');
@@ -370,9 +380,11 @@
     if (assistantLine) say(def, 'assistant');
     else toast(`${def.name}을(를) 비서로 지정했습니다`);
   });
-  const VOICE_LABEL = [['obtain', '획득'], ['assistant', '비서 임명'], ['talk', '대화'], ['trust100', '신뢰도 100%'], ['trust200', '신뢰도 200%'],
+  const VOICE_LABEL = [['obtain', '획득'], ['assistant', '비서 임명'], ['talk', '대화'], ['promo', '승진 후 대화'],
+    ['trust40', '신뢰도 40%'], ['trust100', '신뢰도 100%'], ['trust150', '신뢰도 150%'], ['trust200', '신뢰도 200%'],
     ['squad', '편성'], ['leader', '대장 임명'], ['depart', '작전 출발'], ['start', '작전 개시'], ['select', '선택'], ['deploy', '배치'],
-    ['combat', '전투 중'], ['clear', '3성 작전 완료'], ['fail', '작전 실패']];
+    ['combat', '전투 중'], ['clear', '작전 완료(별 3개)'], ['clear2', '작전 완료(별 3개 미만)'], ['fail', '작전 실패'],
+    ['base', '시설 배치'], ['touch', '터치'], ['trustTouch', '신뢰 터치']];
   $('#detail-voice').addEventListener('click', () => {
     const o = OPS[detailId];
     const v = o.voice || { talk: o.voices || [], deploy: [o.quote] };
@@ -380,8 +392,8 @@
     const rows = VOICE_LABEL.flatMap(([k, label]) => {
       const list = [].concat(v[k] || []).filter(Boolean);
       return list.map((txt, i) => {
-        const locked = (k === 'trust100' && t < 100) || (k === 'trust200' && t < 200);
-        return `<div class="vrow ${locked ? 'locked' : ''}"><b>${label}${list.length > 1 ? ' ' + (i + 1) : ''}</b><p>${locked ? `신뢰도 ${k === 'trust100' ? 100 : 200}% 달성 시 해금` : esc(txt)}</p></div>`;
+        const need = VOICE_UNLOCK[k] || (k === 'trustTouch' ? 100 : 0), locked = t < need;
+        return `<div class="vrow ${locked ? 'locked' : ''}"><b>${label}${list.length > 1 ? ' ' + (i + 1) : ''}</b><p>${locked ? `신뢰도 ${need}% 달성 시 해금` : esc(txt)}</p></div>`;
       });
     }).join('');
     openModal(`<div class="modal-title">${esc(o.name)} — 음성 기록</div><div class="modal-sub">신뢰도 ${t}% · 작전에서 사용한 이성만큼 신뢰도가 오릅니다</div><div class="voice-list">${rows}</div>`);

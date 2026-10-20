@@ -380,7 +380,15 @@
   const eff = (op) => (op.skillT > 0 ? op.skill.effect || {} : {});
   const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1);
   const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0));
-  const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1);
+  const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op);
+  const inSquad = (id) => S.squadIds.includes(id);
+  const isDebuffed = (e) => e.analysis > 0 || e.slowT > 0 || e.stun > 0;
+  // 최고의 파트너: 약화된 적을 공격 중이면 공격 속도 상승 (파트너 편성 시 더 크게)
+  function partnerMul(op) {
+    const ps = op.tal.partnerSpeed;
+    if (!ps || !op.debuffedTarget) return 1;
+    return inSquad(ps.partner) ? ps.partnerSpeed : ps.speed;
+  }
   const opBlock = (op) => op.def.block + (eff(op).block || 0);
   const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0);
   const isGround = (def) => CLASSES[def.class].tile === 'ground';
@@ -504,7 +512,9 @@
     if (op.def.archetype === 'centurion') n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && isFly(e.def)))));
+    const lowDef = eff(op).priority === 'lowDef';
     list.sort((a, b) =>
+      (lowDef ? a.def.def - b.def.def : 0) ||
       (b.blockedBy === op) - (a.blockedBy === op) ||
       (antiAir ? isFly(b.def) - isFly(a.def) : 0) ||
       remaining(a) - remaining(b));
@@ -536,6 +546,18 @@
       if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && hasWork(op)) activateSkill(op);
     }
 
+    // 예리한 관찰: 공격 범위 안의 적에게 「분석」 누적
+    const an = op.tal.analyze;
+    if (an) {
+      const rate = an.rate * (eff(op).analyzeRate || 1), slow = eff(op).slowAnalyzed, dd = op.tal.deduce;
+      for (const e of S.enemies) {
+        if (!e.alive || !op.range.has(key(Math.floor(e.x), Math.floor(e.y)))) continue;
+        e.analysis = Math.min(an.max, e.analysis + rate * dt);
+        e.ana = { max: an.max, def: an.def, res: an.res, amp: dd ? dd.amp : 0, partner: dd && dd.partner, partnerAmp: dd ? dd.partnerAmp : 0 };
+        if (slow && e.analysis >= an.max) { e.slowT = 0.3; e.slowMove = slow.move; e.slowAtk = slow.atk; }
+      }
+    }
+
     op.atkCd -= dt;
     if (op.atkCd > 0) return;
     const n = eff(op).targets || op.def.targets || 1;
@@ -558,7 +580,16 @@
 
     const targets = pickTargets(op, n);
     if (!targets.length) return;
-    const type = op.def.dmgType || (op.def.class === 'caster' ? 'arts' : 'phys');
+    const type = op.def.dmgType || (op.def.class === 'caster' || op.def.class === 'supporter' ? 'arts' : 'phys');
+    // 타고난 천재: 같은 적을 연속 공격하면 방어력 무시가 쌓임
+    let ignore = 0;
+    const fo = op.tal.focus;
+    if (fo) {
+      if (op.focusTarget === targets[0]) op.focusStacks = Math.min(fo.max / fo.step, (op.focusStacks || 0) + 1);
+      else { op.focusTarget = targets[0]; op.focusStacks = 0; }
+      ignore = op.focusStacks * fo.step;
+    }
+    op.debuffedTarget = isDebuffed(targets[0]);
     let mul = 1;
     if (op.firstStrike) { mul *= op.tal.firstStrike; op.firstStrike = false; addText(cx, op.y + 0.1, '발도!', '#ffcf3a', 0.8, true); }
     if (op.charge) { mul *= op.charge; op.charge = 0; }
@@ -572,10 +603,10 @@
         if (isGround(op.def)) addFx({ type: 'slash', x: t.x, y: t.y, life: 0.15, color: op.def.color });
         else addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x + (i ? (Math.random() - 0.5) * 0.2 : 0), y2: t.y, life: 0.15, color: type === 'arts' ? '#c89bff' : '#fff2b3' });
         const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
-        hitEnemy(t, atk * crit, type, crit > 1);
+        hitEnemy(t, atk * crit, type, crit > 1, op, ignore);
         if (splash) {
           for (const o of S.enemies) {
-            if (o !== t && o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= splash) hitEnemy(o, atk, type);
+            if (o !== t && o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= splash) hitEnemy(o, atk, type, false, op);
           }
         }
       }
@@ -634,14 +665,22 @@
     S.enemies.push({
       def, path, pi: 1, x: path[0].x, y: path[0].y,
       hp: def.hp, maxHp: def.hp, atkCd: def.interval * 0.5, blockedBy: null, alive: true, flash: 0,
-      stun: 0, atkMul: 1, revived: false, blinked: false,
+      stun: 0, atkMul: 1, revived: false, blinked: false, analysis: 0, ana: null, slowT: 0,
     });
     if (def.boss) { sfx('boss'); toast(`경고 — ${def.name} 출현`); S.shake = 0.5; } else sfx('spawn');
   }
 
-  function hitEnemy(e, atk, type, crit) {
+  function hitEnemy(e, atk, type, crit, src, ignore = 0) {
     if (!e.alive) return;
-    const dmg = calcDamage(atk, type, e.def.def, e.def.res || 0);
+    let def = e.def.def * (1 - ignore), res = e.def.res || 0, amp = 1;
+    const a = e.ana;
+    if (a && e.analysis > 0) {
+      const st = Math.floor(e.analysis);
+      def *= Math.max(0, 1 - a.def * st);
+      res = Math.max(0, res - a.res * st);
+      if (e.analysis >= a.max) amp += a.amp + (src && src.def.id === a.partner ? a.partnerAmp : 0);
+    }
+    const dmg = calcDamage(atk, type, def, res) * amp;
     e.hp -= dmg;
     e.flash = 0.1;
     addText(e.x, e.y - 0.25, Math.round(dmg) + (crit ? '!' : ''), crit ? '#ffcf3a' : type === 'arts' ? '#d9b3ff' : '#ffffff', 0.5, crit);
@@ -686,7 +725,7 @@
   }
 
   function moveEnemy(e, dt) {
-    let step = e.def.speed * dt;
+    let step = e.def.speed * dt * (e.slowT > 0 ? e.slowMove : 1);
     while (step > 0 && e.alive) {
       const p = e.path[e.pi];
       const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
@@ -716,6 +755,7 @@
   function updateEnemy(e, dt, healAura) {
     e.flash = Math.max(0, e.flash - dt);
     if (e.def.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * e.def.regen * healAura * dt);
+    if (e.slowT > 0) e.slowT -= dt;
     if (e.stun > 0) { e.stun -= dt; return; }
     if (e.blockedBy && !e.blockedBy.alive) e.blockedBy = null;
     if (!e.blockedBy && !isFly(e.def) && !e.def.unblockable) tryBlock(e);
@@ -764,7 +804,7 @@
       }
     }
     hitOp(target, atk, type, e);
-    e.atkCd = e.def.interval;
+    e.atkCd = e.def.interval * (e.slowT > 0 ? e.slowAtk : 1);
   }
 
   // =====================================================================
@@ -826,7 +866,7 @@
     $('#result-info').append(info, rw);
     // 대장(편성 1번)의 결과 대사
     const leader = opById(S.squadIds[0]);
-    const vline = leader && (win ? (stars === 3 ? UI.line(leader, 'clear') : '') : UI.line(leader, 'fail'));
+    const vline = leader && (win ? (stars === 3 ? UI.line(leader, 'clear') : UI.line(leader, 'clear2') || UI.line(leader, 'clear')) : UI.line(leader, 'fail'));
     if (vline) {
       const v = document.createElement('div');
       v.className = 'result-voice';
@@ -1198,6 +1238,26 @@
     ctx.strokeStyle = ring; ctx.stroke();
     const bw = T * (e.def.boss ? 0.8 : 0.5);
     bar(X - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
+    if (e.analysis > 0 && e.ana) {
+      // 분석 스택 표시
+      const st = Math.floor(e.analysis), done = e.analysis >= e.ana.max, pw = T * 0.07;
+      for (let i = 0; i < e.ana.max; i++) {
+        ctx.fillStyle = i < st ? (done ? '#ffcf3a' : '#5fe0a8') : 'rgba(255,255,255,.18)';
+        ctx.fillRect(X - (e.ana.max * pw * 1.3) / 2 + i * pw * 1.3, cy - r - T * 0.2, pw, pw * 0.7);
+      }
+      if (done) {
+        ctx.fillStyle = '#ffcf3a';
+        ctx.font = `900 ${T * 0.13}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('분석', X, cy - r - T * 0.26);
+      }
+    }
+    if (e.slowT > 0) {
+      ctx.beginPath();
+      ctx.arc(X, cy, r * 1.22, 0, Math.PI * 2);
+      ctx.lineWidth = Math.max(1.5, r * 0.08);
+      ctx.strokeStyle = 'rgba(95,224,168,.75)'; ctx.stroke();
+    }
     if (e.stun > 0) {
       ctx.fillStyle = '#ffcf3a';
       ctx.font = `900 ${T * 0.2}px sans-serif`;
