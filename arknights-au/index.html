@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>잿빛 등대</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- 타이틀 -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <div class="title-sub" id="title-sub"></div>
+      <h1 id="title-main"></h1>
+      <p class="synopsis" id="title-synopsis"></p>
+      <div class="menu">
+        <button class="btn primary" data-go="stages">작전 개시</button>
+        <button class="btn" data-go="roster">오퍼레이터</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 작전 목록 -->
+  <section id="screen-stages" class="screen">
+    <header class="bar">
+      <button class="btn small" data-go="title">← 돌아가기</button>
+      <h2>작전 목록</h2>
+    </header>
+    <div id="stage-list" class="stage-list"></div>
+  </section>
+
+  <!-- 오퍼레이터 도감 -->
+  <section id="screen-roster" class="screen">
+    <header class="bar">
+      <button class="btn small" data-go="title">← 돌아가기</button>
+      <h2>오퍼레이터</h2>
+    </header>
+    <div class="roster-wrap">
+      <div id="roster-list" class="roster-list"></div>
+      <div id="roster-detail" class="roster-detail"></div>
+    </div>
+  </section>
+
+  <!-- 전투 -->
+  <section id="screen-battle" class="screen">
+    <div class="hud">
+      <div class="hud-stage" id="hud-stage"></div>
+      <div class="hud-stats">
+        <span class="stat">적 <b id="hud-enemy">0/0</b></span>
+        <span class="stat life">♥ <b id="hud-life">3</b></span>
+      </div>
+      <div class="hud-btns">
+        <button id="btn-speed" class="btn small">1x</button>
+        <button id="btn-pause" class="btn small">❚❚</button>
+      </div>
+    </div>
+    <div id="board-wrap">
+      <canvas id="board"></canvas>
+      <div id="hint" class="hint hidden"></div>
+      <div id="toast" class="toast hidden"></div>
+      <div id="inspect" class="inspect hidden">
+        <div class="ins-head">
+          <span class="ins-face" id="ins-face"></span>
+          <div>
+            <div class="ins-name" id="ins-name"></div>
+            <div class="ins-class" id="ins-class"></div>
+          </div>
+        </div>
+        <div class="ins-stats" id="ins-stats"></div>
+        <div class="ins-skill">
+          <div class="ins-skill-name" id="ins-skill-name"></div>
+          <div class="ins-skill-desc" id="ins-skill-desc"></div>
+          <div class="ins-sp"><i id="ins-sp-fill"></i><span id="ins-sp-text"></span></div>
+        </div>
+        <div class="ins-btns">
+          <button class="btn primary" id="ins-skill">스킬 발동</button>
+          <button class="btn danger" id="ins-retreat">철수</button>
+        </div>
+      </div>
+    </div>
+    <div class="deploy-bar">
+      <div class="dp">
+        <div class="dp-label">COST</div>
+        <div class="dp-num" id="dp-num">0</div>
+        <div class="dp-bar"><i id="dp-fill"></i></div>
+        <div class="dp-limit">배치 가능 <b id="deploy-left">0</b></div>
+      </div>
+      <div id="cards" class="cards"></div>
+    </div>
+  </section>
+
+  <!-- 대화 -->
+  <div id="dialog" class="overlay dialog hidden">
+    <button class="btn small dlg-skip" id="dlg-skip">건너뛰기 ▶▶</button>
+    <div class="dlg-portrait" id="dlg-portrait"></div>
+    <div class="dlg-box">
+      <div class="dlg-name" id="dlg-name"></div>
+      <div class="dlg-text" id="dlg-text"></div>
+      <div class="dlg-next">▼</div>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div id="result" class="overlay center hidden">
+    <div class="panel">
+      <div class="result-title" id="result-title"></div>
+      <div class="result-stars" id="result-stars"></div>
+      <div class="result-info" id="result-info"></div>
+      <div class="panel-btns" id="result-btns"></div>
+    </div>
+  </div>
+
+  <!-- 일시정지 -->
+  <div id="pause" class="overlay center hidden">
+    <div class="panel">
+      <div class="result-title">일시정지</div>
+      <div class="panel-btns">
+        <button class="btn primary" id="pause-resume">계속</button>
+        <button class="btn" id="pause-retry">다시 시작</button>
+        <button class="btn danger" id="pause-quit">작전 포기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
