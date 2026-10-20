@@ -248,7 +248,17 @@
   }
 
   // ---------- 헤드헌팅 배너 설정 ----------
-  const banner = { name: '', featured: [] };
+  // config/banner 문서의 list. 관리자가 한 번도 저장하지 않았으면(saved=false) data.js의 GACHA.banners를 씁니다.
+  const banner = { list: [], saved: false };
+  function cleanBanner(b, i) {
+    b = obj(b);
+    return {
+      id: str(b.id, 40) || 'b' + i, name: str(b.name, 30), tag: str(b.tag, 20),
+      until: /^\d{4}-\d{2}-\d{2}$/.test(b.until) ? b.until : '',
+      featured: Array.isArray(b.featured) ? b.featured.filter((x) => typeof x === 'string').slice(0, 6) : [],
+    };
+  }
+  const MAX_BANNERS = 12;
 
   // ---------- 온라인 연결 ----------
   let myRequests = [];
@@ -307,8 +317,10 @@
     }, (e) => console.warn(e));
     db.doc('config/banner').onSnapshot((s) => {
       const d = s.exists ? obj(s.data()) : {};
-      banner.name = str(d.name, 30);
-      banner.featured = Array.isArray(d.featured) ? d.featured.filter((x) => typeof x === 'string').slice(0, 6) : [];
+      // 예전 형식(배너 1개: name, featured)도 읽음
+      const raw = Array.isArray(d.list) ? d.list : d.name ? [{ id: 'event', name: d.name, featured: d.featured }] : null;
+      banner.saved = !!raw;
+      banner.list = (raw || []).slice(0, MAX_BANNERS).map(cleanBanner).filter((b) => b.name);
       emit('banner');
     }, (e) => console.warn(e));
   }
@@ -349,8 +361,8 @@
       if (!assets) throw new Error('no_assets');
       return assets.upload(file);
     },
-    async setBanner(cfg) {
-      await db.doc('config/banner').set({ name: str(cfg.name, 30), featured: cfg.featured.slice(0, 6), by: uid, at: Date.now() });
+    async setBanners(list) {
+      await db.doc('config/banner').set({ list: list.slice(0, MAX_BANNERS).map(cleanBanner), by: uid, at: Date.now() });
     },
     profiles: (ids) => (user ? user.profiles(ids) : Promise.resolve({})),
   };
@@ -361,7 +373,7 @@
     get canUpload() { return !!assets; }, get myRequests() { return myRequests; },
     bal, canPay, spend, earn, owns, obtain, potOf,
     sanity, useSanity, addSanity, refillSanity, nextSanityMs, SANITY_MAX,
-    banner, RANGE_PRESETS, requestPurchase, admin,
+    banner, cleanBanner, MAX_BANNERS, RANGE_PRESETS, requestPurchase, admin,
     me: () => (user ? user.me() : Promise.resolve(null)),
     ready: Promise.resolve().then(init).catch((e) => console.warn(e)),
   };

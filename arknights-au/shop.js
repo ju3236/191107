@@ -35,7 +35,7 @@
         <div class="prod-price">${won(p.price)}</div>
       </button>`;
     if (storeTab === 'recommend') {
-      main.innerHTML = `<div class="store-banner"><b>헤드헌팅 진행 중</b><span>${esc(ACCOUNT.banner.name || GACHA.standardName)}</span><button class="btn primary" data-go="headhunt">헤드헌팅으로</button></div>
+      main.innerHTML = `<div class="store-banner"><b>헤드헌팅 진행 중</b><span>${esc(banners()[0].name)}</span><button class="btn primary" data-go="headhunt">헤드헌팅으로</button></div>
         <div class="prod-grid">${SHOP.packages.slice(0, 2).map((p) => card(p, 'pkg')).join('')}${SHOP.originite.slice(1, 3).map((p) => card(p, 'op')).join('')}</div>`;
     } else if (storeTab === 'originite') {
       main.innerHTML = `<div class="prod-grid">${SHOP.originite.map((p) => card(p, 'op')).join('')}</div>`;
@@ -114,11 +114,15 @@
   //  헤드헌팅
   // =====================================================================
   let hhSel = null;
+  // 관리자가 저장한 배너 목록, 없으면 data.js의 기본 배너
+  const bannerSource = () => (ACCOUNT.banner.saved ? ACCOUNT.banner.list : (GACHA.banners || []).map(ACCOUNT.cleanBanner));
+  const today = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  const untilText = (u) => (u ? `~ ${u.slice(5).replace('-', '/')}` : '');
   function banners() {
-    const list = [];
-    const b = ACCOUNT.banner;
-    const feat = b.featured.map((id) => OPS[id]).filter(Boolean);
-    if (b.name && feat.length) list.push({ key: 'event', name: b.name, featured: feat.map((o) => o.id), tag: '한정 아님 · 확률 UP' });
+    const list = bannerSource()
+      .filter((b) => !b.until || b.until >= today())
+      .map((b) => ({ key: 'bn:' + b.id, name: b.name, featured: b.featured.filter((id) => OPS[id]), tag: [b.tag || '확률 UP', untilText(b.until)].filter(Boolean).join(' · ') }))
+      .filter((b) => b.featured.length);
     list.push({ key: 'standard', name: GACHA.standardName, featured: [], tag: '상시' });
     return list;
   }
@@ -156,6 +160,7 @@
       <div class="hh-info">
         <div class="hh-kind">HEADHUNTING</div>
         <div class="hh-name">${esc(bn.name)}</div>
+        <div class="hh-tag">${esc(bn.tag)}</div>
         ${sixes.length ? `<div class="hh-up"><span class="up6">★6</span> ${sixes.map((o) => esc(o.name)).join(' · ')} <small>6성 획득 시 50% 확률</small></div>` : ''}
         ${fives.length ? `<div class="hh-up"><span class="up5">★5</span> ${fives.map((o) => esc(o.name)).join(' · ')} <small>5성 획득 시 50% 확률</small></div>` : ''}
         ${!bn.featured.length ? '<div class="hh-up">모든 오퍼레이터가 같은 확률로 등장합니다</div>' : ''}
@@ -167,7 +172,10 @@
         <button class="hh-btn ten" data-pull="10"><b>헤드헌팅 10회</b><span class="hh-cost">${payLabel(10)}</span></button>
       </div>`;
   };
-  ACCOUNT.on('banner', () => { if (UI.current === 'headhunt') RENDER.headhunt(); });
+  ACCOUNT.on('banner', () => {
+    if (UI.current === 'headhunt') RENDER.headhunt();
+    if (UI.current === 'admin' && adminTab === 'banner' && !bnEdit) RENDER.admin();
+  });
   ACCOUNT.on('wallet', () => { if (UI.current === 'headhunt') RENDER.headhunt(); });
   $('#hh-banners').addEventListener('click', (e) => {
     const b = e.target.closest('[data-hh]');
@@ -321,7 +329,7 @@
   //  관리자
   // =====================================================================
   const ADMIN_TABS = [['requests', '결제 요청'], ['grant', '재화 지급'], ['ops', '오퍼레이터 실장'], ['banner', '헤드헌팅 배너']];
-  let adminTab = 'requests', editing = null;
+  let adminTab = 'requests', editing = null, bnEdit = null;
   const A = { requests: [], players: [], grants: [], names: {}, subscribed: false };
   function subscribeAdmin() {
     if (A.subscribed || !ACCOUNT.isAdmin) return;
@@ -415,21 +423,43 @@
         <h3>기본 오퍼레이터 (data.js)</h3><div class="admin-ops builtin">${OPERATORS.filter((o) => !o.custom).map((o) => `<div class="admin-op">${cardHTML(o, 'small')}</div>`).join('')}</div>`;
       main.querySelectorAll('.ao-by').forEach((el) => { el.textContent = '실장: ' + (names[el.dataset.by] || '관리자'); });
     } else if (adminTab === 'banner') {
-      const b = ACCOUNT.banner;
-      const cands = OPERATORS.filter((o) => (o.rarity || 3) >= 5);
-      main.innerHTML = `<h3>헤드헌팅 배너</h3>
-        <p class="hint-text">확률 UP 오퍼레이터를 고르면 헤드헌팅에 이벤트 배너가 생깁니다. 해당 등급이 나오면 50% 확률로 확률 UP 오퍼레이터가 나옵니다. 아무도 고르지 않으면 표준 헤드헌팅만 남습니다.</p>
-        <label class="wide">배너 이름<input id="bn-name" maxlength="30" value="${esc(b.name || '')}" placeholder="예: 등대의 불빛"></label>
-        <div class="bn-list">${cands.map((o) => `<label class="bn-op"><input type="checkbox" value="${esc(o.id)}" ${b.featured.includes(o.id) ? 'checked' : ''}>${cardHTML(o, 'small')}</label>`).join('')}</div>
-        <button class="btn primary" id="bn-save">배너 저장</button>`;
+      const list = bannerSource();
+      if (bnEdit) {
+        const b = bnEdit.data;
+        const cands = OPERATORS.filter((o) => (o.rarity || 3) >= 5);
+        main.innerHTML = `<h3>${bnEdit.index < 0 ? '새 배너' : '배너 수정'}</h3>
+          <p class="hint-text">확률 UP 오퍼레이터(6성·5성)를 고르세요. 해당 등급이 나오면 50% 확률로 확률 UP 오퍼레이터가 나옵니다. 6성 확정 카운트(천장)는 모든 배너가 함께 씁니다.</p>
+          <div class="bn-form">
+            <label>배너 이름<input id="bn-name" maxlength="30" value="${esc(b.name)}" placeholder="예: 등대의 불빛"></label>
+            <label>작은 설명<input id="bn-tag" maxlength="20" value="${esc(b.tag)}" placeholder="확률 UP"></label>
+            <label>종료일 (비우면 계속)<input id="bn-until" type="date" value="${esc(b.until)}"></label>
+          </div>
+          <div class="bn-list">${cands.map((o) => `<label class="bn-op"><input type="checkbox" value="${esc(o.id)}" ${b.featured.includes(o.id) ? 'checked' : ''}>${cardHTML(o, 'small')}</label>`).join('')}</div>
+          <div class="panel-btns"><button class="btn primary" id="bn-save">저장</button><button class="btn" id="bn-cancel">취소</button></div>`;
+      } else {
+        main.innerHTML = `<div class="ops-head"><h3>헤드헌팅 배너 <small>${list.length}/${ACCOUNT.MAX_BANNERS}개</small></h3>${list.length < ACCOUNT.MAX_BANNERS ? '<button class="btn primary" id="bn-new">＋ 새 배너</button>' : ''}</div>
+          <p class="hint-text">여기 있는 배너가 헤드헌팅 화면 왼쪽에 위에서부터 차례로 나옵니다. 표준 헤드헌팅은 항상 맨 아래에 있습니다.${ACCOUNT.banner.saved ? '' : ' 지금은 data.js의 기본 배너입니다. 한 번 저장하면 이 목록으로 바뀝니다.'}</p>
+          <div class="bn-rows">${list.map((b, i) => {
+            const ended = b.until && b.until < today();
+            const names = b.featured.map((id) => OPS[id]).filter(Boolean);
+            return `<div class="bn-row ${ended ? 'ended' : ''}">
+              <div class="bn-faces">${names.slice(0, 4).map((o) => cardHTML(o, 'small')).join('')}</div>
+              <div class="bn-meta"><b>${esc(b.name)}</b><small>${esc(b.tag || '확률 UP')}${b.until ? ' · ' + (ended ? '종료됨' : untilText(b.until)) : ''}</small>
+                <span>${names.map((o) => `★${o.rarity} ${esc(o.name)}`).join(' · ') || '확률 UP 오퍼레이터 없음 (표시되지 않음)'}</span></div>
+              <div class="bn-acts">
+                <button class="btn small" data-bn-up="${i}" ${i ? '' : 'disabled'}>▲</button>
+                <button class="btn small" data-bn-edit="${i}">수정</button>
+                <button class="btn small danger" data-bn-del="${i}">삭제</button></div></div>`;
+          }).join('') || '<p class="empty-note">배너가 없습니다. 표준 헤드헌팅만 열려 있습니다.</p>'}</div>`;
+      }
     }
   };
 
   $('#admin-tabs').addEventListener('click', (e) => {
     const b = e.target.closest('[data-atab]');
-    if (b) { adminTab = b.dataset.atab; editing = null; RENDER.admin(); }
+    if (b) { adminTab = b.dataset.atab; editing = null; bnEdit = null; RENDER.admin(); }
   });
-  let delArmed = null;
+  let delArmed = null, bnDelArmed = null;
   $('#admin-main').addEventListener('click', async (e) => {
     const t = e.target;
     const ap = t.closest('[data-approve]'), rj = t.closest('[data-reject]');
@@ -471,10 +501,35 @@
       try { await ACCOUNT.admin.deleteOp(op); toast(`${op.name}을(를) 삭제했습니다`); } catch (err) { console.warn(err); toast('삭제하지 못했습니다'); }
       return;
     }
+    if (t.closest('#bn-new')) { bnEdit = { index: -1, data: { id: 'b' + Date.now().toString(36), name: '', tag: '확률 UP', until: '', featured: [] } }; RENDER.admin(); return; }
+    if (t.closest('#bn-cancel')) { bnEdit = null; RENDER.admin(); return; }
+    const be = t.closest('[data-bn-edit]');
+    if (be) { const i = +be.dataset.bnEdit; bnEdit = { index: i, data: { ...bannerSource()[i] } }; RENDER.admin(); return; }
+    const bu = t.closest('[data-bn-up]'), bd = t.closest('[data-bn-del]');
+    if (bu || bd) {
+      const list = bannerSource().map((b) => ({ ...b }));
+      if (bu) { const i = +bu.dataset.bnUp; [list[i - 1], list[i]] = [list[i], list[i - 1]]; }
+      else {
+        const i = +bd.dataset.bnDel;
+        if (bnDelArmed !== list[i].id) { bnDelArmed = list[i].id; bd.textContent = '한 번 더 누르면 삭제'; return; }
+        bnDelArmed = null;
+        list.splice(i, 1);
+      }
+      try { await ACCOUNT.admin.setBanners(list); toast(bu ? '순서를 바꿨습니다' : '배너를 삭제했습니다'); }
+      catch (err) { console.warn(err); toast('저장하지 못했습니다'); }
+      return;
+    }
     if (t.closest('#bn-save')) {
       const featured = [...document.querySelectorAll('.bn-op input:checked')].map((i) => i.value);
-      try { await ACCOUNT.admin.setBanner({ name: $('#bn-name').value.trim(), featured }); toast('배너를 저장했습니다'); }
-      catch (err) { console.warn(err); toast('저장하지 못했습니다'); }
+      const name = $('#bn-name').value.trim();
+      if (!name) { toast('배너 이름을 입력하세요'); return; }
+      if (!featured.length) { toast('확률 UP 오퍼레이터를 1명 이상 고르세요'); return; }
+      const b = { ...bnEdit.data, name, tag: $('#bn-tag').value.trim(), until: $('#bn-until').value, featured };
+      const list = bannerSource().map((x) => ({ ...x }));
+      if (bnEdit.index < 0) list.push(b); else list[bnEdit.index] = b;
+      t.disabled = true;
+      try { await ACCOUNT.admin.setBanners(list); bnEdit = null; toast('배너를 저장했습니다'); RENDER.admin(); }
+      catch (err) { console.warn(err); toast('저장하지 못했습니다'); t.disabled = false; }
       return;
     }
     if (t.closest('#ed-cancel')) { editing = null; RENDER.admin(); return; }

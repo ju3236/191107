@@ -688,7 +688,9 @@ button.res:hover { border-color: var(--beacon); }
 #screen-headhunt { background: #0c0d10; }
 .hh-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 60% 40%, rgba(255,182,39,.18), transparent 60%), repeating-linear-gradient(120deg, rgba(255,255,255,.03) 0 2px, transparent 2px 24px), linear-gradient(180deg, #16181c, #08090b); }
 .hh-body { position: absolute; top: 60px; left: 0; right: 0; bottom: 0; display: flex; }
-.hh-banners { width: 200px; flex: none; display: flex; flex-direction: column; gap: 8px; padding: 10px 0 10px max(12px, env(safe-area-inset-left, 0px)); }
+.hh-banners { width: 200px; flex: none; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: none; padding: 10px 0 10px max(12px, env(safe-area-inset-left, 0px)); }
+.hh-banners button { flex: none; }
+.hh-tag { color: var(--beacon); font-size: 13px; font-weight: 700; letter-spacing: .04em; }
 .hh-banners button { text-align: left; padding: 14px 14px; background: rgba(40,42,47,.85); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 2px; }
 .hh-banners button.on { background: linear-gradient(90deg, rgba(255,182,39,.35), rgba(40,42,47,.85)); border-left-color: var(--beacon); }
 .hh-banners small { color: var(--muted); font-size: 11px; }
@@ -797,6 +799,17 @@ button.res:hover { border-color: var(--beacon); }
 .admin-ops.builtin .op-card { width: 100%; }
 .ao-meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ao-meta small { color: var(--muted); }
+.bn-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 8px 0; }
+.bn-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.bn-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.bn-row { display: flex; align-items: center; gap: 12px; background: rgba(40,42,47,.85); padding: 8px 10px; border-left: 4px solid var(--beacon); }
+.bn-row.ended { opacity: .5; border-left-color: #666; }
+.bn-faces { display: flex; gap: 4px; flex: none; }
+.bn-faces .op-card { width: 48px; height: 72px; }
+.bn-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bn-meta small { color: var(--muted); font-size: 12px; }
+.bn-meta span { font-size: 13px; }
+.bn-acts { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
 .bn-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 6px 0 14px; }
 .bn-op { position: relative; cursor: pointer; }
 .bn-op input { position: absolute; top: 6px; right: 6px; z-index: 2; width: 18px; height: 18px; }

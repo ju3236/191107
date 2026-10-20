@@ -1051,4 +1051,10 @@ const GACHA = {
   rates: { 6: 0.02, 5: 0.08, 4: 0.5, 3: 0.4 },
   pityStart: 50, pityStep: 0.02,
   standardName: '표준 헤드헌팅',
+  // 기본 이벤트 배너 (관리자가 게임 안에서 배너를 저장하면 그 목록으로 바뀝니다)
+  // { id, name, tag: 작은 설명, until: 'YYYY-MM-DD' 종료일(비우면 계속), featured: 확률 UP 오퍼레이터 id (6성·5성) }
+  banners: [
+    { id: 'detective', name: '사건은 언젠가 끝나니까', tag: '확률 UP', featured: ['igyeong', 'yeoun'] },
+    { id: 'court', name: '최종 논고', tag: '확률 UP', featured: ['sousuke', 'yuki'] },
+  ],
 };
