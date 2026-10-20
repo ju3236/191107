@@ -399,6 +399,18 @@
     op.range = rg.set;
     op.rangeList = rg.list;
   }
+  // 정당한 보호: 치료 범위 안 아군의 상태 이상 지속시간 감소
+  function debuffMul(op) {
+    let m = 1;
+    for (const o of S.ops) if (o.alive && o.tal.protect && o.range.has(key(op.x, op.y))) m = Math.min(m, o.tal.protect.mul);
+    return m;
+  }
+  // 변호인의 소임: 스킬 지속 중 범위 안 아군이 받는 피해 감소
+  function guardMul(op) {
+    let m = 1;
+    for (const o of S.ops) if (o.alive && eff(o).allyGuard && o.range.has(key(op.x, op.y))) m = Math.min(m, eff(o).allyGuard);
+    return m;
+  }
   const alliesNear = (op, r) => S.ops.filter((o) => o.alive && Math.hypot(o.x - op.x, o.y - op.y) <= r);
   const enemiesNear = (op, r) => S.enemies.filter((e) => e.alive && Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) <= r);
 
@@ -459,6 +471,14 @@
       }
       sfx('heal');
     }
+    if (ef.burstHeal) {
+      for (const a of S.ops) {
+        if (!a.alive || !op.range.has(key(a.x, a.y))) continue;
+        healOp(a, atk * ef.burstHeal);
+        addFx({ type: 'beam', x1: op.x + 0.5, y1: op.y + 0.5, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.35, color: '#7dff9a' });
+      }
+      sfx('heal');
+    }
     if (ef.strike) {
       for (const t of enemiesNear(op, ef.strike.radius)) {
         addFx({ type: 'slash', x: t.x, y: t.y, life: 0.3, color: '#ffcf3a' });
@@ -485,6 +505,15 @@
     op.charges = 0;
     if (ef.range) setRange(op, op.def.range);
     if (ef.shield) op.shield = 0;
+    if (ef.proofBlast) {
+      const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
+      const proven = S.enemies.filter((e) => e.alive && e.proof);
+      for (const t of proven) {
+        addFx({ type: 'ring', x: t.x, y: t.y, life: 0.5, color: '#ffe36b', r: 0.6 });
+        hitEnemy(t, atk * ef.proofBlast, 'arts', true, op);
+      }
+      if (proven.length) { sfx('strike'); addText(op.x + 0.5, op.y - 0.3, '논고 종결', '#ffe36b', 1.2, true); }
+    }
     if (ef.endBlast) {
       const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
       for (const t of enemiesNear(op, ef.endBlast.radius)) hitEnemy(t, atk * ef.endBlast.mul, 'phys');
@@ -512,9 +541,10 @@
     if (op.def.archetype === 'centurion') n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && isFly(e.def)))));
-    const lowDef = eff(op).priority === 'lowDef';
+    const prio = eff(op).priority;
     list.sort((a, b) =>
-      (lowDef ? a.def.def - b.def.def : 0) ||
+      (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
+      (prio === 'proof' ? !!b.proof - !!a.proof : 0) ||
       (b.blockedBy === op) - (a.blockedBy === op) ||
       (antiAir ? isFly(b.def) - isFly(a.def) : 0) ||
       remaining(a) - remaining(b));
@@ -532,6 +562,8 @@
     const sk = op.skill, ef = sk.effect || {};
     op.flash = Math.max(0, op.flash - dt);
     op.chill = Math.max(0, op.chill - dt);
+    if (op.resT > 0) op.resT -= dt;
+    if (op.hotT > 0) { op.hotT -= dt; healOp(op, op.hotAmt * dt, true); }
     op.blocked = op.blocked.filter((e) => e.alive && e.blockedBy === op);
 
     if (op.skillT > 0) {
@@ -569,8 +601,15 @@
         .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)
         .slice(0, n);
       if (!allies.length) return;
+      const ls = op.tal.listen, rb = eff(op).resBuff, hot = eff(op).hot;
+      if (ls) {
+        if (op.healTarget === allies[0]) op.healStacks = Math.min(ls.max / ls.step, (op.healStacks || 0) + 1);
+        else { op.healTarget = allies[0]; op.healStacks = 0; }
+      }
       for (const a of allies) {
-        healOp(a, opAtk(op));
+        healOp(a, opAtk(op) * (ls && a === op.healTarget ? 1 + op.healStacks * ls.step : 1));
+        if (rb) { a.resBuff = rb.res; a.resT = rb.dur; }
+        if (hot) { a.hotAmt = opAtk(op) * hot.mul; a.hotT = hot.dur; }
         addFx({ type: 'beam', x1: cx, y1: cy, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.25, color: '#7dff9a' });
       }
       sfx('heal');
@@ -604,6 +643,17 @@
         else addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x + (i ? (Math.random() - 0.5) * 0.2 : 0), y2: t.y, life: 0.15, color: type === 'arts' ? '#c89bff' : '#fff2b3' });
         const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
         hitEnemy(t, atk * crit, type, crit > 1, op, ignore);
+        const pf = op.tal.proof;
+        if (pf && t.alive && !t.proof) {
+          t.proofHits = (t.proofHits || 0) + (eff(op).proofRate || 1);
+          if (t.proofHits >= pf.hits) { t.proof = { res: pf.res }; addText(t.x, t.y - 0.45, '입증', '#ffe36b', 0.9, true); }
+        }
+        const xh = eff(op).extraHit;
+        if (xh && t.alive && Math.random() < xh.rate) {
+          addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x + 0.1, y2: t.y - 0.1, life: 0.15, color: '#ffe36b' });
+          hitEnemy(t, atk * xh.mul, type, false, op);
+        }
+        if (op.tal.argue && t.alive && t.proof) hitEnemy(t, opAtk(op) * op.tal.argue.mul, 'arts', false, op);
         if (splash) {
           for (const o of S.enemies) {
             if (o !== t && o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= splash) hitEnemy(o, atk, type, false, op);
@@ -630,7 +680,7 @@
   function hitOp(op, atk, type, src) {
     if (!op.alive) return;
     if (type === 'phys' && Math.random() < opDodge(op)) { addText(op.x + 0.5, op.y + 0.25, '회피', '#cfd3d6', 0.5); return; }
-    let dmg = calcDamage(atk, type, opDef(op), op.def.res || 0);
+    let dmg = calcDamage(atk, type, opDef(op), (op.def.res || 0) + (op.resT > 0 ? op.resBuff : 0)) * guardMul(op);
     const g = op.tal.guard;
     if (g && op.hp / op.maxHp <= g.below) dmg *= g.taken;
     if (op.shield > 0) {
@@ -644,7 +694,7 @@
     sfx('hurt');
     addText(op.x + 0.5, op.y + 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ff8c8f', 0.6);
     if (op.skill.spType === 'hit' && op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + 1);
-    if (src && src.def.chill) op.chill = 3;
+    if (src && src.def.chill) op.chill = 3 * debuffMul(op);
     const ls = op.tal.lastStand;
     if (ls && !op.lastStandUsed && op.hp > 0 && op.hp / op.maxHp <= ls.below) {
       op.lastStandUsed = true;
@@ -665,7 +715,7 @@
     S.enemies.push({
       def, path, pi: 1, x: path[0].x, y: path[0].y,
       hp: def.hp, maxHp: def.hp, atkCd: def.interval * 0.5, blockedBy: null, alive: true, flash: 0,
-      stun: 0, atkMul: 1, revived: false, blinked: false, analysis: 0, ana: null, slowT: 0,
+      stun: 0, atkMul: 1, revived: false, blinked: false, analysis: 0, ana: null, slowT: 0, proofHits: 0, proof: null,
     });
     if (def.boss) { sfx('boss'); toast(`경고 — ${def.name} 출현`); S.shake = 0.5; } else sfx('spawn');
   }
@@ -679,6 +729,12 @@
       def *= Math.max(0, 1 - a.def * st);
       res = Math.max(0, res - a.res * st);
       if (e.analysis >= a.max) amp += a.amp + (src && src.def.id === a.partner ? a.partnerAmp : 0);
+    }
+    if (e.proof) {
+      // 최종 논고 지속 중이면 입증된 적의 마법 저항이 더 내려감
+      let extra = 0;
+      for (const o of S.ops) if (o.alive && eff(o).proofRes) extra = Math.max(extra, eff(o).proofRes);
+      res = Math.max(0, res - e.proof.res - extra);
     }
     const dmg = calcDamage(atk, type, def, res) * amp;
     e.hp -= dmg;
@@ -1251,6 +1307,12 @@
         ctx.textAlign = 'center';
         ctx.fillText('분석', X, cy - r - T * 0.26);
       }
+    }
+    if (e.proof) {
+      ctx.fillStyle = '#ffe36b';
+      ctx.font = `900 ${T * 0.12}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('입증', X, cy + r + T * 0.14);
     }
     if (e.slowT > 0) {
       ctx.beginPath();

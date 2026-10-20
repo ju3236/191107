@@ -234,7 +234,7 @@ button:focus-visible { outline: 2px solid var(--beacon); outline-offset: 2px; }
 .trust-head i.on { background: var(--start); }
 .detail-stars { color: #ffd23a; font-size: 26px; letter-spacing: 2px; text-shadow: 0 1px 3px #000; margin-top: 4px; }
 .detail-en { font-family: var(--f-en); font-size: clamp(26px, 4vw, 44px); line-height: 1; color: #f0f0f0; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
-.detail-name { font-size: clamp(44px, 8vw, 92px); font-weight: 900; line-height: 1; color: #fff; -webkit-text-stroke: 2px #2a2b2f; paint-order: stroke fill; text-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.detail-name { font-size: clamp(44px, 8vw, 92px); white-space: nowrap; overflow: hidden; font-weight: 900; line-height: 1; color: #fff; -webkit-text-stroke: 2px #2a2b2f; paint-order: stroke fill; text-shadow: 0 4px 12px rgba(0,0,0,.5); }
 .detail-bottom { display: flex; gap: 8px; margin-top: 10px; align-items: stretch; }
 .class-box, .range-box { width: 92px; height: 92px; background: #2a2b2f; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
 .class-box .ico { font-size: 42px; }

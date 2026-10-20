@@ -66,6 +66,17 @@
       <span class="art-init">${esc(def.name[0])}</span>
     </div>`;
   }
+  // 긴 이름은 칸 너비에 맞게 글자 크기를 줄임
+  function fitName(el) {
+    const fit = () => {
+      el.style.fontSize = '';
+      let fs = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > el.clientWidth + 1 && fs > 24) el.style.fontSize = (fs -= 2) + 'px';
+    };
+    requestAnimationFrame(fit);
+    // 웹 폰트가 늦게 들어오면 너비가 바뀌므로 다시 맞춤
+    if (document.fonts) document.fonts.ready.then(fit);
+  }
   const stars = (n) => '★'.repeat(n || 3);
   // ---------- 음성 기록 ----------
   const pick = (v) => (Array.isArray(v) ? v[Math.floor(Math.random() * v.length)] : v);
@@ -177,7 +188,14 @@
   const totalStars = () => STAGES.reduce((s, st) => s + (save.stars[st.code] || 0), 0);
   const cleared = (st) => (save.stars[st.code] || 0) > 0;
   const unlocked = (i) => i === 0 || cleared(STAGES[i - 1]);
-  let voiceIdx = 0, assistantLine = null;
+  let voiceIdx = 0, assistantLine = null, greeted = false, lastInput = Date.now(), idleShown = false;
+  // 방치 대사: 메인 화면에서 1분 동안 아무 입력이 없으면
+  ['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { lastInput = Date.now(); idleShown = false; }, true));
+  setInterval(() => {
+    if (current !== 'home' || idleShown || Date.now() - lastInput < 60000) return;
+    const a = OPS[save.assistant], t = a && line(a, 'idle');
+    if (t) { $('#home-voice-text').textContent = t; idleShown = true; }
+  }, 2000);
 
   function setVoice(next) {
     fixPlayer();
@@ -200,6 +218,8 @@
     $('#home-id').textContent = 'ID: ASHEN-' + String(1000 + ts).padStart(4, '0');
     renderResources();
     $('#tile-admin').classList.toggle('hidden', !ACCOUNT.isAdmin);
+    // 인사: 게임을 켜고 처음 메인 화면에 왔을 때
+    if (!greeted) { greeted = true; if (!assistantLine) assistantLine = line(a, 'greet') || null; }
     const done = STAGES.filter(cleared).length;
     $('#home-progress').textContent = done;
     $('#home-progress-max').textContent = '/' + STAGES.length;
@@ -337,6 +357,7 @@
     $('#detail-pot').textContent = pot ? `잠재 ${pot} · 신뢰도 ${trustOf(o.id)}%` : '미보유';
     $('#detail-en').textContent = o.en || '';
     $('#detail-name').textContent = o.name;
+    fitName($('#detail-name'));
     $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${esc(arch.name)}</small>` : ''}`;
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
     $('#detail-tags').innerHTML = [cls.tile === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
@@ -384,7 +405,7 @@
     ['trust40', '신뢰도 40%'], ['trust100', '신뢰도 100%'], ['trust150', '신뢰도 150%'], ['trust200', '신뢰도 200%'],
     ['squad', '편성'], ['leader', '대장 임명'], ['depart', '작전 출발'], ['start', '작전 개시'], ['select', '선택'], ['deploy', '배치'],
     ['combat', '전투 중'], ['clear', '작전 완료(별 3개)'], ['clear2', '작전 완료(별 3개 미만)'], ['fail', '작전 실패'],
-    ['base', '시설 배치'], ['touch', '터치'], ['trustTouch', '신뢰 터치']];
+    ['base', '시설 배치'], ['touch', '터치'], ['trustTouch', '신뢰 터치'], ['idle', '방치'], ['greet', '인사']];
   $('#detail-voice').addEventListener('click', () => {
     const o = OPS[detailId];
     const v = o.voice || { talk: o.voices || [], deploy: [o.quote] };
