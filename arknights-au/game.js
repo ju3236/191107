@@ -12,15 +12,6 @@
   const SLOW = 0.15;        // 배치/조작 중 시간 배속
   const MAX_DP = 99;
 
-  // ---------- 저장 ----------
-  const SAVE_KEY = 'ashen-beacon-save';
-  const save = (() => {
-    try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || { stars: {} }; } catch { return { stars: {} }; }
-  })();
-  function writeSave() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* 저장 불가 환경 */ }
-  }
-
   // ---------- 이미지 (선택) ----------
   const IMG = {};
   for (const o of OPERATORS) {
@@ -35,162 +26,8 @@
   }
   const faceText = (def) => (def.image ? '' : def.name[0]);
 
-  // =====================================================================
-  //  화면 전환
-  // =====================================================================
   let S = null; // 전투 상태
-
-  function showScreen(name) {
-    document.querySelectorAll('.screen').forEach((el) => el.classList.toggle('active', el.id === 'screen-' + name));
-    if (name !== 'battle') S = null;
-    $('#result').classList.add('hidden');
-    $('#pause').classList.add('hidden');
-    if (name === 'stages') renderStageList();
-    if (name === 'roster') renderRoster();
-  }
-  document.addEventListener('click', (e) => {
-    const go = e.target.closest('[data-go]');
-    if (go) showScreen(go.dataset.go);
-  });
-
-  $('#title-sub').textContent = GAME_INFO.subtitle;
-  $('#title-main').textContent = GAME_INFO.title;
-  $('#title-synopsis').textContent = GAME_INFO.synopsis;
-  document.title = GAME_INFO.title;
-
-  // ---------- 작전 목록 ----------
   const starText = (n) => '◆'.repeat(n) + '◇'.repeat(3 - n);
-  function renderStageList() {
-    const wrap = $('#stage-list');
-    wrap.innerHTML = '';
-    STAGES.forEach((st, i) => {
-      const unlocked = i === 0 || save.stars[STAGES[i - 1].code] > 0;
-      const stars = save.stars[st.code] || 0;
-      const el = document.createElement('button');
-      el.className = 'stage-card' + (unlocked ? '' : ' locked');
-      el.innerHTML = `<span class="code">${st.code}</span><span class="name">${st.name}</span>
-        <div class="desc">${unlocked ? st.desc : '이전 작전을 완료하면 해금됩니다.'}</div>
-        <div class="stars">${starText(stars)}</div>`;
-      if (unlocked) el.addEventListener('click', () => startStage(i));
-      wrap.appendChild(el);
-    });
-  }
-
-  // ---------- 도감 ----------
-  let rosterSel = OPERATORS[0].id;
-  function rangeGridHTML(range) {
-    const pts = [[0, 0], ...range];
-    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const set = new Set(range.map((p) => p.join(',')));
-    let html = `<div class="range-grid" style="grid-template-columns:repeat(${x1 - x0 + 1},16px)">`;
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
-        const cls = x === 0 && y === 0 ? 'self' : set.has(x + ',' + y) ? 'on' : 'off';
-        html += `<i class="${cls}"></i>`;
-      }
-    }
-    return html + '</div>';
-  }
-  function renderRoster() {
-    const list = $('#roster-list');
-    list.innerHTML = '';
-    for (const o of OPERATORS) {
-      const el = document.createElement('button');
-      el.className = 'roster-item' + (o.id === rosterSel ? ' active' : '');
-      el.innerHTML = `<span class="face" style="${faceStyle(o)}">${faceText(o)}</span>
-        <span><b>${o.name}</b><small>${CLASSES[o.class].name} · ${o.race}</small></span>`;
-      el.addEventListener('click', () => { rosterSel = o.id; renderRoster(); });
-      list.appendChild(el);
-    }
-    const o = OPS_BY_ID[rosterSel];
-    const sk = o.skill;
-    $('#roster-detail').innerHTML = `
-      <div class="rd-head">
-        <span class="face" style="${faceStyle(o)}">${faceText(o)}</span>
-        <div>
-          <div class="rd-name">${o.name}</div>
-          <div class="rd-sub">${CLASSES[o.class].icon} ${CLASSES[o.class].name} · ${o.race}</div>
-          <div class="rd-quote">“${o.quote}”</div>
-        </div>
-      </div>
-      <p class="rd-profile">${o.profile}</p>
-      <div class="rd-grid">
-        <div><small>체력</small>${o.hp}</div>
-        <div><small>${o.class === 'medic' ? '치유력' : '공격력'}</small>${o.atk}</div>
-        <div><small>방어력</small>${o.def}</div>
-        <div><small>마법 저항</small>${o.res || 0}</div>
-        <div><small>배치 코스트</small>${o.cost}</div>
-        <div><small>저지 가능 수</small>${o.block}</div>
-        <div><small>공격 간격</small>${o.interval}s</div>
-        <div><small>재배치</small>${o.redeploy}s</div>
-      </div>
-      <div class="rd-section">
-        <div class="rd-skill"><b>${sk.name}</b> <small>(SP ${sk.sp} · ${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'})</small><p>${sk.desc}</p></div>
-        <div><small style="color:var(--muted)">공격 범위</small><br>${rangeGridHTML(o.range)}</div>
-      </div>`;
-  }
-
-  // =====================================================================
-  //  대화
-  // =====================================================================
-  function playDialog(lines, done) {
-    const ov = $('#dialog'), nameEl = $('#dlg-name'), textEl = $('#dlg-text'), por = $('#dlg-portrait');
-    let i = -1, timer = null, full = '';
-    ov.classList.remove('hidden');
-
-    function finish() {
-      clearInterval(timer);
-      ov.classList.add('hidden');
-      ov.onclick = null;
-      done();
-    }
-    function next() {
-      i++;
-      if (i >= lines.length) { finish(); return; }
-      const L = lines[i];
-      const def = L.who && OPS_BY_ID[L.who];
-      const name = def ? def.name : L.name || '';
-      nameEl.textContent = name;
-      nameEl.style.color = def ? def.color : '#fff';
-      textEl.classList.toggle('narr', !name);
-      if (def) {
-        por.style.cssText = faceStyle(def);
-        por.textContent = faceText(def);
-        por.style.opacity = 1;
-      } else if (name) {
-        por.style.cssText = 'background-color:#333';
-        por.textContent = '?';
-        por.style.opacity = 1;
-      } else {
-        por.style.opacity = 0;
-      }
-      full = L.text;
-      let n = 0;
-      textEl.textContent = '';
-      clearInterval(timer);
-      timer = setInterval(() => {
-        n++;
-        textEl.textContent = full.slice(0, n);
-        if (n >= full.length) { clearInterval(timer); timer = null; }
-      }, 22);
-    }
-    ov.onclick = (e) => {
-      if (e.target.closest('#dlg-skip')) { finish(); return; }
-      if (timer) { clearInterval(timer); timer = null; textEl.textContent = full; return; }
-      next();
-    };
-    next();
-  }
-
-  // =====================================================================
-  //  전투 준비
-  // =====================================================================
-  function startStage(idx) {
-    const st = STAGES[idx];
-    if (st.before && st.before.length) playDialog(st.before, () => beginBattle(idx));
-    else beginBattle(idx);
-  }
 
   const key = (x, y) => x + ',' + y;
   const walkable = (ch) => ch === '.' || ch === 'R' || ch === 'B';
@@ -238,7 +75,7 @@
     return { list, set: new Set(list.map(([x, y]) => key(x, y))) };
   }
 
-  function beginBattle(idx) {
+  function beginBattle(idx, squadIds) {
     const st = STAGES[idx];
     const map = st.map.map((r) => r.split(''));
     const spawns = [];
@@ -249,11 +86,12 @@
       for (let i = 0; i < (w.count || 1); i++) queue.push({ t: w.t + i * (w.gap || 2), enemy: w.enemy, spawn: w.spawn || 0 });
     }
     queue.sort((a, b) => a.t - b.t);
-    const squad = (st.squad || OPERATORS.map((o) => o.id)).map((id) => OPS_BY_ID[id]);
+    squadIds = squadIds || UI.save.squad;
+    const squad = squadIds.map((id) => OPS_BY_ID[id]).filter(Boolean);
 
-    showScreen('battle');
+    UI.go('battle');
     S = {
-      idx, st, map, rows: map.length, cols: map[0].length, paths, queue,
+      idx, st, squadIds, map, rows: map.length, cols: map[0].length, paths, queue,
       total: queue.length, killed: 0, leaked: 0, time: 0,
       dp: st.startDp ?? 10, life: st.life ?? 3, maxLife: st.life ?? 3, deployLimit: st.deployLimit ?? 8,
       ops: [], enemies: [], effects: [],
@@ -280,7 +118,7 @@
       c.className = 'card';
       c.style.setProperty('--c', r.def.color);
       c.innerHTML = `<span class="card-face" style="${r.def.image ? `background-image:url('${r.def.image}')` : ''}">${faceText(r.def)}</span>
-        <span class="card-cost">${r.def.cost}</span><span class="card-class">${CLASSES[r.def.class].icon}</span>
+        <span class="card-cost">${r.def.cost}</span><span class="card-class">${UI.icon(r.def.class)}</span>
         <span class="card-name">${r.def.name}</span><span class="card-cd"></span>`;
       c.addEventListener('click', () => onCard(r));
       r.el = c;
@@ -402,8 +240,8 @@
   }
   $('#btn-pause').addEventListener('click', () => togglePause());
   $('#pause-resume').addEventListener('click', () => togglePause(false));
-  $('#pause-retry').addEventListener('click', () => beginBattle(S.idx));
-  $('#pause-quit').addEventListener('click', () => { $('#pause').classList.add('hidden'); showScreen('stages'); });
+  $('#pause-retry').addEventListener('click', () => beginBattle(S.idx, S.squadIds));
+  $('#pause-quit').addEventListener('click', () => { $('#pause').classList.add('hidden'); UI.go('operations'); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) togglePause(true); });
 
   $('#ins-skill').addEventListener('click', () => { if (S && S.inspect) { activateSkill(S.inspect); refreshInspect(true); } });
@@ -704,8 +542,8 @@
     const st = S.st;
     const stars = !win ? 0 : S.leaked === 0 ? 3 : S.life >= Math.ceil(S.maxLife / 2) ? 2 : 1;
     if (win) {
-      save.stars[st.code] = Math.max(save.stars[st.code] || 0, stars);
-      writeSave();
+      UI.save.stars[st.code] = Math.max(UI.save.stars[st.code] || 0, stars);
+      UI.writeSave();
     }
     const title = $('#result-title');
     title.textContent = win ? '작전 완료' : '작전 실패';
@@ -714,7 +552,7 @@
     $('#result-info').textContent = `처치 ${S.killed} · 돌파 ${S.leaked} · 남은 목숨 ${Math.max(0, S.life)}/${S.maxLife}`;
     const btns = $('#result-btns');
     btns.innerHTML = '';
-    const idx = S.idx;
+    const idx = S.idx, ended = S;
     const add = (label, cls, fn) => {
       const b = document.createElement('button');
       b.className = 'btn ' + cls;
@@ -725,14 +563,13 @@
     if (win) {
       add('계속', 'primary', () => {
         const after = st.after || [];
-        if (after.length) playDialog(after, () => showScreen('stages'));
-        else showScreen('stages');
+        if (after.length) UI.playDialog(after, () => UI.go('operations'));
+        else UI.go('operations');
       });
     } else {
-      add('다시 도전', 'primary', () => beginBattle(idx));
+      add('다시 도전', 'primary', () => beginBattle(idx, ended.squadIds));
     }
-    add('작전 목록', '', () => showScreen('stages'));
-    const ended = S;
+    add('작전 목록', '', () => UI.go('operations'));
     setTimeout(() => { if (S === ended) $('#result').classList.remove('hidden'); }, 400);
   }
 
@@ -1030,7 +867,8 @@
   requestAnimationFrame(frame);
 
   // 디버그/테스트용
-  window.__game = { get state() { return S; }, startStage, beginBattle, deploy: (id, x, y, dir) => {
+  window.Battle = { begin: beginBattle, stop: () => { S = null; } };
+  window.__game = { get state() { return S; }, beginBattle, deploy: (id, x, y, dir) => {
     const r = S.roster.find((q) => q.def.id === id);
     if (r) deploy(r, x, y, dir || 'right');
   } };

@@ -8,6 +8,8 @@
 const GAME_INFO = {
   title: '잿빛 등대',
   subtitle: 'ARKNIGHTS OC AU · ASHEN BEACON',
+  commander: '등대지기',          // 플레이어(지휘관) 호칭
+  chapter: '제1장 잿빛 등대',     // 작전 목록 화면 제목
   synopsis:
     '천재지변이 멎지 않는 대지, 테라.\n' +
     '이 세계선에는 로도스 아일랜드가 존재하지 않는다.\n' +
@@ -39,11 +41,13 @@ function area(x0, x1, y0, y1) {
 //  skill.trigger: 'manual'(직접 발동) 또는 'auto'(SP가 차면 자동 발동)
 //  skill.effect: atk/def/interval 배율, dp(즉시 코스트), heal(즉시 자기 회복 비율),
 //                splash(범위 피해 반경, 타일), targets(동시 공격 수)
-//  image: 'img/파일명.png' 처럼 그림 경로를 넣으면 동그라미 대신 그림이 표시됩니다.
+//  en: 영문 이름 / rarity: 레어도(별 1~6) / tags: 특성 태그 / voices: 메인 화면 비서 대사
+//  image: 'img/파일명.png' 처럼 그림 경로를 넣으면 동그라미·임시 일러스트 대신 그림이 표시됩니다.
 // ---------------------------------------------------------------------
 const OPERATORS = [
   {
     id: 'rea', name: '레아', class: 'vanguard', race: '페로', color: '#f2a541',
+    en: 'Rhea', rarity: 5, tags: ['근거리', '코스트 회복'], voices: ['등대지기! 오늘도 같이 가자!', '선봉은 언제나 내 자리야.', '비토 녀석, 또 늦잠이야?'],
     profile: '등대의 선봉대장. 늘 가장 먼저 뛰어나가 길을 연다. 밝고 시끄럽지만, 동료가 다치는 걸 누구보다 두려워한다.',
     quote: '선두는 내가 맡을게!',
     cost: 10, redeploy: 25, block: 1,
@@ -53,6 +57,7 @@ const OPERATORS = [
   },
   {
     id: 'khan', name: '칸', class: 'guard', race: '사르카즈', color: '#d9534f',
+    en: 'Khan', rarity: 6, tags: ['근거리', '화력'], voices: ['…명령을.', '칼은 손질해 뒀다.', '이 배는, 나쁘지 않군.'],
     profile: '과묵한 용병 출신 검사. 등대에 빚이 있다며 계약 기간도 정하지 않고 머무르고 있다.',
     quote: '…베면 되는 거지.',
     cost: 15, redeploy: 35, block: 2,
@@ -62,6 +67,7 @@ const OPERATORS = [
   },
   {
     id: 'vito', name: '비토', class: 'guard', race: '루포', color: '#7fb3d5',
+    en: 'Vito', rarity: 5, tags: ['근거리', '다중 공격'], voices: ['느려 터졌네, 다들.', '레아? 몰라, 걔 얘긴 하지 마.', '정찰은 끝났어. 칭찬은 나중에.'],
     profile: '빠른 발과 쌍단검이 자랑인 정찰병. 레아와는 앙숙인 척하는 소꿉친구.',
     quote: '느려 터졌네, 다들.',
     cost: 13, redeploy: 30, block: 1,
@@ -71,6 +77,7 @@ const OPERATORS = [
   },
   {
     id: 'mujin', name: '무진', class: 'defender', race: '우르수스', color: '#8d6e63',
+    en: 'Mujin', rarity: 5, tags: ['근거리', '방어'], voices: ['뒤는 걱정 말고.', '천천히 가도 된다. 내가 막으니까.', '…차 한 잔 하겠나.'],
     profile: '전직 광산 경비대장. 느릿한 말투와 달리 그 방패는 단 한 번도 뚫린 적이 없다.',
     quote: '뒤는 걱정 말고.',
     cost: 18, redeploy: 40, block: 3,
@@ -80,6 +87,7 @@ const OPERATORS = [
   },
   {
     id: 'ciel', name: '시엘', class: 'sniper', race: '리베리', color: '#5cb85c',
+    en: 'Ciel', rarity: 5, tags: ['원거리', '대공'], voices: ['보여. 전부.', '망루는… 조용해서 좋아.', '등대지기, 바람이 바뀌었어.'],
     profile: '말수가 적은 저격수. 등대 꼭대기 망루가 지정석이다. 비행 적을 우선 노린다.',
     quote: '보여. 전부.',
     cost: 11, redeploy: 30, block: 0,
@@ -89,6 +97,7 @@ const OPERATORS = [
   },
   {
     id: 'noa', name: '노아', class: 'caster', race: '불포', color: '#a970ff',
+    en: 'Noa', rarity: 6, tags: ['원거리', '범위 공격'], voices: ['실험… 아니, 작전 개시!', '이 잔향석 좀 봐! 반짝이지?', '폭발은 예술이라고!'],
     profile: '잔향석 연구자이자 아츠 술사. 호기심이 너무 많아 자주 사고를 친다. 방어력 높은 적에게 강하다.',
     quote: '실험… 아니, 작전 개시!',
     cost: 19, redeploy: 40, block: 0,
@@ -98,6 +107,7 @@ const OPERATORS = [
   },
   {
     id: 'hayul', name: '하율', class: 'medic', race: '산크타', color: '#f7d774',
+    en: 'Hayul', rarity: 5, tags: ['원거리', '치료'], voices: ['다치면 혼날 줄 알아요?', '오늘도 무사히 돌아와요.', '약은 써도 몸에 좋아요.'],
     profile: '등대의 의무관. 늘 웃고 있지만 치료 중에는 누구보다 무섭다.',
     quote: '다치면 혼날 줄 알아요?',
     cost: 16, redeploy: 35, block: 0,
