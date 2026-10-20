@@ -2,7 +2,8 @@
 // =====================================================================
 //  게임 데이터 파일
 //  오퍼레이터 · 세계관 · 적 · 스테이지 · 스토리는 전부 여기서 고칩니다.
-//  적 이름·스탯·능력은 원작 데이터(Aceship AN-EN-Tags 적 도감)를 참고했습니다.
+//  적 이름·스탯·능력은 원작 데이터(Aceship AN-EN-Tags 적 도감)를 참고했고,
+//  적 그림은 원작 아이콘(© Hypergryph / Yostar, Aceship Arknight-Images)입니다. 비상업 팬 게임 용도로만 쓰세요.
 // =====================================================================
 
 const GAME_INFO = {
@@ -283,6 +284,9 @@ const ENEMIES = {
   frostnova: { code: 'FN', name: '프로스트노바', hp: 25000, atk: 420, def: 250, res: 50, speed: 0.25, interval: 3.7, range: 2.0, arts: true, aoe: 1.0, chill: true, revive: { atk: 1.3 }, lifeCost: 2, boss: true, color: '#aee3ff',
                desc: '리유니온 아츠부대 간부. 냉기 아츠로 주변에 마법 피해를 주고 공격 속도를 늦춘다. 첫 사망 시 부활하며 공격력이 오른다.' },
 };
+
+// 적 그림: img/enemy/<적 id>.png (원작 적 도감 아이콘). 다른 그림을 쓰려면 적마다 image: '경로'를 넣으세요.
+for (const [id, e] of Object.entries(ENEMIES)) if (e.image === undefined) e.image = `img/enemy/${id}.png`;
 
 // ---------------------------------------------------------------------
 //  스테이지

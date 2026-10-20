@@ -22,6 +22,15 @@
     IMG[o.id] = im;
   }
   const imgReady = (id) => IMG[id] && IMG[id].complete && IMG[id].naturalWidth > 0;
+  // 적 그림
+  const EIMG = new Map();
+  for (const e of Object.values(ENEMIES)) {
+    if (!e.image) continue;
+    const im = new Image();
+    im.src = e.image;
+    EIMG.set(e, im);
+  }
+  const eImg = (def) => { const im = EIMG.get(def); return im && im.complete && im.naturalWidth > 0 ? im : null; };
   function faceStyle(def) {
     return def.image ? `background-color:${def.color};background-image:url('${def.image}')` : `background-color:${def.color}`;
   }
@@ -1092,24 +1101,34 @@
 
   function drawEnemy(e) {
     const [X, Y, s] = proj(e.x, e.y, 0);
-    const T = P.T * s, r = T * (e.def.boss ? 0.34 : 0.23);
+    const T = P.T * s, r = T * (e.def.boss ? 0.4 : e.def.elite ? 0.33 : 0.28);
     const lift = isFly(e.def) ? T * 0.6 + Math.sin(S.time * 4 + e.x) * T * 0.04 : T * 0.02;
     ellipse(X, Y, r * 1.05, r * 0.4);
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
     const cy = Y - r - lift;
+    const im = eImg(e.def);
+    const ring = e.def.boss ? '#ff3b47' : isFly(e.def) ? '#5dade2' : e.def.elite ? '#ffb627' : 'rgba(255,90,90,.9)';
     ctx.beginPath();
-    if (isFly(e.def)) {
-      ctx.moveTo(X, cy - r); ctx.lineTo(X + r, cy); ctx.lineTo(X, cy + r); ctx.lineTo(X - r, cy); ctx.closePath();
+    ctx.arc(X, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#22090c'; ctx.fill();
+    if (im) {
+      // 원작 도감 아이콘을 동그랗게 잘라서 표시 (테두리 여백은 잘라냄)
+      ctx.save();
+      ctx.clip();
+      const sw = im.naturalWidth * 0.8, sx = im.naturalWidth * 0.1;
+      ctx.drawImage(im, sx, im.naturalHeight * 0.06, sw, sw, X - r, cy - r, r * 2, r * 2);
+      if (e.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(X - r, cy - r, r * 2, r * 2); }
+      ctx.restore();
     } else {
-      ctx.arc(X, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = e.def.color;
+      ctx.font = `900 ${r * 0.9}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(e.def.boss ? '王' : e.def.name.replace(/[「」]/g, '')[0], X, cy + r * 0.05);
     }
-    ctx.fillStyle = e.flash > 0 ? '#fff' : '#22090c'; ctx.fill();
-    ctx.lineWidth = Math.max(2, r * 0.18);
-    ctx.strokeStyle = e.def.color; ctx.stroke();
-    ctx.fillStyle = e.def.color;
-    ctx.font = `900 ${r * 0.9}px sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(e.def.boss ? '王' : e.def.name.replace(/[「」]/g, '')[0], X, cy + r * 0.05);
+    ctx.beginPath();
+    ctx.arc(X, cy, r, 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(2, r * 0.16);
+    ctx.strokeStyle = ring; ctx.stroke();
     const bw = T * (e.def.boss ? 0.8 : 0.5);
     bar(X - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
     if (e.stun > 0) {

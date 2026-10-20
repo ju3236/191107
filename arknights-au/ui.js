@@ -525,7 +525,7 @@
       const flags = [e.boss && '보스', e.elite && '엘리트', e.fly && '비행', e.unblockable && '저지 불가', e.range > 0 && `원거리 ${e.range}`, e.arts && '마법 피해',
         e.aoe && '범위 공격', e.healer && '치료', e.blink && '순간이동', e.revive && '부활', e.enrage && '광폭화', e.chill && '냉기', e.regen && 'HP 회복'].filter(Boolean);
       return `<div class="enemy-row">
-        <span class="enemy-ico" style="--c:${e.color}" title="${esc(e.code || '')}">${e.boss ? '王' : esc(e.name.replace(/[「」]/g, '')[0])}</span>
+        <span class="enemy-ico" style="--c:${e.color}" title="${esc(e.code || '')}">${e.image ? `<img src="${esc(e.image)}" alt="">` : e.boss ? '王' : esc(e.name.replace(/[「」]/g, '')[0])}</span>
         <div class="enemy-info">
           <b><small class="e-code">${esc(e.code || '')}</small> ${esc(e.name)} <small>×${n}</small></b>
           <div class="enemy-stats">체력 ${e.hp} · 공격 ${e.atk} · 방어 ${e.def} · 저항 ${e.res || 0}</div>
