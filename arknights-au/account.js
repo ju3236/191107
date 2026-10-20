@@ -32,7 +32,10 @@
     };
   }
   function normalize(raw) {
-    const f = freshPlayer(), o = obj(raw);
+    // 공용 저장소가 돌려주는 데이터는 동결(수정 불가)되어 있으므로 반드시 깊은 복사본으로 작업
+    let copy = null;
+    try { copy = raw ? JSON.parse(JSON.stringify(raw)) : null; } catch { copy = null; }
+    const f = freshPlayer(), o = obj(copy);
     const out = { ...f, ...o };
     out.stars = obj(o.stars);
     out.skills = obj(o.skills);
