@@ -1017,3 +1017,21 @@ kbd { display: none; font-family: var(--f-en); font-size: 10px; font-weight: 500
   .is-cands { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
 }
 .is-op .oc-skill, .is-cand .oc-skill { display: none; }
+/* 소장품 카드 (원작 아이콘) */
+.relic { position: relative; padding-left: 74px; min-height: 84px; }
+.relic-img { position: absolute; left: 8px; top: 10px; width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,211,255,.25), transparent 70%); }
+.relic.unknown .relic-img { filter: brightness(0) drop-shadow(0 0 2px rgba(111,211,255,.6)); opacity: .6; }
+.relic.r-common { border-left-color: #c5ccd2; }
+.relic.r-na { opacity: .55; border-left-color: #555; }
+.relic-note { font-style: normal; font-size: 12px; color: #ffd27a; line-height: 1.4; }
+.relic.r-na .relic-note { color: #ff9a9e; }
+.relic-lore { margin: 4px 0 0; font-size: 12px; color: #8fa7b5; font-style: italic; line-height: 1.5; }
+.dex-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.relic-grid.dex { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.ist-life small { color: var(--muted); font-size: 11px; }
+.ist-shield { color: #7fd8ff; }
+.is-lineup { background: rgba(0,0,0,.25); border: 1px solid #24506a; padding: 10px; margin-bottom: 10px; }
+.is-lineup > b { display: block; margin-bottom: 6px; font-size: 14px; }
+.is-lineup > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.is-bottom small { color: var(--muted); margin-left: 1px; }

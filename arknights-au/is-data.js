@@ -39,9 +39,9 @@ const SEA_ENEMIES = {
   symon:    { code: 'SB17', name: '파도의 멸사체', hp: 8000, atk: 600, def: 600, res: 0, speed: 0.3, interval: 1.7, range: 0, elite: true, sea: true, revive: { atk: 1.2 }, color: '#356b8a', desc: '주교를 지키는 시본. 쓰러져도 한 번 다시 일어선다.' },
   // ---- 보스 ----
   syevil:   { code: 'SBB', name: '파도의 주교', hp: 28000, atk: 600, def: 300, res: 55, speed: 0.2, interval: 4.5, range: 3.5, arts: true, aoe: 1.0, neural: 200, revive: { atk: 1.3 }, lifeCost: 3, boss: true, sea: true, color: '#4fc3f7',
-              desc: '심해 교회의 주교. 멀리서 범위 마법 피해와 신경 손상을 주고, 쓰러지면 한 번 부활한다. 돌파당하면 목숨 3 감소.' },
+              desc: '심해 교회의 주교. 멀리서 범위 마법 피해와 신경 손상을 주고, 쓰러지면 한 번 부활한다. 돌파당하면 목표 HP 3 감소.' },
   syskad:   { code: 'SBX', name: '이샤믈라, 부식의 마음', hp: 34000, atk: 1100, def: 450, res: 45, speed: 0.22, interval: 5.0, range: 0, aoe: 1.0, weight: 3, revive: { atk: 1.5 }, summon: { enemy: 'syrott', every: 16, count: 2 }, lifeCost: 5, boss: true, sea: true, color: '#00bfa5',
-              desc: '바다의 심장부에 자리한 거대한 시본. 주기적으로 「이샤믈라의 눈물」을 불러내고, 쓰러지면 더 강해져 다시 일어선다. 저지에 3칸이 필요하며 돌파당하면 목숨 5 감소.' },
+              desc: '바다의 심장부에 자리한 거대한 시본. 주기적으로 「이샤믈라의 눈물」을 불러내고, 쓰러지면 더 강해져 다시 일어선다. 저지에 3칸이 필요하며 돌파당하면 목표 HP 5 감소.' },
 };
 for (const [id, e] of Object.entries(SEA_ENEMIES)) ENEMIES[id] = { image: `img/enemy/${id}.png`, ...e };
 
@@ -52,11 +52,11 @@ const IS_DATA = {
   intro: '이베리아 앞바다에서 꺼진 지 오래인 등대의 불빛이 다시 깜박이기 시작했다. 로도스 아일랜드 행동대 「등대」는 신호의 근원을 찾아 바다 아래로 향한다. 물러설 길은 없다. 가라앉은 등대에 닿을 때까지.',
 
   start: { life: 10, ingot: 10, hope: 8, tickets: 3 },
-  // 모집·승진에 드는 희망 (레어도별)
+  // 모집·랭크 상승에 드는 희망 (레어도별)
   hopeCost: { 6: 3, 5: 2, 4: 1, 3: 0, 2: 0, 1: 0 },
   promoteCost: { 6: 3, 5: 2, 4: 1, 3: 0, 2: 0, 1: 0 },
-  unpromoted: 0.8,                   // 승진 전 오퍼레이터 능력치 배율 (1스킬만 사용)
-  levelExp: [0, 3, 7, 12, 18, 25],   // 지휘 레벨 n이 되는 누적 경험. 레벨이 오를 때마다 희망 +1
+  unpromoted: 0.8,                   // 랭크 상승 전 오퍼레이터 능력치 배율 (1스킬만 사용)
+  levelExp: [0, 3, 7, 12, 18, 25, 33, 42, 52, 63],   // 지휘 레벨 n이 되는 누적 경험치. 레벨이 오를 때마다 희망 +1
   floorScale: [0.6, 0.75, 0.9, 1.0], // 층마다 적 HP·공격력 배율
   emergencyScale: 1.25,              // 긴급 작전 적 능력치 추가 배율
 
@@ -72,53 +72,24 @@ const IS_DATA = {
   // 분대: 탐색 시작 시 하나 고름. fx는 소장품과 같은 형식
   squads: [
     { id: 'command', name: '지휘 분대', desc: '시작 희망 +2', fx: { gain: { hope: 2 } } },
-    { id: 'logistic', name: '후방 지원 분대', desc: '시작 원석 덩어리 +10, 교역소 가격 -10%', fx: { gain: { ingot: 10 }, shopDiscount: 0.1 } },
+    { id: 'logistic', name: '후방 지원 분대', desc: '시작 오리지늄각뿔 +10, 교역소 가격 -10%', fx: { gain: { ingot: 10 }, shopDiscount: 0.1 } },
     { id: 'assault', name: '돌격 전술 분대', desc: '뱅가드·가드 공격력 +15%', fx: { stat: { atk: 0.15 }, classes: ['vanguard', 'guard'] } },
     { id: 'bulwark', name: '보루 전술 분대', desc: '디펜더·메딕 HP +20%, 방어력 +10%', fx: { stat: { hp: 0.2, def: 0.1 }, classes: ['defender', 'medic'] } },
     { id: 'ranged', name: '원거리 전술 분대', desc: '스나이퍼·캐스터 공격력 +15%', fx: { stat: { atk: 0.15 }, classes: ['sniper', 'caster'] } },
     { id: 'research', name: '연구 분대', desc: '시작 시 무작위 소장품 2개, 시작 희망 -2', fx: { gain: { relic: 2, hope: -2 } } },
-    { id: 'beacon', name: '등대 분대', desc: '시작 목숨 +4, 명흔에 의한 HP 감소 무시 (등대 AU 전용)', fx: { gain: { life: 4 }, brandImmune: true } },
+    { id: 'beacon', name: '등대 분대', desc: '시작 최대 목표 HP +4, 명흔에 의한 HP 감소 무시 (등대 AU 전용)', fx: { gain: { maxLife: 4 }, brandImmune: true } },
   ],
 
   // ---------------------------------------------------------------------
-  //  소장품 (임시 목록 — 나중에 원작 목록으로 바꿔 넣으세요)
-  //  { id, no: 번호, name, rarity: 'common'|'rare'|'special', price: 교역소 가격, desc, fx }
-  //  fx 키:
-  //    stat { atk, hp, def, aspd, cost, redeploy } — atk/hp/def/aspd는 +비율(0.1 = +10%), cost는 ±정수, redeploy는 비율(-0.3 = 30% 감소)
-  //    classes: ['guard', ...] / rarity: [6] — stat을 받을 오퍼레이터 조건 (없으면 전원)
-  //    battle { startDp, deployLimit, dpRate } — 시작 코스트, 배치 인원, 코스트 회복 속도(+비율)
-  //    enemy { hp, atk, def, speed } — 적 능력치 비율 (-0.1 = 10% 감소)
-  //    gain { ingot, hope, life, relic, ticket } — 얻는 순간 1회
-  //    ingotRate(전투 원석 덩어리 +비율), shopDiscount(교역소 할인 비율), lowLife({ below, stat }): 목숨이 below 이하일 때 stat
-  //    brandImmune: 명흔에 의한 HP 감소 무시
+  //  소장품은 is-relics.js (원작 「쉐이의 기이한 계원」 목록). fx 키:
+  //    stat { atk, hp, def(+비율), aspd(공격 속도 수치, 100 = 2배), cost(±), costMul(비율), redeploy(비율), res, dodge, artsDodge, block, spCost(비율), spInit, defFlat }
+  //    classes / range('melee'|'ranged') / rarity — stat을 받는 조건, promotedStat — 랭크 상승한 오퍼레이터만
+  //    cond('life1' 목표 HP 1 | 'lifeMax' 목표 HP 최대) — stat 조건, setBonus { set, n, stat } — 같은 세트 n개 이상
+  //    squadCap(편성 가능 인원수), gain { hope, ingot, life, maxLife, shield, promote, promoteClass, double, relic, ticket }
+  //    expRate, ingotRate, shopDiscount, endLife, extraTicket, extraRelic, floorTicket, revive, kingArmor,
+  //    ingotAspd, ingotDp, squadDp, promotedCount, promotedCountStat, shieldHp, floorPenalty, gyesim, survivor, altar, level10ingot
+  //    battle { … } — 전투 중 효과. 키는 game.js의 「소장품 효과」 구역 참고
   // ---------------------------------------------------------------------
-  relics: [
-    { id: 'whistle', no: 1, name: '소라 껍데기 호루라기', rarity: 'common', price: 6, desc: '전투 시작 시 배치 코스트 +4', fx: { battle: { startDp: 4 } } },
-    { id: 'rope', no: 2, name: '젖은 밧줄', rarity: 'common', price: 6, desc: '디펜더 HP +15%', fx: { stat: { hp: 0.15 }, classes: ['defender'] } },
-    { id: 'lantern', no: 3, name: '꺼진 랜턴', rarity: 'common', price: 6, desc: '스나이퍼 공격력 +12%', fx: { stat: { atk: 0.12 }, classes: ['sniper'] } },
-    { id: 'net', no: 4, name: '찢어진 그물', rarity: 'common', price: 7, desc: '적 이동 속도 -8%', fx: { enemy: { speed: -0.08 } } },
-    { id: 'silver', no: 5, name: '녹슨 은화 꾸러미', rarity: 'common', price: 4, desc: '얻는 즉시 원석 덩어리 +8', fx: { gain: { ingot: 8 } } },
-    { id: 'biscuit', no: 6, name: '건빵 통조림', rarity: 'common', price: 5, desc: '얻는 즉시 목숨 +2', fx: { gain: { life: 2 } } },
-    { id: 'chart', no: 7, name: '해도 조각', rarity: 'common', price: 7, desc: '가드 공격력 +10%, 공격 속도 +5%', fx: { stat: { atk: 0.1, aspd: 0.05 }, classes: ['guard'] } },
-    { id: 'gloves', no: 8, name: '방수 장갑', rarity: 'common', price: 7, desc: '뱅가드 배치 코스트 -1', fx: { stat: { cost: -1 }, classes: ['vanguard'] } },
-    { id: 'kelp', no: 9, name: '말린 해초', rarity: 'common', price: 6, desc: '메딕 공격력(치료량) +15%', fx: { stat: { atk: 0.15 }, classes: ['medic'] } },
-    { id: 'ink', no: 10, name: '문어 먹물 병', rarity: 'common', price: 6, desc: '캐스터 공격력 +12%', fx: { stat: { atk: 0.12 }, classes: ['caster'] } },
-    { id: 'buoy', no: 11, name: '부표 종', rarity: 'common', price: 8, desc: '배치 가능 인원 +1', fx: { battle: { deployLimit: 1 } } },
-    { id: 'salt', no: 12, name: '굵은 소금', rarity: 'common', price: 7, desc: '적 HP -5%', fx: { enemy: { hp: -0.05 } } },
-    { id: 'lens', no: 13, name: '등대 렌즈 파편', rarity: 'rare', price: 12, desc: '모든 오퍼레이터 공격력 +8%', fx: { stat: { atk: 0.08 } } },
-    { id: 'anchor', no: 14, name: '작은 닻', rarity: 'rare', price: 12, desc: '모든 오퍼레이터 방어력 +12%, HP +8%', fx: { stat: { def: 0.12, hp: 0.08 } } },
-    { id: 'diary', no: 15, name: '등대지기의 일지', rarity: 'rare', price: 10, desc: '전투에서 얻는 원석 덩어리 +30%', fx: { ingotRate: 0.3 } },
-    { id: 'scale', no: 16, name: '시본의 비늘', rarity: 'rare', price: 13, desc: '적 방어력 -10%', fx: { enemy: { def: -0.1 } } },
-    { id: 'hook', no: 17, name: '갈고리 손', rarity: 'rare', price: 11, desc: '스페셜리스트·서포터 공격력 +15%, 재배치 시간 -30%', fx: { stat: { atk: 0.15, redeploy: -0.3 }, classes: ['specialist', 'supporter'] } },
-    { id: 'tidetable', no: 18, name: '조수표', rarity: 'rare', price: 12, desc: '배치 코스트 회복 속도 +10%', fx: { battle: { dpRate: 0.1 } } },
-    { id: 'badge', no: 19, name: '로도스 구조대 휘장', rarity: 'rare', price: 10, desc: '얻는 즉시 희망 +3', fx: { gain: { hope: 3 } } },
-    { id: 'pearl', no: 20, name: '흑진주', rarity: 'rare', price: 9, desc: '교역소 가격 -20%', fx: { shopDiscount: 0.2 } },
-    { id: 'whaleheart', no: 21, name: '고래의 심장', rarity: 'special', price: 16, desc: '목숨이 5 이하일 때 모든 오퍼레이터 공격력 +25%', fx: { lowLife: { below: 5, stat: { atk: 0.25 } } } },
-    { id: 'coral', no: 22, name: '산호 왕관', rarity: 'special', price: 18, desc: '6성 오퍼레이터 공격력·HP +10%', fx: { stat: { atk: 0.1, hp: 0.1 }, rarity: [6] } },
-    { id: 'ember', no: 23, name: '잿빛 등대의 불씨', rarity: 'special', price: 20, desc: '모든 오퍼레이터 공격력 +12%, 전투 시작 시 배치 코스트 +6', fx: { stat: { atk: 0.12 }, battle: { startDp: 6 } } },
-    { id: 'blacksail', no: 24, name: '검은 돛', rarity: 'special', price: 18, desc: '적 공격력 -10%, 적 이동 속도 -5%', fx: { enemy: { atk: -0.1, speed: -0.05 } } },
-  ],
-  rarityName: { common: '일반', rare: '희귀', special: '특별' },
 
   // ---------------------------------------------------------------------
   //  층. battles: 이 층의 작전 id, gate: 층 마지막 작전 id
@@ -492,48 +463,48 @@ const IS_DATA = {
   // ---------------------------------------------------------------------
   //  불온한 조우 (이벤트). floors: 나오는 층 (1부터, 없으면 전부)
   //  choices: { label, desc, cost: { ingot|hope|life }, gain: {...}, chance: 성공 확률, fail: 실패 시 gain, result, failResult }
-  //  gain 키: ingot, hope, life, exp, relic: 개수 | 'rare' | 'special' | 소장품 id, ticket: 장수, promote: 무료 승진 횟수
+  //  gain 키: ingot, hope, life, exp, relic: 개수 | 'rare' | 'special' | 소장품 id, ticket: 장수, promote: 무료 랭크 상승 횟수
   // ---------------------------------------------------------------------
   events: [
     { id: 'wreck', title: '좌초된 상선', text: '암초에 걸린 상선 한 척이 기울어져 있다. 짐칸은 아직 물에 잠기지 않았다.',
       choices: [
-        { label: '짐칸을 뒤진다', desc: '60% 원석 덩어리 +7 / 40% 목숨 -1, 원석 덩어리 +2', chance: 0.6, gain: { ingot: 7 }, fail: { life: -1, ingot: 2 }, result: '물에 젖은 상자 안에서 원석 덩어리를 찾았다.', failResult: '갑판 아래에 숨어 있던 무언가가 덤벼들었다. 겨우 몇 개만 챙겨 빠져나왔다.' },
-        { label: '그냥 지나간다', desc: '지휘 경험 +1', gain: { exp: 1 }, result: '불필요한 위험은 피했다.' },
+        { label: '짐칸을 뒤진다', desc: '60% 오리지늄각뿔 +7 / 40% 목표 HP -1, 오리지늄각뿔 +2', chance: 0.6, gain: { ingot: 7 }, fail: { life: -1, ingot: 2 }, result: '물에 젖은 상자 안에서 오리지늄각뿔를 찾았다.', failResult: '갑판 아래에 숨어 있던 무언가가 덤벼들었다. 겨우 몇 개만 챙겨 빠져나왔다.' },
+        { label: '그냥 지나간다', desc: '지휘 경험치 +1', gain: { exp: 1 }, result: '불필요한 위험은 피했다.' },
       ] },
     { id: 'keeper', title: '등대지기의 노래', text: '안개 너머에서 낮은 노랫소리가 들려온다. 오래전 이 바다를 지키던 등대지기들의 노래다.',
       choices: [
         { label: '귀를 기울인다', desc: '희망 -1, 무작위 소장품 1개', cost: { hope: 1 }, gain: { relic: 1 }, result: '노래가 끝난 자리에 낡은 물건 하나가 남아 있었다.' },
-        { label: '노래를 따라 부른다', desc: '목숨 +2', gain: { life: 2 }, result: '모두의 마음이 조금 가벼워졌다.' },
+        { label: '노래를 따라 부른다', desc: '목표 HP +2', gain: { life: 2 }, result: '모두의 마음이 조금 가벼워졌다.' },
       ] },
     { id: 'chest', title: '표류하는 상자', text: '파도에 떠밀려 온 상자 하나. 자세히 보니 뚜껑이 아주 조금씩 움직인다.',
       choices: [
-        { label: '열어 본다', desc: '50% 희귀 소장품 / 50% 목숨 -2', chance: 0.5, gain: { relic: 'rare' }, fail: { life: -2 }, result: '상자 안에는 귀한 물건이 들어 있었다.', failResult: '상자 시테러였다! 간신히 떼어 냈다.' },
-        { label: '불태운다', desc: '원석 덩어리 +2', gain: { ingot: 2 }, result: '타고 남은 재 속에서 원석 덩어리를 건졌다.' },
+        { label: '열어 본다', desc: '50% 희귀 소장품 / 50% 목표 HP -2', chance: 0.5, gain: { relic: 'rare' }, fail: { life: -2 }, result: '상자 안에는 귀한 물건이 들어 있었다.', failResult: '상자 시테러였다! 간신히 떼어 냈다.' },
+        { label: '불태운다', desc: '오리지늄각뿔 +2', gain: { ingot: 2 }, result: '타고 남은 재 속에서 오리지늄각뿔를 건졌다.' },
       ] },
     { id: 'believer', title: '심해 교회의 신도', text: '해변에 무릎 꿇은 신도가 바다를 향해 기도하고 있다. 당신들을 보자 웃으며 손짓한다.',
       choices: [
-        { label: '이야기를 듣는다', desc: '원석 덩어리 -4, 희망 +2', cost: { ingot: 4 }, gain: { hope: 2 }, result: '알아듣기 힘든 교리 속에서 쓸 만한 정보를 얻었다.' },
-        { label: '경계하며 물러난다', desc: '지휘 경험 +2', gain: { exp: 2 }, result: '뒤돌아보니 신도는 이미 바닷속으로 걸어 들어가고 있었다.' },
+        { label: '이야기를 듣는다', desc: '오리지늄각뿔 -4, 희망 +2', cost: { ingot: 4 }, gain: { hope: 2 }, result: '알아듣기 힘든 교리 속에서 쓸 만한 정보를 얻었다.' },
+        { label: '경계하며 물러난다', desc: '지휘 경험치 +2', gain: { exp: 2 }, result: '뒤돌아보니 신도는 이미 바닷속으로 걸어 들어가고 있었다.' },
       ] },
     { id: 'diver', title: '길 잃은 잠수부', text: '부상당한 잠수부가 바위 틈에 숨어 있다. 소속을 묻자 고개를 저을 뿐이다.',
       choices: [
-        { label: '치료해 준다', desc: '원석 덩어리 -3, 모집권 1장', cost: { ingot: 3 }, gain: { ticket: 1 }, result: '잠수부가 아는 사람을 소개해 주었다.' },
-        { label: '장비를 넘겨받는다', desc: '원석 덩어리 +5, 목숨 -1', gain: { ingot: 5, life: -1 }, result: '잠수부는 장비를 두고 사라졌다. 어딘가 꺼림칙하다.' },
+        { label: '치료해 준다', desc: '오리지늄각뿔 -3, 모집권 1장', cost: { ingot: 3 }, gain: { ticket: 1 }, result: '잠수부가 아는 사람을 소개해 주었다.' },
+        { label: '장비를 넘겨받는다', desc: '오리지늄각뿔 +5, 목표 HP -1', gain: { ingot: 5, life: -1 }, result: '잠수부는 장비를 두고 사라졌다. 어딘가 꺼림칙하다.' },
       ] },
     { id: 'market', title: '해안가 어시장', text: '폐허가 된 항구에 아직 문을 연 노점이 하나 있다. 생선 냄새가 지독하다.',
       choices: [
-        { label: '생선을 산다', desc: '원석 덩어리 -3, 목숨 +3', cost: { ingot: 3 }, gain: { life: 3 }, result: '따뜻한 생선 수프로 몸을 녹였다.' },
-        { label: '흥정한다', desc: '50% 원석 덩어리 +4 / 50% 아무 일도 없음', chance: 0.5, gain: { ingot: 4 }, fail: {}, result: '상인이 웃으며 덤을 얹어 주었다.', failResult: '상인은 고개를 저었다.' },
+        { label: '생선을 산다', desc: '오리지늄각뿔 -3, 목표 HP +3', cost: { ingot: 3 }, gain: { life: 3 }, result: '따뜻한 생선 수프로 몸을 녹였다.' },
+        { label: '흥정한다', desc: '50% 오리지늄각뿔 +4 / 50% 아무 일도 없음', chance: 0.5, gain: { ingot: 4 }, fail: {}, result: '상인이 웃으며 덤을 얹어 주었다.', failResult: '상인은 고개를 저었다.' },
       ] },
     { id: 'mirror', title: '물에 비친 얼굴', floors: [2, 3, 4], text: '잔잔한 물웅덩이에 비친 얼굴이 조금 늦게 움직인다.',
       choices: [
-        { label: '들여다본다', desc: '오퍼레이터 1명 무료 승진', gain: { promote: 1 }, result: '물속의 얼굴이 무언가를 속삭였다. 머릿속이 맑아진다.' },
-        { label: '돌을 던진다', desc: '원석 덩어리 +3', gain: { ingot: 3 }, result: '물결이 퍼지자 바닥에 깔린 원석 덩어리가 보였다.' },
+        { label: '들여다본다', desc: '오퍼레이터 1명 무료 랭크 상승', gain: { promote: 1 }, result: '물속의 얼굴이 무언가를 속삭였다. 머릿속이 맑아진다.' },
+        { label: '돌을 던진다', desc: '오리지늄각뿔 +3', gain: { ingot: 3 }, result: '물결이 퍼지자 바닥에 깔린 오리지늄각뿔가 보였다.' },
       ] },
     { id: 'storm', title: '다가오는 폭풍', floors: [2, 3, 4], text: '수평선 너머에서 검은 구름이 몰려온다. 폭풍의 중심에서 희미한 불빛이 보인다.',
       choices: [
         { label: '폭풍 속으로', desc: '희망 -2, 특별 소장품 1개', cost: { hope: 2 }, gain: { relic: 'special' }, result: '불빛이 있던 자리에서 무언가를 건져 올렸다.' },
-        { label: '서둘러 피한다', desc: '목숨 -1', gain: { life: -1 }, result: '간신히 폭풍을 피했지만 모두 지쳐 버렸다.' },
+        { label: '서둘러 피한다', desc: '목표 HP -1', gain: { life: -1 }, result: '간신히 폭풍을 피했지만 모두 지쳐 버렸다.' },
       ] },
   ],
 };

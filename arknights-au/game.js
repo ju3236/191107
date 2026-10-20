@@ -111,13 +111,22 @@
       idx, st, squadIds, map, rows: map.length, cols: map[0].length, paths, flyPaths, queue,
       total: queue.length, killed: 0, leaked: 0, time: 0,
       dp: (st.startDp ?? 10) + (mods.startDp || 0), life, maxLife: opts.maxLife ?? life, deployLimit: (st.deployLimit ?? 8) + (mods.deployLimit || 0),
-      ext: opts, mods, edefs: opts.enemies || null,
+      ext: opts, mods, edefs: opts.enemies || null, maxDp: MAX_DP + (mods.maxDp || 0), shield: opts.shield || 0,
       ops: [], enemies: [], effects: [],
       roster: squad.map((def) => ({ def, cd: 0, deployed: false })),
       speed: 1, paused: false, ended: false,
       mode: 'idle', sel: null, tile: null, dir: 'right', press: null, inspect: null,
       shake: 0, T: 40, dpr: 1,
     };
+    // 치엔창 꾸러미: 배치 코스트를 무작위로 섞음 / 담대함의 칼날: 코스트가 가장 높은 오퍼레이터
+    if (mods.shuffleCost && S.roster.length > 1) {
+      const costs = S.roster.map((r) => r.def.cost).sort(() => Math.random() - 0.5);
+      S.roster.forEach((r, i) => { r.def = { ...r.def, cost: costs[i] }; });
+    }
+    if (mods.boldBlade && S.roster.length) {
+      const top = Math.max(...S.roster.map((r) => r.def.cost)), c = S.roster.filter((r) => r.def.cost === top);
+      S.boldId = c[Math.floor(Math.random() * c.length)].def.id;
+    }
     $('#hud-stage').textContent = `${st.code} ${st.name}`;
     $('#btn-speed').innerHTML = '1X<small>▶</small><kbd>F</kbd>';
     ['#result', '#pause', '#inspect', '#hint', '#toast'].forEach((s) => $(s).classList.add('hidden'));
@@ -228,7 +237,8 @@
     if (tx < 0 || ty < 0 || tx >= S.cols || ty >= S.rows) return false;
     const ch = S.map[ty][tx];
     const need = CLASSES[def.class].tile === 'ground' ? '.' : '^';
-    return (ch === need || (need === '.' && ch === '~')) && !opAt(tx, ty);
+    const ok = ch === need || (need === '.' && ch === '~') || (need === '^' && S.mods.rangedGround && (ch === '.' || ch === '~'));
+    return ok && !opAt(tx, ty);
   }
   function pickDir(p) {
     const dx = p.x - (S.tile.x + 0.5), dy = p.y - (S.tile.y + 0.5);
@@ -387,9 +397,11 @@
     return t;
   }
   const eff = (op) => (op.skillT > 0 ? op.skill.effect || {} : {});
-  const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1);
-  const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0)) * (op.brand ? 0.7 : 1);
-  const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op);
+  const B = (op, k) => (op.buff && op.buff[k]) || 0;
+  const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1) * (1 + B(op, 'atk'));
+  const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0)) * (op.brand ? 0.7 : 1) * (1 + B(op, 'def')) + B(op, 'defFlat');
+  const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op) / Math.max(0.1, 1 + B(op, 'aspd') / 100);
+  const opRes = (op) => (op.def.res || 0) + (op.resT > 0 ? op.resBuff : 0) + B(op, 'res');
   const inSquad = (id) => S.squadIds.includes(id);
   const isDebuffed = (e) => e.analysis > 0 || e.slowT > 0 || e.stun > 0;
   // 최고의 파트너: 약화된 적을 공격 중이면 공격 속도 상승 (파트너 편성 시 더 크게)
@@ -398,8 +410,9 @@
     if (!ps || !op.debuffedTarget) return 1;
     return inSquad(ps.partner) ? ps.partnerSpeed : ps.speed;
   }
-  const opBlock = (op) => op.def.block + (eff(op).block || 0);
-  const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0);
+  const opBlock = (op) => op.def.block + (eff(op).block || 0) + B(op, 'block');
+  const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0) + (op.def.dodge || 0) + B(op, 'dodge');
+  const opArtsDodge = (op) => (op.def.artsDodge || 0) + B(op, 'artsDodge');
   const isGround = (def) => CLASSES[def.class].tile === 'ground';
   const isFly = (def) => !!(def.fly || def.flying);
 
@@ -412,6 +425,10 @@
   function debuffMul(op) {
     let m = 1;
     for (const o of S.ops) if (o.alive && o.tal.protect && o.range.has(key(op.x, op.y))) m = Math.min(m, o.tal.protect.mul);
+    const X = S.mods;
+    if (X.medicProtect) for (const o of S.ops) if (o.alive && o.def.class === 'medic' && o.range.has(key(op.x, op.y))) m = Math.min(m, 0.5);
+    if (X.rangedProtect && !isGround(op.def)) m = Math.min(m, 1 - X.rangedProtect);
+    if (op.protect) m = Math.min(m, 1 - op.protect);
     return m;
   }
   // 변호인의 소임: 스킬 지속 중 범위 안 아군이 받는 피해 감소
@@ -419,6 +436,206 @@
     let m = 1;
     for (const o of S.ops) if (o.alive && eff(o).allyGuard && o.range.has(key(op.x, op.y))) m = Math.min(m, eff(o).allyGuard);
     return m;
+  }
+  // =====================================================================
+  //  소장품 효과 (통합전략) — S.mods에 모인 효과를 전투에 적용
+  // =====================================================================
+  const near8 = (a, x, y) => Math.abs(a.x - x) <= 1 && Math.abs(a.y - y) <= 1;
+  const tileIs = (x, y, ch) => S.map[y] && S.map[y][x] === ch;
+  const nearTile = (x, y, ch) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (tileIs(x + dx, y + dy, ch)) return true; return false; };
+  const deployedOf = (cls) => Math.min(8, S.ops.filter((o) => o.alive && o.def.class === cls).length);
+  const perDep = (kind) => (S.mods.perDeployed || []).filter((p) => p.kind === kind).reduce((s, p) => s + p.v * deployedOf(p.class), 0);
+  function stunEnemy(e, dur) {
+    if (!e.alive || dur <= 0) return;
+    e.stun = Math.max(e.stun || 0, dur * (1 + (S.mods.stunMul || 0)));
+  }
+  function gainSp(op, n) {
+    if (!op.alive || op.skillT > 0 || op.skill.spType === 'deploy') return;
+    op.sp = Math.min(op.skill.sp, op.sp + n);
+  }
+  // 매 프레임: 오퍼레이터 버프 계산과 전장 전체 효과
+  function relicTick(dt) {
+    const X = S.mods;
+    const full = S.dp >= 99;
+    for (const op of S.ops) {
+      const b = {};
+      const add = (k, v) => { b[k] = (b[k] || 0) + v; };
+      const t = S.time - op.born, hr = op.hp / op.maxHp, melee = isGround(op.def), cls = op.def.class;
+      for (const k of ['skillAtkT', 'dodgeAtkT', 'dodgeAspdT', 'hurtAspdT', 'bb2T', 'bb3T']) if (op[k] > 0) op[k] -= dt;
+      if (op.skillAtkT > 0) add('atk', X.skillAtk.atk);
+      if (op.dodgeAtkT > 0) add('atk', X.dodgeAtk.atk);
+      if (op.dodgeAspdT > 0) add('aspd', X.dodgeAspd.aspd);
+      if (op.hurtAspdT > 0) add('aspd', X.meleeHurtAspd.aspd);
+      const nb = op.blocked.length;
+      for (const [k, bb] of [['bb2T', X.blockBuff2], ['bb3T', X.blockBuff3]]) {
+        if (!bb) continue;
+        if (nb >= bb.min) op[k] = bb.dur;
+        if (op[k] > 0) { add('atk', bb.atk || 0); add('def', bb.def || 0); add('aspd', bb.aspd || 0); add('dodge', bb.dodge || 0); add('artsDodge', bb.dodge || 0); }
+      }
+      if (X.block1Atk && nb === 1) add('atk', X.block1Atk);
+      if (X.blockingAtk && nb > 0) add('atk', X.blockingAtk);
+      if (X.blockDodge && nb > 0) { const v = X.blockDodge.per * Math.min(X.blockDodge.max, nb); add('dodge', v); add('artsDodge', v); }
+      if (X.deployedTimed && t >= X.deployedTimed.after) { add('defFlat', X.deployedTimed.def); add('res', X.deployedTimed.res); }
+      if (op.firstGround) add('atk', X.firstGround.atk);
+      if (X.defenderEntry && cls === 'defender' && t < X.defenderEntry.dur) { add('atk', X.defenderEntry.atk); add('def', X.defenderEntry.def); add('block', X.defenderEntry.block); }
+      if (X.vanguardEarly && cls === 'vanguard' && S.time < X.vanguardEarly.dur) { add('atk', X.vanguardEarly.atk); add('def', X.vanguardEarly.def); }
+      if (X.promotedDeployAtk && op.def.promoted && t < X.promotedDeployAtk.dur) add('atk', X.promotedDeployAtk.atk);
+      if (X.noSkillRamp) {
+        if (op.skillT > 0) op.ramp = 0; else op.ramp = Math.min(X.noSkillRamp.dur, (op.ramp || 0) + dt);
+        const k = op.ramp / X.noSkillRamp.dur;
+        add('atk', (X.noSkillRamp.atk || 0) * k); add('aspd', (X.noSkillRamp.aspd || 0) * k);
+      }
+      if (X.lowHpAspd) add('aspd', X.lowHpAspd * Math.min(1, Math.max(0, (1 - hr) / 0.7)));
+      if (X.highHpAtk) add('atk', X.highHpAtk * hr);
+      if (X.hurtAspd) add('aspd', X.hurtAspd.aspd * Math.min(X.hurtAspd.max, op.hurtN || 0));
+      if (X.hurtAtk) add('atk', X.hurtAtk.base + X.hurtAtk.per * Math.min(X.hurtAtk.max, op.hurtN || 0));
+      if (X.preSkillAtk && !op.usedManual) add('atk', X.preSkillAtk);
+      if (X.ccGuard && (op.stun > 0 || op.chill > 0)) { add('defFlat', X.ccGuard.defFlat); add('res', X.ccGuard.res); }
+      if (X.skillStackAtk) add('atk', X.skillStackAtk.per * Math.min(X.skillStackAtk.max, op.skillN || 0));
+      if (X.skillStackStat && X.skillStackStat.classes.includes(cls)) { const n = Math.min(X.skillStackStat.max, op.skillN || 0); add('atk', X.skillStackStat.atk * n); add('def', X.skillStackStat.def * n); }
+      if (X.timedStack && X.timedStack.classes.includes(cls)) add('atk', X.timedStack.atk * Math.min(X.timedStack.max, Math.floor(t / X.timedStack.every)));
+      if (op.zoneAtk) add('atk', op.zoneAtk);
+      if (op.bonus) for (const [k, v] of Object.entries(op.bonus)) add(k, v);
+      add('atk', perDep('atk'));
+      add('aspd', perDep('aspd'));
+      if (X.supporterAura) for (const o of S.ops) if (o.alive && o.def.class === 'supporter' && o.range.has(key(op.x, op.y))) { add('atk', X.supporterAura); break; }
+      if (X.tower && full) { add('dodge', X.tower); add('artsDodge', X.tower); }
+      if (X.chariot) {
+        if (full && !op.chariotOn) { op.chariotOn = true; op.maxHp *= 1 + X.chariot.hp; op.hp *= 1 + X.chariot.hp; }
+        if (!full && op.chariotOn) { op.chariotOn = false; op.maxHp /= 1 + X.chariot.hp; op.hp = Math.min(op.hp, op.maxHp); }
+        if (op.chariotOn) add('block', X.chariot.block);
+      }
+      op.buff = b;
+      // 지속 회복·SP
+      if (X.opRegen) healOp(op, X.opRegen * dt, true);
+      if (X.meleeRegen && melee && t < X.meleeRegen.dur) healOp(op, op.maxHp * X.meleeRegen.pct * dt, true);
+      const st = op.skill.spType;
+      if (op.skillT <= 0 && (!st || st === 'time')) {
+        let r = (X.spRate || 0) + ((X.classSp && X.classSp[cls]) || 0) + perDep('sp');
+        if (X.skillStackSp) r += X.skillStackSp.per * Math.min(X.skillStackSp.max, op.skillN || 0);
+        if (X.snack && !op.usedManual) r += 1;
+        if (r) op.sp = Math.min(op.skill.sp, op.sp + r * dt);
+      }
+      if (X.spTick && (st === 'attack' || st === 'hit')) { op.spTickT = (op.spTickT || 0) + dt; if (op.spTickT >= X.spTick) { op.spTickT -= X.spTick; gainSp(op, 1); } }
+    }
+    // 서포터 범위 안 적 약화
+    if (X.supporterDebuff) for (const e of S.enemies) e.supDebuff = S.ops.some((o) => o.alive && o.def.class === 'supporter' && o.range.has(key(Math.floor(e.x), Math.floor(e.y))));
+    // 전장 전체 주기 효과
+    const vg = (X.perDeployed || []).find((p) => p.kind === 'dp');
+    if (vg) { S.vgT = (S.vgT || 0) + dt; if (S.vgT >= 3) { S.vgT -= 3; S.dp = Math.min(S.maxDp, S.dp + vg.v * deployedOf(vg.class)); } }
+    if (X.changdong && full) {
+      S.cdT = (S.cdT || 0) + dt;
+      if (S.cdT >= X.changdong.every) {
+        S.cdT = 0; S.shake = 0.3; sfx('strike');
+        for (const e of [...S.enemies]) { hitEnemy(e, X.changdong.dmg, 'arts', false, null, 0, true); stunEnemy(e, X.changdong.stun); }
+        toast('창동 — 모든 적에게 번개가 내리칩니다');
+      }
+    }
+    if (X.defenderBind) {
+      S.bindT = (S.bindT || 0) + dt;
+      if (S.bindT >= X.defenderBind.every) {
+        S.bindT = 0;
+        for (const op of S.ops) if (op.alive && op.def.class === 'defender') for (const e of enemiesNear(op, 1.5)) { stunEnemy(e, X.defenderBind.stun); hitEnemy(e, opAtk(op) * X.defenderBind.mul, 'phys', false, op, 0, true); }
+      }
+    }
+    if (X.kingTools && S.life === 1) {
+      S.kingT = (S.kingT || 0) + dt;
+      if (S.kingT >= X.kingTools.every) { S.kingT = 0; for (const op of S.ops) { gainSp(op, X.kingTools.sp); healOp(op, op.maxHp * X.kingTools.hp, true); } }
+    }
+  }
+  // 배치 직후
+  function relicDeploy(op, r) {
+    const X = S.mods, def = op.def, melee = isGround(def);
+    const idx = S.roster.indexOf(r), last = S.roster.length - 1;
+    const bonus = {};
+    const add = (k, v) => { bonus[k] = (bonus[k] || 0) + v; };
+    const refund = (X.refund && X.refund.includes(def.class) ? 1 : 0) + (X.merchant && idx === last ? X.merchant.refund : 0);
+    if (refund) S.dp = Math.min(S.maxDp, S.dp + Math.floor(def.cost * Math.min(1, refund)));
+    if (def.gyesimDp) S.dp = Math.min(S.maxDp, S.dp + def.gyesimDp);
+    if (X.meleeShield && melee) op.shield += op.maxHp * X.meleeShield;
+    if (X.rangedShield && !melee) op.immune = (op.immune || 0) + X.rangedShield;
+    if (X.immuneOnce) op.immune = (op.immune || 0) + 1;
+    if (X.firstGround && melee && !S.firstGroundUsed) { S.firstGroundUsed = true; op.firstGround = true; op.protect = X.firstGround.debuff; }
+    if (X.spawnZoneAtk && nearTile(op.x, op.y, 'R')) op.zoneAtk = X.spawnZoneAtk;
+    if (X.baseZone && nearTile(op.x, op.y, 'B')) { add('block', X.baseZone.block); op.maxHp *= 1 + X.baseZone.hp; op.hp = op.maxHp; }
+    if (X.dancer && idx === 0) { op.sp = Math.min(op.skill.sp, op.sp + X.dancer.sp); add('aspd', X.dancer.aspd); add('atk', X.dancer.atk); }
+    if (X.merchant && idx === last) { add('block', X.merchant.block); add('def', X.merchant.def); op.maxHp *= 1 + X.merchant.hp; op.hp = op.maxHp; }
+    if (X.boldBlade && def.id === S.boldId) { add('atk', X.boldBlade.atk); add('def', X.boldBlade.def); }
+    S.deployCount = (S.deployCount || 0) + 1;
+    if (X.fifthDeploy && S.deployCount === 5) {
+      const f = X.fifthDeploy;
+      if (f.hp) { op.maxHp *= 1 + f.hp; op.hp = op.maxHp; }
+      add('def', f.def || 0); add('block', f.block || 0); add('atk', f.atk || 0);
+      if (f.protect) op.protect = Math.max(op.protect || 0, f.protect);
+      addText(op.x + 0.5, op.y - 0.3, '사방회료', '#ffd27a', 1, true);
+    }
+    if (X.adjacent) {
+      const nb = S.ops.filter((o) => o !== op && o.alive && near8(o, op.x, op.y));
+      for (const o of nb.length ? [op, ...nb] : []) {
+        if (o.adjDone) continue;
+        o.adjDone = true;
+        o.bonus = o.bonus || {};
+        if (X.adjacent.defFlat) { o.bonus.defFlat = (o.bonus.defFlat || 0) + X.adjacent.defFlat; o.bonus.res = (o.bonus.res || 0) + (X.adjacent.res || 0); }
+        if (X.adjacent.hp && o !== op) { o.maxHp *= 1 + X.adjacent.hp; o.hp *= 1 + X.adjacent.hp; }
+        if (X.adjacent.hp && o === op) { o.maxHp *= 1 + X.adjacent.hp; o.hp = o.maxHp; }
+      }
+    }
+    if (X.dollLeft && idx === 0) for (const o of S.ops) gainSp(o, def.cost * X.dollLeft.sp);
+    if (X.dollRight && idx === last) for (const o of S.ops) o.shield += def.cost * X.dollRight.shield;
+    if (X.swan) {
+      for (const e of [...S.enemies]) { hitEnemy(e, def.cost * X.swan.mul, 'arts', false, null, 0, true); if (def.cost >= X.swan.cost) stunEnemy(e, X.swan.stun); }
+      if (S.enemies.length) addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.5, color: '#ffffff', r: 2 });
+    }
+    op.bonus = Object.assign(op.bonus || {}, Object.fromEntries(Object.entries(bonus).map(([k, v]) => [k, ((op.bonus || {})[k] || 0) + v])));
+  }
+  // 스킬 발동 직후
+  function relicSkill(op) {
+    const X = S.mods;
+    op.skillN = (op.skillN || 0) + 1;
+    if (op.skill.trigger === 'manual') op.usedManual = true;
+    if (X.skillAtk) op.skillAtkT = X.skillAtk.dur;
+    if (X.skillShield) op.shield += op.maxHp * X.skillShield;
+    if (X.skillNova) for (const e of S.enemies) if (e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y)))) hitEnemy(e, opAtk(op) * X.skillNova, 'arts', false, op, 0, true);
+  }
+  // 공격(치료) 직후
+  function relicAttack(op, targets) {
+    const X = S.mods, cls = op.def.class;
+    if (X.classAtkSp && X.classAtkSp[cls]) gainSp(op, X.classAtkSp[cls]);
+    if (X.casterHitSp && cls === 'caster') gainSp(op, X.casterHitSp * targets.length);
+    if (X.rangedProc && !isGround(op.def)) {
+      const list = S.enemies.filter((e) => e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y))));
+      if (list.length) hitEnemy(list[Math.floor(Math.random() * list.length)], X.rangedProc, 'arts', false, op, 0, true);
+    }
+    if (X.sniperProc && cls === 'sniper' && targets[0] && Math.random() < X.sniperProc.chance) {
+      const t = targets[0];
+      addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#ffb627', r: X.sniperProc.r });
+      for (const e of [...S.enemies]) if (e.alive && Math.hypot(e.x - t.x, e.y - t.y) <= X.sniperProc.r) hitEnemy(e, opAtk(op) * X.sniperProc.mul, 'phys', false, op, 0, true);
+    }
+  }
+  // 적에게 주는 대미지 배율
+  function relicDealt(e, type, src) {
+    const X = S.mods, en = X.enemy || {};
+    let m = 1 + (type === 'phys' ? en.phys || 0 : en.arts || 0);
+    if (type === 'arts') m += perDep('artsTaken');
+    if (src && src.def) {
+      if (type === 'arts' && X.classArtsDmg && X.classArtsDmg[src.def.class]) m += X.classArtsDmg[src.def.class];
+      if (X.blockedDealt && e.blockedBy) m += X.blockedDealt;
+      if (X.seaDmg && e.def.sea) m += X.seaDmg;
+      const d = Math.hypot(src.x + 0.5 - e.x, src.y + 0.5 - e.y);
+      if (X.farDmg) m += X.farDmg * Math.min(1, Math.max(0, (d - 1) / 5));
+      if (X.nearDmg) m += X.nearDmg * Math.min(1, Math.max(0, (6 - d) / 5));
+    }
+    return m;
+  }
+  // 적이 쓰러졌을 때
+  function relicKill(e) {
+    const X = S.mods;
+    if (X.killHeal) for (const o of S.ops) if (Math.hypot(o.x + 0.5 - e.x, o.y + 0.5 - e.y) <= X.killHeal.r) healOp(o, X.killHeal.amt);
+    if (X.killSlow) for (const o of S.enemies) if (o !== e && o.alive && Math.hypot(o.x - e.x, o.y - e.y) <= X.killSlow.r && !(o.slowT > 0)) { o.slowT = X.killSlow.dur; o.slowMove = 1; o.slowAtk = 1.3; }
+    if (X.flyKillBlast && isFly(e.def)) {
+      addFx({ type: 'ring', x: e.x, y: e.y, life: 0.4, color: '#ff9a1f', r: X.flyKillBlast.r });
+      for (const o of [...S.enemies]) if (o !== e && o.alive && Math.hypot(o.x - e.x, o.y - e.y) <= X.flyKillBlast.r) hitEnemy(o, X.flyKillBlast.dmg, 'phys', false, null, 0, true);
+    }
   }
   const alliesNear = (op, r) => S.ops.filter((o) => o.alive && Math.hypot(o.x - op.x, o.y - op.y) <= r);
   const enemiesNear = (op, r) => S.enemies.filter((e) => e.alive && Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) <= r);
@@ -437,6 +654,7 @@
     };
     setRange(op, def.range);
     S.ops.push(op);
+    relicDeploy(op, r);
     sfx('deploy');
     r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
@@ -452,12 +670,12 @@
     op.blocked = [];
     S.ops = S.ops.filter((o) => o !== op);
     op.roster.deployed = false;
-    op.roster.cd = op.def.redeploy;
+    op.roster.cd = op.def.redeploy * Math.max(0.2, 1 - perDep('redeploy'));
     if (S.inspect === op) setMode('idle');
     if (died) { sfx('down'); addText(op.x + 0.5, op.y + 0.2, '전투 불능', '#ff6b6e', 1.2, true); }
   }
   function retreat(op) {
-    S.dp = Math.min(MAX_DP, S.dp + Math.floor(op.def.cost / 2));
+    S.dp = Math.min(S.maxDp, S.dp + Math.floor(op.def.cost / 2));
     addText(op.x + 0.5, op.y + 0.2, '철수', '#9aa1ab', 0.8, true);
     sfx('retreat');
     removeOp(op, false);
@@ -468,7 +686,7 @@
     if (op.skillT > 0 || op.sp < sk.sp) return false;
     sfx(ef.strike ? 'strike' : 'skill');
     const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
-    if (ef.dp) S.dp = Math.min(MAX_DP, S.dp + ef.dp);
+    if (ef.dp) S.dp = Math.min(S.maxDp, S.dp + ef.dp);
     if (ef.heal) healOp(op, op.maxHp * ef.heal);
     if (ef.shield) op.shield = op.maxHp * ef.shield;
     if (ef.nextHit) op.charge = ef.nextHit;
@@ -493,11 +711,12 @@
       for (const t of enemiesNear(op, ef.strike.radius)) {
         addFx({ type: 'slash', x: t.x, y: t.y, life: 0.3, color: '#ffcf3a' });
         hitEnemy(t, atk * ef.strike.mul, 'phys');
-        if (ef.strike.stun) t.stun = Math.max(t.stun || 0, ef.strike.stun);
+        if (ef.strike.stun) stunEnemy(t, ef.strike.stun);
       }
       addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.4, color: '#ffcf3a', r: ef.strike.radius });
     }
     op.sp = 0;
+    relicSkill(op);
     op.skillT = sk.duration === -1 ? Infinity : sk.duration || 0;
     op.charges = ef.charges || 0;
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
@@ -535,7 +754,9 @@
 
   function healOp(op, amt, quiet) {
     const before = op.hp;
-    op.hp = Math.min(op.maxHp, op.hp + amt);
+    op.hp = Math.min(op.maxHp, op.hp + amt * (1 + (S.mods.healMul || 0)));
+    // 가시 고리: 근거리 오퍼레이터가 치료를 받으면 주변 4칸 오퍼레이터 SP +1
+    if (S.mods.meleeHealSp && !quiet && op.hp > before && isGround(op.def)) for (const o of S.ops) if (Math.abs(o.x - op.x) + Math.abs(o.y - op.y) <= 1) gainSp(o, S.mods.meleeHealSp);
     if (!quiet && op.hp > before) addText(op.x + 0.5, op.y + 0.3, '+' + Math.round(op.hp - before), '#7dff9a', 0.7);
   }
 
@@ -626,6 +847,7 @@
         addFx({ type: 'beam', x1: cx, y1: cy, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.25, color: '#7dff9a' });
       }
       sfx('heal');
+      relicAttack(op, []);
       afterAttack(op);
       return;
     }
@@ -675,6 +897,7 @@
       }
       if (splash) addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#c89bff', r: splash });
     }
+    relicAttack(op, targets);
     afterAttack(op);
   }
 
@@ -703,10 +926,27 @@
     addText(op.x + 0.5, op.y - 0.1, '신경 손상', '#c77dff', 1, true);
     if (op.hp <= 0) removeOp(op, true);
   }
+  function onDodge(op) {
+    const X = S.mods;
+    addText(op.x + 0.5, op.y + 0.25, '회피', '#cfd3d6', 0.5);
+    if (X.dodgeAtk) op.dodgeAtkT = X.dodgeAtk.dur;
+    if (X.dodgeAspd) op.dodgeAspdT = X.dodgeAspd.dur;
+    if (X.dodgeNext) op.charge = Math.max(op.charge || 0, 1 + X.dodgeNext);
+  }
   function hitOp(op, atk, type, src) {
     if (!op.alive) return;
-    if (type === 'phys' && Math.random() < opDodge(op)) { addText(op.x + 0.5, op.y + 0.25, '회피', '#cfd3d6', 0.5); return; }
-    let dmg = calcDamage(atk, type, opDef(op), (op.def.res || 0) + (op.resT > 0 ? op.resBuff : 0)) * guardMul(op);
+    const X = S.mods;
+    if (type === 'phys' && Math.random() < opDodge(op)) { onDodge(op); return; }
+    if (type === 'arts' && Math.random() < opArtsDodge(op)) { onDodge(op); return; }
+    if (op.immune > 0) { op.immune--; addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); if (X.dodgeNext) op.charge = Math.max(op.charge || 0, 1 + X.dodgeNext); return; }
+    let dmg = calcDamage(atk, type, opDef(op), opRes(op)) * guardMul(op);
+    if (src && src.def) {
+      if (X.firstHitCut && !src.firstHitDone) { src.firstHitDone = true; dmg *= 1 - X.firstHitCut; }
+      if (X.blockedTaken && src.blockedBy) dmg *= 1 - X.blockedTaken;
+      if (X.outRangeCut && !op.range.has(key(Math.floor(src.x), Math.floor(src.y)))) dmg *= 1 - X.outRangeCut;
+      if (X.seaFear && src.def.sea && !src.feared) { src.feared = true; stunEnemy(src, X.seaFear); addText(src.x, src.y - 0.4, '공포', '#c9a6ff', 0.8); }
+    }
+    if (type === 'phys') dmg *= Math.max(0.1, 1 - perDep('physCut'));
     const g = op.tal.guard;
     if (g && op.hp / op.maxHp <= g.below) dmg *= g.taken;
     if (op.shield > 0) {
@@ -721,7 +961,16 @@
     addText(op.x + 0.5, op.y + 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ff8c8f', 0.6);
     if (op.skill.spType === 'hit' && op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + 1);
     if (src && src.def.chill) op.chill = 3 * debuffMul(op);
-    if (src && src.def.neural) addNeural(op, src.def.neural);
+    if (src && src.def.neural) { addNeural(op, src.def.neural); if (X.hurtSp) gainSp(op, X.hurtSp); }
+    if (X.hurtSp) gainSp(op, X.hurtSp);
+    if (X.classHitSp && X.classHitSp[op.def.class]) gainSp(op, X.classHitSp[op.def.class]);
+    if (X.meleeHurtAspd && isGround(op.def)) op.hurtAspdT = X.meleeHurtAspd.dur;
+    op.hurtN = (op.hurtN || 0) + 1;
+    if (X.hpFear && !op.feared && op.hp > 0 && op.hp / op.maxHp <= X.hpFear.below) {
+      op.feared = true;
+      for (const e of S.enemies) if (e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y)))) stunEnemy(e, X.hpFear.dur);
+      addText(op.x + 0.5, op.y - 0.2, '명적통', '#c9a6ff', 1, true);
+    }
     const ls = op.tal.lastStand;
     if (ls && !op.lastStandUsed && op.hp > 0 && op.hp / op.maxHp <= ls.below) {
       op.lastStandUsed = true;
@@ -747,11 +996,14 @@
     if (def.boss) { sfx('boss'); toast(`경고 — ${def.name} 출현`); S.shake = 0.5; } else sfx('spawn');
   }
 
-  function hitEnemy(e, atk, type, crit, src, ignore = 0) {
+  function hitEnemy(e, atk, type, crit, src, ignore = 0, extra = false) {
     if (!e.alive) return;
+    const X = S.mods;
     if (e.def.dodge && Math.random() < e.def.dodge) { addText(e.x, e.y - 0.25, '회피', '#cfd3d6', 0.4); return; }
     const hd = e.def.harden && e.hp / e.maxHp < e.def.harden.below ? e.def.harden.def : 1;
-    let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = 1;
+    if (src && src.def && X.ignoreDef && X.ignoreDef.classes.includes(src.def.class)) ignore = Math.min(1, ignore + X.ignoreDef.v);
+    let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = relicDealt(e, type, src);
+    if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
     const a = e.ana;
     if (a && e.analysis > 0) {
       const st = Math.floor(e.analysis);
@@ -767,6 +1019,12 @@
     }
     const dmg = calcDamage(atk, type, def, res) * amp;
     e.hp -= dmg;
+    // 추가 마법 대미지 (부지깽이 · 긁기의 손)
+    if (!extra && src && src.def && e.hp > 0) {
+      if (X.seaExtra && e.def.sea) hitEnemy(e, opAtk(src) * X.seaExtra, 'arts', false, src, 0, true);
+      if (X.archPct && X.archPct.arch.includes(src.def.archetype)) hitEnemy(e, e.hp * X.archPct.pct, 'arts', false, src, 0, true);
+    }
+    if (!e.alive) return;   // 추가 대미지로 이미 쓰러졌으면 한 번만 처리
     e.flash = 0.1;
     addText(e.x, e.y - 0.25, Math.round(dmg) + (crit ? '!' : ''), crit ? '#ffcf3a' : type === 'arts' ? '#d9b3ff' : '#ffffff', 0.5, crit);
     const bu = e.def.burst;
@@ -793,6 +1051,7 @@
     }
     e.alive = false;
     S.killed++;
+    relicKill(e);
     sfx('kill');
     addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color });
   }
@@ -813,10 +1072,10 @@
     addFx({ type: 'ring', x: e.x, y: e.y, life: 0.4, color: def.color });
   }
   function tryBlock(e) {
-    const w = e.def.weight || 1;
+    const w = Math.max(1, (e.def.weight || 1) + ((S.mods.enemy && S.mods.enemy.weight) || 0));
     for (const op of S.ops) {
       if (!op.alive || !isGround(op.def)) continue;
-      const load = op.blocked.reduce((s, b) => s + (b.alive && b.blockedBy === op ? b.def.weight || 1 : 0), 0);
+      const load = op.blocked.reduce((s, b) => s + (b.alive && b.blockedBy === op ? Math.max(1, (b.def.weight || 1) + ((S.mods.enemy && S.mods.enemy.weight) || 0)) : 0), 0);
       if (load + w > opBlock(op)) continue;
       if (Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) < 0.7) {
         if (e.def.blink && !e.blinked) {
@@ -830,13 +1089,14 @@
         }
         e.blockedBy = op;
         op.blocked.push(e);
+        if (S.mods.firstBlockStun && !e.blockedOnce) { e.blockedOnce = true; stunEnemy(e, S.mods.firstBlockStun); addText(e.x, e.y - 0.4, '공포', '#c9a6ff', 0.8); }
         return;
       }
     }
   }
 
   function moveEnemy(e, dt) {
-    let step = e.def.speed * dt * (e.slowT > 0 ? e.slowMove : 1);
+    let step = e.def.speed * dt * (e.slowT > 0 ? e.slowMove : 1) * Math.max(0.2, 1 - perDep('enemySlow'));
     while (step > 0 && e.alive) {
       const p = e.path[e.pi];
       const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
@@ -852,7 +1112,9 @@
   function leak(e) {
     e.alive = false;
     S.leaked++;
-    S.life -= e.def.lifeCost || 1;
+    let cost = e.def.lifeCost || 1;
+    if (S.shield > 0) { const a = Math.min(S.shield, cost); S.shield -= a; cost -= a; }
+    S.life -= cost;
     S.shake = 0.3;
     sfx('leak');
     toast('방어선이 돌파당했습니다!');
@@ -875,6 +1137,16 @@
     if (sm) {
       e.sumT = (e.sumT ?? sm.every * 0.5) - dt;
       if (e.sumT <= 0) { e.sumT = sm.every; for (let i = 0; i < (sm.count || 1); i++) summonAt(e, sm.enemy); }
+    }
+    const X = S.mods;
+    if ((X.stunDot && e.stun > 0) || (X.blockedDot && e.blockedBy && e.blockedBy.alive)) {
+      e.dotT = (e.dotT || 0) + dt;
+      if (e.dotT >= 1) {
+        e.dotT -= 1;
+        if (X.stunDot && e.stun > 0) hitEnemy(e, X.stunDot, 'arts', false, null, 0, true);
+        if (X.blockedDot && e.blockedBy && e.alive) hitEnemy(e, opAtk(e.blockedBy) * X.blockedDot, 'arts', false, e.blockedBy, 0, true);
+        if (!e.alive) return;
+      }
     }
     if (e.stun > 0) { e.stun -= dt; return; }
     if (e.blockedBy && !e.blockedBy.alive) e.blockedBy = null;
@@ -941,7 +1213,7 @@
   // =====================================================================
   function update(dt) {
     S.time += dt;
-    S.dp = Math.min(MAX_DP, S.dp + dt * (S.mods.dpRate || 1));
+    S.dp = Math.min(S.maxDp, S.dp + dt * (S.mods.dpRate || 1));
     S.shake = Math.max(0, S.shake - dt);
     while (S.queue.length && S.queue[0].t <= S.time) spawnEnemy(S.queue.shift());
     for (const r of S.roster) if (r.cd > 0) r.cd = Math.max(0, r.cd - dt);
@@ -951,6 +1223,7 @@
       const a = g.tal.auraDef;
       if (a) for (const o of alliesNear(g, a.radius)) o.auraDef = Math.max(o.auraDef, a.def);
     }
+    relicTick(dt);
     for (const op of [...S.ops]) if (op.alive) updateOp(op, dt);
     const healAura = S.enemies.reduce((m, e) => (e.alive && e.def.healAura ? Math.max(m, e.def.healAura) : m), 1);
     for (const e of S.enemies) if (e.alive) updateEnemy(e, dt, healAura);
@@ -968,7 +1241,7 @@
     setMode('idle');
     const st = S.st;
     const stars = !win ? 0 : S.leaked === 0 ? 3 : S.life >= Math.ceil(S.maxLife / 2) ? 2 : 1;
-    const ext = S.ext.onEnd ? S.ext.onEnd({ win, stars, life: Math.max(0, S.life), leaked: S.leaked, killed: S.killed, quit: !!S.quit }) : null;
+    const ext = S.ext.onEnd ? S.ext.onEnd({ win, stars, life: Math.max(0, S.life), shield: S.shield || 0, leaked: S.leaked, killed: S.killed, quit: !!S.quit }) : null;
     const firstClear = !ext && win && !(UI.save.stars[st.code] > 0);
     const rewardText = ext ? ext.text : UI.onBattleEnd(S.idx, win, stars, S.squadIds);
     if (win && !ext) {
@@ -981,7 +1254,7 @@
     $('#result-stars').textContent = win ? starText(stars) : '';
     $('#result-info').innerHTML = '';
     const info = document.createElement('div');
-    info.textContent = `처치 ${S.killed} · 돌파 ${S.leaked} · 남은 목숨 ${Math.max(0, S.life)}/${S.maxLife}`;
+    info.textContent = `처치 ${S.killed} · 돌파 ${S.leaked} · 남은 ${ext ? '목표 HP' : '목숨'} ${Math.max(0, S.life)}/${S.maxLife}${S.shield ? ` · 실드 ${S.shield}` : ''}`;
     const rw = document.createElement('div');
     rw.className = 'result-reward';
     rw.textContent = rewardText || '';
@@ -1022,7 +1295,7 @@
 
   function updateHud() {
     $('#dp-num').textContent = Math.floor(S.dp);
-    $('#dp-fill').style.width = (S.dp >= MAX_DP ? 100 : (S.dp % 1) * 100) + '%';
+    $('#dp-fill').style.width = (S.dp >= S.maxDp ? 100 : (S.dp % 1) * 100) + '%';
     $('#deploy-left').textContent = S.deployLimit - S.ops.length;
     $('#hud-enemy').textContent = `${S.killed + S.leaked}/${S.total}`;
     $('#hud-life').textContent = Math.max(0, S.life);
