@@ -25,7 +25,7 @@
     const owned = {};
     for (const id of starters) owned[id] = { pot: 1, at: Date.now() };
     return {
-      v: 2, nick: '', stars: {}, squad: starters.slice(0, SQUAD_MAX), skills: {},
+      v: 2, nick: '', stars: {}, squad: starters.slice(0, SQUAD_MAX), skills: {}, trust: {},
       assistant: starters[0] || OPERATORS[0].id, owned,
       earned: { ...STARTER_GIFT }, spent: {},
       sanity: SANITY_MAX, sanityAt: Date.now(), pity: 0, pulls: [], created: Date.now(),
@@ -39,6 +39,7 @@
     const out = { ...f, ...o };
     out.stars = obj(o.stars);
     out.skills = obj(o.skills);
+    out.trust = obj(o.trust);
     out.owned = Object.keys(obj(o.owned)).length ? obj(o.owned) : f.owned;
     out.earned = o.earned ? obj(o.earned) : f.earned;
     out.spent = obj(o.spent);

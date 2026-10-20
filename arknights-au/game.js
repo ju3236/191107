@@ -119,6 +119,23 @@
     ['#result', '#pause', '#inspect', '#hint', '#toast'].forEach((s) => $(s).classList.add('hidden'));
     buildCards();
     resize();
+    // 대장의 작전 출발 → 작전 개시 대사
+    $('#ui-toast').classList.add('hidden');
+    const leader = squad[0], ran = S;
+    const dl = leader && UI.line(leader, 'depart'), sl = leader && UI.line(leader, 'start');
+    if (dl) showVoice(leader, dl);
+    if (sl) setTimeout(() => { if (S === ran) showVoice(leader, sl); }, dl ? 2400 : 0);
+  }
+  let voiceTimer = null;
+  function showVoice(def, text) {
+    const el = $('#voice-line');
+    el.innerHTML = '';
+    const n = document.createElement('b'); n.textContent = def.name; n.style.color = def.color;
+    const t = document.createElement('span'); t.textContent = text;
+    el.append(n, t);
+    el.classList.remove('hidden');
+    clearTimeout(voiceTimer);
+    voiceTimer = setTimeout(() => el.classList.add('hidden'), 2200 + text.length * 40);
   }
 
   // =====================================================================
@@ -233,7 +250,10 @@
       return;
     }
     const op = opAtScreen(e) || opAt(tx, ty);
-    if (op) { S.inspect = op; setMode('inspect'); refreshInspect(true); }
+    if (op) {
+      if (S.inspect !== op) { const sl = UI.line(op.def, 'select'); if (sl) addText(op.x + 0.5, op.y - 0.1, sl, op.def.color, 1.4, true); }
+      S.inspect = op; setMode('inspect'); refreshInspect(true);
+    }
     else if (S.mode === 'inspect') setMode('idle');
   });
   canvas.addEventListener('pointermove', (e) => {
@@ -363,7 +383,7 @@
     sfx('deploy');
     r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
-    addText(tx + 0.5, ty - 0.1, def.quote, def.color, 1.6, true);
+    addText(tx + 0.5, ty - 0.1, UI.line(def, 'deploy'), def.color, 1.8, true);
     setMode('idle');
     if (skill.spType === 'deploy') activateSkill(op);
   }
@@ -417,6 +437,8 @@
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.5, color: '#ffcf3a' });
     addText(op.x + 0.5, op.y - 0.1, sk.name, '#ffcf3a', 1.2, true);
+    const cl = UI.line(op.def, 'combat');
+    if (cl && op.def.voice) addText(op.x + 0.5, op.y - 0.45, cl, op.def.color, 1.8, true);
     return true;
   }
 
@@ -758,7 +780,7 @@
     const st = S.st;
     const stars = !win ? 0 : S.leaked === 0 ? 3 : S.life >= Math.ceil(S.maxLife / 2) ? 2 : 1;
     const firstClear = win && !(UI.save.stars[st.code] > 0);
-    const rewardText = UI.onBattleEnd(S.idx, win, stars);
+    const rewardText = UI.onBattleEnd(S.idx, win, stars, S.squadIds);
     if (win) {
       UI.save.stars[st.code] = Math.max(UI.save.stars[st.code] || 0, stars);
       UI.writeSave();
@@ -774,6 +796,15 @@
     rw.className = 'result-reward';
     rw.textContent = rewardText || '';
     $('#result-info').append(info, rw);
+    // 대장(편성 1번)의 결과 대사
+    const leader = opById(S.squadIds[0]);
+    const vline = leader && (win ? (stars === 3 ? UI.line(leader, 'clear') : '') : UI.line(leader, 'fail'));
+    if (vline) {
+      const v = document.createElement('div');
+      v.className = 'result-voice';
+      v.textContent = `${leader.name} — “${vline}”`;
+      $('#result-info').append(v);
+    }
     const btns = $('#result-btns');
     btns.innerHTML = '';
     const idx = S.idx, ended = S;

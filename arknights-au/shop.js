@@ -270,7 +270,7 @@
           <div class="g-name">${esc(d.name)}</div>
           <div class="g-class">${icon(d.class)}<span>${esc(CLASSES[d.class].name)}</span></div>
           <div class="g-badge">${r.isNew ? '<span class="new">NEW</span>' : `잠재력 ${r.pot}${r.cert ? ' · ' + esc(itemsText(r.cert)) : ''}`}</div>
-          ${r.isNew ? `<div class="g-quote">“${esc(d.quote || '')}”</div>` : ''}
+          ${r.isNew ? `<div class="g-quote">“${esc(UI.line(d, 'obtain'))}”</div>` : ''}
         </div>
         <div class="g-count">${i + 1} / ${results.length}</div>
       </div>`;

@@ -66,6 +66,26 @@
     </div>`;
   }
   const stars = (n) => '★'.repeat(n || 3);
+  // ---------- 음성 기록 ----------
+  const pick = (v) => (Array.isArray(v) ? v[Math.floor(Math.random() * v.length)] : v);
+  function line(def, key) {
+    const v = def && def.voice;
+    if (v && v[key]) return pick(v[key]);
+    if (!def) return '';
+    if (key === 'deploy' || key === 'select' || key === 'obtain') return def.quote || '';
+    return '';
+  }
+  const trustOf = (id) => Math.min(200, (save.trust && save.trust[id]) || 0);
+  function homeLines(def) {
+    const v = def.voice;
+    if (!v) return def.voices && def.voices.length ? def.voices : [def.quote || '…'];
+    const t = trustOf(def.id);
+    return [...(v.talk || []), ...(t >= 100 && v.trust100 ? [v.trust100] : []), ...(t >= 200 && v.trust200 ? [v.trust200] : [])];
+  }
+  function say(def, key) {
+    const t = line(def, key);
+    if (t) toast(`${def.name} — ${t}`, 1500 + t.length * 60);
+  }
   const skillsOf = (def) => def.skills || (def.skill ? [def.skill] : []);
   function skillIndex(def) {
     const n = skillsOf(def).length;
@@ -100,12 +120,12 @@
   }
 
   let toastTimer = null;
-  function toast(msg) {
+  function toast(msg, ms = 1800) {
     const el = $('#ui-toast');
     el.textContent = msg;
     el.classList.remove('hidden');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.add('hidden'), 1800);
+    toastTimer = setTimeout(() => el.classList.add('hidden'), Math.min(ms, 7000));
   }
 
   function openModal(html) {
@@ -153,12 +173,13 @@
   const totalStars = () => STAGES.reduce((s, st) => s + (save.stars[st.code] || 0), 0);
   const cleared = (st) => (save.stars[st.code] || 0) > 0;
   const unlocked = (i) => i === 0 || cleared(STAGES[i - 1]);
-  let voiceIdx = 0;
+  let voiceIdx = 0, assistantLine = null;
 
   function setVoice(next) {
     fixPlayer();
     const a = OPS[save.assistant];
-    const lines = a.voices && a.voices.length ? a.voices : [a.quote];
+    if (assistantLine) { $('#home-voice-text').textContent = assistantLine; assistantLine = null; return; }
+    const lines = homeLines(a);
     if (next) voiceIdx = (voiceIdx + 1) % lines.length;
     else voiceIdx = Math.floor(Math.random() * lines.length);
     $('#home-voice-text').textContent = lines[voiceIdx];
@@ -303,7 +324,7 @@
     $('#detail-block').innerHTML = Array.from({ length: 3 }, (_, i) => `<i class="${i < o.block ? 'on' : ''}"></i>`).join('');
     $('#detail-stars').textContent = stars(o.rarity);
     const pot = ACCOUNT.potOf(o.id);
-    $('#detail-pot').textContent = pot ? `잠재 ${pot}` : '미보유';
+    $('#detail-pot').textContent = pot ? `잠재 ${pot} · 신뢰도 ${trustOf(o.id)}%` : '미보유';
     $('#detail-en').textContent = o.en || '';
     $('#detail-name').textContent = o.name;
     $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${esc(arch.name)}</small>` : ''}`;
@@ -344,7 +365,26 @@
     save.assistant = detailId;
     writeSave();
     RENDER.detail();
-    toast(`${OPS[detailId].name}을(를) 비서로 지정했습니다`);
+    const def = OPS[detailId];
+    assistantLine = line(def, 'assistant') || null;
+    if (assistantLine) say(def, 'assistant');
+    else toast(`${def.name}을(를) 비서로 지정했습니다`);
+  });
+  const VOICE_LABEL = [['obtain', '획득'], ['assistant', '비서 임명'], ['talk', '대화'], ['trust100', '신뢰도 100%'], ['trust200', '신뢰도 200%'],
+    ['squad', '편성'], ['leader', '대장 임명'], ['depart', '작전 출발'], ['start', '작전 개시'], ['select', '선택'], ['deploy', '배치'],
+    ['combat', '전투 중'], ['clear', '3성 작전 완료'], ['fail', '작전 실패']];
+  $('#detail-voice').addEventListener('click', () => {
+    const o = OPS[detailId];
+    const v = o.voice || { talk: o.voices || [], deploy: [o.quote] };
+    const t = trustOf(o.id);
+    const rows = VOICE_LABEL.flatMap(([k, label]) => {
+      const list = [].concat(v[k] || []).filter(Boolean);
+      return list.map((txt, i) => {
+        const locked = (k === 'trust100' && t < 100) || (k === 'trust200' && t < 200);
+        return `<div class="vrow ${locked ? 'locked' : ''}"><b>${label}${list.length > 1 ? ' ' + (i + 1) : ''}</b><p>${locked ? `신뢰도 ${k === 'trust100' ? 100 : 200}% 달성 시 해금` : esc(txt)}</p></div>`;
+      });
+    }).join('');
+    openModal(`<div class="modal-title">${esc(o.name)} — 음성 기록</div><div class="modal-sub">신뢰도 ${t}% · 작전에서 사용한 이성만큼 신뢰도가 오릅니다</div><div class="voice-list">${rows}</div>`);
   });
 
   // =====================================================================
@@ -405,6 +445,7 @@
     const u = e.target.closest('[data-unpick]');
     if (p) {
       save.squad[+p.dataset.slotI] = p.dataset.pick;
+      say(OPS[p.dataset.pick], +p.dataset.slotI === 0 ? 'leader' : 'squad');
     } else if (u) {
       save.squad.splice(+u.dataset.unpick, 1);
     } else return;
@@ -437,12 +478,13 @@
     const st = STAGES[idx];
     fixPlayer();
     const squad = [...save.squad];
-    if (!squad.length) { toast('편성된 오퍼레이터가 없습니다'); return; }
-    if (!ACCOUNT.useSanity(sanityCost(st))) { openSanity(() => startOperation(idx, skipStory)); return; }
+    if (!squad.length) { toast('편성된 오퍼레이터가 없습니다'); return false; }
+    if (!ACCOUNT.useSanity(sanityCost(st))) { openSanity(() => startOperation(idx, skipStory)); return false; }
     sfx('select');
     const run = () => window.Battle.begin(idx, squad);
     if (!skipStory && st.before && st.before.length && !(save.stars[st.code] > 0)) playDialog(st.before, run);
     else run();
+    return true;
   }
   // 이성 부족 → 오리지늄으로 회복
   function openSanity(after) {
@@ -463,14 +505,17 @@
     $('#sanity-store').addEventListener('click', () => { closeModal(); go('store', 'originite'); });
   }
   // 전투 결과 → 보상 (game.js에서 호출)
-  function onBattleEnd(idx, win, starCount) {
+  function onBattleEnd(idx, win, starCount, squadIds = []) {
     const st = STAGES[idx], cost = sanityCost(st);
     if (!win) { ACCOUNT.addSanity(cost - 1); return `이성 ${cost - 1} 반환`; }
+    // 원작처럼 소모한 이성만큼 편성 오퍼레이터의 신뢰도 상승 (최대 200%)
+    save.trust = save.trust || {};
+    for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
     const first = !(save.stars[st.code] > 0);
     const reward = { lmd: cost * 12 };
     if (first) reward.originite = 1;
     ACCOUNT.earn(reward);
-    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}`).join(' · ');
+    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}`).join(' · ') + ` · 신뢰도 +${cost}%`;
   }
   function onBattleQuit(idx) { ACCOUNT.addSanity(sanityCost(STAGES[idx]) - 1); }
   const sfx = (n) => window.SFX && SFX.play(n);
@@ -675,7 +720,7 @@
 
   window.UI = {
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    openModal, closeModal, cardHTML, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf,
+    openModal, closeModal, cardHTML, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
   };
   RENDER.home();
