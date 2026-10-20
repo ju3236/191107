@@ -526,28 +526,42 @@
   let opSel = 0;
   const NODE_Y = [40, 40, 66, 30, 58];
 
+  let chapterSel = null;
+  const chapters = () => (typeof CHAPTERS !== 'undefined' && CHAPTERS.length ? CHAPTERS : [{ id: undefined, code: 'EP', name: GAME_INFO.chapter || GAME_INFO.title }]);
+  const stagesOf = (ch) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => st.chapter === ch.id || (ch.id === undefined));
   RENDER.operations = (arg, opts = {}) => {
-    $('#chapter-title').innerHTML = `<small>EPISODE</small><b>${esc(GAME_INFO.chapter || GAME_INFO.title)}</b>`;
     if (!unlocked(opSel)) opSel = 0;
     if (!opts.back) {
       let last = 0;
       STAGES.forEach((_, i) => { if (unlocked(i)) last = i; });
       opSel = last;
+      chapterSel = STAGES[last].chapter;
     }
+    const chs = chapters();
+    const cur = chs.find((c) => c.id === chapterSel) || chs[0];
+    chapterSel = cur.id;
+    // 에피소드 탭: 그 에피소드의 첫 작전이 열려 있어야 선택 가능
+    $('#chapter-title').innerHTML = chs.map((c) => {
+      const first = stagesOf(c)[0];
+      const open = first && unlocked(first.i);
+      return `<button class="ep-tab ${c.id === cur.id ? 'on' : ''} ${open ? '' : 'locked'}" data-ep="${c.id}"><small>${esc(c.code)}</small><b>${open ? esc(c.name) : '???'}</b></button>`;
+    }).join('');
+    const list = stagesOf(cur);
+    if (!list.some(({ i }) => i === opSel)) opSel = list[0].i;
     const map = $('#ops-map');
     const gap = 300, x0 = 150;
-    const width = x0 * 2 + gap * (STAGES.length - 1);
-    const pos = STAGES.map((st, i) => ({ x: x0 + i * gap, y: st.pos ?? NODE_Y[i % NODE_Y.length] }));
+    const width = x0 * 2 + gap * (list.length - 1);
+    const pos = list.map(({ st }, k) => ({ x: x0 + k * gap, y: st.pos ?? NODE_Y[k % NODE_Y.length] }));
     let lines = '';
-    for (let i = 1; i < pos.length; i++) {
-      lines += `<line x1="${pos[i - 1].x}" y1="${pos[i - 1].y}%" x2="${pos[i].x}" y2="${pos[i].y}%" class="${unlocked(i) ? '' : 'dim'}"/>`;
+    for (let k = 1; k < pos.length; k++) {
+      lines += `<line x1="${pos[k - 1].x}" y1="${pos[k - 1].y}%" x2="${pos[k].x}" y2="${pos[k].y}%" class="${unlocked(list[k].i) ? '' : 'dim'}"/>`;
     }
     map.innerHTML = `<div class="ops-track" style="width:${width}px">
       <svg class="ops-lines" width="${width}" height="100%">${lines}</svg>
-      ${STAGES.map((st, i) => {
+      ${list.map(({ st, i }, k) => {
         const s = save.stars[st.code] || 0;
         const cls = [unlocked(i) ? '' : 'locked', i === opSel ? 'sel' : '', cleared(st) ? 'done' : ''].join(' ');
-        return `<button class="op-node ${cls}" data-stage="${i}" style="left:${pos[i].x}px;top:${pos[i].y}%">
+        return `<button class="op-node ${cls}" data-stage="${i}" style="left:${pos[k].x}px;top:${pos[k].y}%">
           <span class="node-hex">${unlocked(i) ? (s ? '◆'.repeat(s) : '') : icon('lock')}</span>
           <span class="node-label"><small>OPERATION</small><b>${st.code}</b></span>
         </button>`;
@@ -555,6 +569,17 @@
     </div>`;
     renderOpsPanel();
   };
+  $('#chapter-title').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ep]');
+    if (!b) return;
+    if (b.classList.contains('locked')) { toast('이전 에피소드를 완료하면 해금됩니다'); return; }
+    chapterSel = isNaN(+b.dataset.ep) ? undefined : +b.dataset.ep;
+    const first = stagesOf(chapters().find((c) => c.id === chapterSel))[0];
+    let last = first.i;
+    STAGES.forEach((st, i) => { if (st.chapter === chapterSel && unlocked(i)) last = i; });
+    opSel = last;
+    RENDER.operations(undefined, { back: true });
+  });
 
   function renderOpsPanel() {
     const st = STAGES[opSel], s = save.stars[st.code] || 0;

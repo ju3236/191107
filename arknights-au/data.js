@@ -315,6 +315,15 @@ const ENEMIES = {
   host:        { code: 'P1', name: '숙주 병사', hp: 2500, atk: 250, def: 100, res: 30, speed: 0.45, interval: 1.8, range: 0, regen: 0.01, color: '#6fae6f', desc: '광석병에 잠식된 병사. HP가 서서히 회복된다.' },
   sarkaz:      { code: 'S1', name: '살카즈 대검사', hp: 7500, atk: 600, def: 230, res: 50, speed: 0.425, interval: 2.0, range: 0, elite: true, color: '#c0392b', desc: '사르카즈 용병. 공격력이 높다.' },
   sarkaz_caster: { code: 'S5', name: '살카즈 캐스터', hp: 12000, atk: 500, def: 200, res: 50, speed: 0.4, interval: 4.0, range: 2.5, arts: true, elite: true, color: '#8e44ad', desc: '강력한 아츠를 쓰는 사르카즈 용병.' },
+  dual_l:      { code: '5', name: '쌍검사 리더', hp: 3000, atk: 450, def: 120, res: 0, speed: 0.55, interval: 1.2, range: 0, color: '#e06060', desc: '쌍검사 부대의 리더.' },
+  host_l:      { code: 'P2', name: '숙주 병사 리더', hp: 4000, atk: 300, def: 150, res: 30, speed: 0.45, interval: 1.8, range: 0, regen: 0.01, color: '#7fbf7f', desc: '숙주 병사의 리더. HP가 서서히 회복된다.' },
+  breaker:     { code: '34', name: '진형파괴병', hp: 3500, atk: 410, def: 50, res: 25, speed: 0.95, interval: 1.4, range: 0, color: '#e8743b', desc: '매우 빠르게 돌진해 진형을 무너뜨린다.' },
+  agent:       { code: 'PA1', name: '특공대원', hp: 6000, atk: 300, def: 150, res: 50, speed: 0.45, interval: 2.0, range: 0, arts: true, elite: true, color: '#b07de0', desc: '근접 마법 공격을 하는 정예 대원.' },
+  rockbreaker: { code: 'PB1', name: '록브레이커', hp: 10000, atk: 750, def: 100, res: 40, speed: 0.375, interval: 3.3, range: 0, elite: true, color: '#c8803c', desc: '거대한 망치로 강력한 일격을 날린다.' },
+  hammer:      { code: '36', name: '분쇄돌격병', hp: 10000, atk: 1000, def: 1000, res: 0, speed: 0.25, interval: 3.5, range: 0, elite: true, color: '#a0a8b0', desc: '방어력이 극도로 높다. 마법 공격으로 상대하자.' },
+  avenger:     { code: '15', name: '어벤져', hp: 18000, atk: 480, def: 230, res: 50, speed: 0.325, interval: 2.3, range: 0, elite: true, enrage: { below: 0.5, atk: 2 }, color: '#d04848', desc: 'HP가 절반 이하가 되면 공격력이 두 배가 된다.' },
+  artsmaster:  { code: 'D7', name: '아츠 마스터 A1', hp: 2700, atk: 220, def: 100, res: 65, speed: 0.5, interval: 2.15, range: 1.8, fly: true, arts: true, color: '#8fb8ff', desc: '비행 유닛. 마법 저항이 높고 아츠로 공격한다.' },
+  bombbird:    { code: 'D5', name: '폭탄새', hp: 4000, atk: 800, def: 150, res: 30, speed: 0.3, interval: 5.0, range: 2.0, fly: true, aoe: 0.8, elite: true, color: '#ff6a3d', desc: '비행 유닛. 폭탄을 떨어뜨려 좁은 범위에 큰 피해를 준다.' },
   // ---- 보스 (리유니온 간부) ----
   skull:     { code: 'SS', name: '스컬슈레더', hp: 10500, atk: 1000, def: 150, res: 30, speed: 0.3, interval: 3.0, range: 2.6, aoe: 1.0, enrage: { below: 0.5, atk: 1.5 }, lifeCost: 2, boss: true, color: '#e67e22',
                desc: '리유니온 돌격부대 간부. 저지당하지 않으면 유탄을 쏘아 범위 피해를 주고, HP 50% 이하에서 공격력이 크게 오른다.' },
@@ -324,6 +333,10 @@ const ENEMIES = {
                desc: '리유니온 간부. 공격 대신 주변 적을 최대 3명까지 치료하고, 모든 적의 HP 회복 속도를 2배로 만든다.' },
   faust:     { code: 'FA', name: '파우스트', hp: 18000, atk: 800, def: 350, res: 35, speed: 0.3, interval: 5.0, range: 4.0, unblockable: true, lifeCost: 2, boss: true, color: '#c9a227',
                desc: '리유니온 간부. 저지당하지 않으며, 초원거리에서 강력한 크로스보우로 공격한다.' },
+  w:         { code: 'W', name: 'W', hp: 10000, atk: 470, def: 100, res: 50, speed: 0.6, interval: 4.0, range: 2.5, aoe: 1.2, enrage: { below: 0.5, atk: 1.6 }, lifeCost: 2, boss: true, color: '#ff4d6d',
+               desc: '사르카즈 용병이자 리유니온 간부. 폭발물을 던져 범위 피해를 주고, HP 50% 이하에서 폭발물의 위력이 커진다.' },
+  patriot:   { code: 'PT', name: '패트리어트', hp: 26000, atk: 1100, def: 500, res: 45, speed: 0.2, interval: 4.0, range: 0, weight: 2, revive: { atk: 1.5 }, enrage: { below: 0.5, atk: 1.3 }, lifeCost: 3, boss: true, color: '#c0c6cc',
+               desc: '사르카즈 노병, 「눈의 악마」의 아버지. 저지에 2칸이 필요하며, 쓰러져도 한 번 일어선다. 돌파당하면 목숨 3 감소.' },
   frostnova: { code: 'FN', name: '프로스트노바', hp: 25000, atk: 420, def: 250, res: 50, speed: 0.25, interval: 3.7, range: 2.0, arts: true, aoe: 1.0, chill: true, revive: { atk: 1.3 }, lifeCost: 2, boss: true, color: '#aee3ff',
                desc: '리유니온 아츠부대 간부. 냉기 아츠로 주변에 마법 피해를 주고 공격 속도를 늦춘다. 첫 사망 시 부활하며 공격력이 오른다.' },
 };
@@ -338,9 +351,15 @@ for (const [id, e] of Object.entries(ENEMIES)) if (e.image === undefined) e.imag
 //  waves: { t: 시작(초), enemy, count, gap: 간격(초), spawn: 침입 지점 번호(위→아래, 왼→오른쪽 순) }
 //  스토리: { who: 오퍼레이터 id, text } / { name: '이름', text } / { text } (나레이션)
 // ---------------------------------------------------------------------
+// 에피소드 (작전 목록 화면의 탭). 스테이지의 chapter 값과 맞춥니다.
+const CHAPTERS = [
+  { id: 1, code: 'EP 01', name: '잿빛 등대' },
+  { id: 2, code: 'EP 02', name: '꺼지지 않는 불씨' },
+];
+
 const STAGES = [
   {
-    code: '1-1', sanity: 6, name: '첫 출격', desc: '체르노보그 외곽 폐허. 리유니온 잔당과 원석충을 정리하라.',
+    code: '1-1', chapter: 1, sanity: 6, name: '첫 출격', desc: '체르노보그 외곽 폐허. 리유니온 잔당과 원석충을 정리하라.',
     life: 3, startDp: 10, deployLimit: 8,
     map: ['############', '#^^^^#^^^^^#', 'R-........^#', '#^^^.^^^^.^#', '#^...^#^...B', '#^^^^^#^^^^#', '############'],
     waves: [
@@ -367,7 +386,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-2', sanity: 6, name: '폐허의 사냥개', desc: '빠르게 달려드는 사냥개 무리. 양쪽 입구를 동시에 막아라.',
+    code: '1-2', chapter: 1, sanity: 6, name: '폐허의 사냥개', desc: '빠르게 달려드는 사냥개 무리. 양쪽 입구를 동시에 막아라.',
     life: 3, startDp: 12, deployLimit: 8,
     map: ['R-...^^^^^^#', '#^^^.^#...-R', '#^^^...^.^^#', '##^^^.^..^^#', '#^^^.....^##', '#^^^.^^^^^^#', '####B#######'],
     waves: [
@@ -394,7 +413,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-3', sanity: 9, name: '하늘의 눈', desc: '비행 유닛 요마가 정찰한다. 비행 유닛은 길을 따르지 않고 곧장 날아온다.',
+    code: '1-3', chapter: 1, sanity: 9, name: '하늘의 눈', desc: '비행 유닛 요마가 정찰한다. 비행 유닛은 길을 따르지 않고 곧장 날아온다.',
     life: 3, startDp: 12, deployLimit: 8,
     map: ['#R##########', '#-^^^^^^^^^#', '#........^^#', '#^^^^^^^.^^#', '#^.......^^#', '#^.^^^^^^^^#', '#^.......--B', '############'],
     waves: [
@@ -420,7 +439,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-4', sanity: 9, name: '철벽', desc: '방어력이 매우 높은 중기갑병. 물리 공격이 잘 통하지 않는다.',
+    code: '1-4', chapter: 1, sanity: 9, name: '철벽', desc: '방어력이 매우 높은 중기갑병. 물리 공격이 잘 통하지 않는다.',
     life: 3, startDp: 14, deployLimit: 8,
     map: ['############', 'R....^^^^^^#', '#^^^.^^^^^^#', '#^^^......^#', '#^^^^^^^^.^#', 'R-.......-.B', '############'],
     waves: [
@@ -447,7 +466,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-5', sanity: 12, name: '유탄의 거리', desc: '리유니온 간부 스컬슈레더 출현. 저지하지 않으면 유탄을 퍼붓는다.',
+    code: '1-5', chapter: 1, sanity: 12, name: '유탄의 거리', desc: '리유니온 간부 스컬슈레더 출현. 저지하지 않으면 유탄을 퍼붓는다.',
     life: 3, startDp: 15, deployLimit: 8,
     map: ['#############', '#^^^^^^^^^^^#', 'R---.....^^^#', '#^^^^^^^.^^^#', '#^^^.....^^^#', '#^^^.^^^^^^^#', '#^^^.......-B', '#############'],
     waves: [
@@ -472,7 +491,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-6', sanity: 12, name: '그림자 습격', desc: '크라운슬레이어의 기습. 저지당하면 뒤로 순간이동한다.',
+    code: '1-6', chapter: 1, sanity: 12, name: '그림자 습격', desc: '크라운슬레이어의 기습. 저지당하면 뒤로 순간이동한다.',
     life: 3, startDp: 15, deployLimit: 8,
     map: ['#############', 'R-......^^^^#', '#^^^^^^.^^^^#', '#^^^^^^.....B', '#^^^^^^.^^^^#', 'R-......^^^^#', '#############'],
     waves: [
@@ -498,7 +517,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-7', sanity: 15, name: '노래하는 자', desc: '메피스토가 숙주 병사를 치료하고, 파우스트는 저지되지 않은 채 멀리서 쏜다.',
+    code: '1-7', chapter: 1, sanity: 15, name: '노래하는 자', desc: '메피스토가 숙주 병사를 치료하고, 파우스트는 저지되지 않은 채 멀리서 쏜다.',
     life: 3, startDp: 16, deployLimit: 8,
     map: ['#############', '#R-....^^^^^#', '#^^^^^.^^^^^#', '#^^.......^^#', '#^^.^^^^^.^^#', '#^^.^^^^^.^^#', '#^^....B....#', '#############'],
     waves: [
@@ -524,7 +543,7 @@ const STAGES = [
     ],
   },
   {
-    code: '1-8', sanity: 18, name: '겨울의 등대', desc: '프로스트노바와 눈의 악마 소대. 첫 사망 시 부활하니 끝까지 버텨라.',
+    code: '1-8', chapter: 1, sanity: 18, name: '겨울의 등대', desc: '프로스트노바와 눈의 악마 소대. 첫 사망 시 부활하니 끝까지 버텨라.',
     life: 3, startDp: 22, deployLimit: 8,
     map: ['##############', 'R-.....^^^^^^#', '#^^^^^.^^^^^^#', '#^^^^^......^#', '#^^^^^^^^^^.^#', '#^.........-^#', '#^.^^^^^^^^^^#', '#B...........R', '##############'],
     waves: [
@@ -554,8 +573,214 @@ const STAGES = [
       { text: '— EP 01 「잿빛 등대」 끝. (스토리는 data.js에서 자유롭게 바꿀 수 있습니다.)' },
     ],
   },
+  // ======================= EP 02 · 꺼지지 않는 불씨 =======================
+  {
+    code: '2-1', chapter: 2, sanity: 12, name: '불씨의 행방', desc: '용문 외곽 감염자 거주지. 리유니온 잔당이 다시 모이고 있다.',
+    life: 3, startDp: 15, deployLimit: 8,
+    map: ['#############', 'R-.....^^^^^#', '#^^^^^.^^^^^#', '#^^.......^^#', '#^^.^^^^^.^^#', '#^^.......--B', '#############'],
+    waves: [
+      { t: 3, enemy: 'soldier', count: 3, gap: 2.5 },
+      { t: 14, enemy: 'dual_l', count: 2, gap: 3 },
+      { t: 26, enemy: 'crossbow_l', count: 2, gap: 3 },
+      { t: 38, enemy: 'breaker', count: 3, gap: 2 },
+      { t: 52, enemy: 'caster_l', count: 2, gap: 4 },
+      { t: 64, enemy: 'dual_l', count: 3, gap: 2.5 },
+      { t: 78, enemy: 'breaker', count: 4, gap: 1.5 },
+    ],
+    before: [
+      { text: '프로스트노바와의 교전 3일 후. 로도스 아일랜드 본함.' },
+      { name: '아미야', text: '박사, 용문 근교에서 리유니온의 움직임이 다시 포착됐어요. 체르노보그 때보다 훨씬 조직적이에요.' },
+      { who: 'gaeul', text: '보고서를 정리해 봤습니다. 이번에는 사르카즈 용병이 섞여 있다는 정보가 있습니다.' },
+      { who: 'iai', text: '……사르카즈.' },
+      { who: 'simhae', text: '이아이 씨, 표정 굳었는데요? 괜찮아요, 괜찮아. 이번에도 제 뒤에 있으면 됩니다.' },
+    ],
+    after: [
+      { who: 'byeol', text: '진형파괴병…… 정말 빨랐어요. 조준 계산을 다시 해야겠어요.' },
+      { who: 'gaeul', text: '잔당치고는 장비가 너무 좋습니다. 누군가 뒤에서 대 주고 있어요.' },
+    ],
+  },
+  {
+    code: '2-2', chapter: 2, sanity: 12, name: '하늘을 덮는 그림자', desc: '아츠 마스터와 폭탄새가 하늘을 덮는다. 비행 유닛은 곧장 날아온다.',
+    life: 3, startDp: 18, deployLimit: 8,
+    map: ['#############', 'R-....^^....R', '#^^.......^^#', '#^^^^....^^^#', '#^^^^^^.^^^^#', '#^^^^^^.^^^^#', '#######B#####'],
+    waves: [
+      { t: 3, enemy: 'soldier', count: 3, gap: 2.5, spawn: 0 },
+      { t: 14, enemy: 'artsmaster', count: 1, spawn: 1 },
+      { t: 20, enemy: 'crossbow_l', count: 2, gap: 3, spawn: 1 },
+      { t: 28, enemy: 'artsmaster', count: 1, spawn: 0 },
+      { t: 42, enemy: 'bombbird', count: 1, spawn: 1 },
+      { t: 48, enemy: 'dual_l', count: 3, gap: 2.5, spawn: 0 },
+      { t: 62, enemy: 'artsmaster', count: 2, gap: 3, spawn: 1 },
+      { t: 72, enemy: 'bombbird', count: 2, gap: 6, spawn: 0 },
+      { t: 86, enemy: 'soldier', count: 4, gap: 2, spawn: 1 },
+    ],
+    before: [
+      { who: 'byeol', text: '박사님…… 하늘이요. 저번보다 훨씬 많아요.' },
+      { who: 'gaeul', text: '폭탄새는 한 번에 큰 피해를 줍니다. 오퍼레이터를 너무 붙여서 배치하지 마세요.' },
+      { who: 'byeol', text: '……하늘은 제가 맡을게요. 놓치지 않을게요.' },
+    ],
+    after: [
+      { who: 'simhae', text: '와, 하늘에서 폭탄이 비처럼 오던데. 다들 머리 멀쩡하죠?' },
+      { who: 'byeol', text: '전원 무사…… 다행이에요.' },
+    ],
+  },
+  {
+    code: '2-3', chapter: 2, sanity: 15, name: '분쇄', desc: '방어력 1000의 분쇄돌격병. 물리 공격은 거의 통하지 않는다.',
+    life: 3, startDp: 18, deployLimit: 8,
+    map: ['##############', 'R-......^^^^^#', '#^^^^^^.^^^^^#', '#^^^^^^.....^#', '#^^......^^.^#', '#^^.^^^^^^^.^#', '#^^.........B#', '##############'],
+    waves: [
+      { t: 3, enemy: 'shieldguard', count: 3, gap: 3 },
+      { t: 16, enemy: 'light_armor', count: 2, gap: 4 },
+      { t: 28, enemy: 'caster_l', count: 2, gap: 4 },
+      { t: 40, enemy: 'hammer', count: 1 },
+      { t: 50, enemy: 'dual_l', count: 3, gap: 2.5 },
+      { t: 64, enemy: 'heavy', count: 2, gap: 6 },
+      { t: 80, enemy: 'hammer', count: 1 },
+      { t: 88, enemy: 'crossbow_l', count: 3, gap: 3 },
+    ],
+    before: [
+      { who: 'gaeul', text: '분쇄돌격병. 중기갑병보다도 단단합니다.' },
+      { who: 'simhae', text: '저건 저도 좀 무섭네요. 그래도 붙잡고는 있을게요. 녹이는 건 아츠 쪽에 부탁합니다.' },
+      { text: '[작전 안내] 방어력이 매우 높은 적은 캐스터의 마법 공격으로 상대하세요.' },
+    ],
+    after: [
+      { who: 'iai', text: '……칼이, 튕겼어요.' },
+      { who: 'gaeul', text: '분쇄돌격병을 보낼 정도라면, 상대도 진심이라는 뜻입니다.' },
+    ],
+  },
+  {
+    code: '2-4', chapter: 2, sanity: 15, name: '세 갈래 침공', desc: '세 방향에서 동시에 밀려드는 적. 합류 지점을 지켜라.',
+    life: 3, startDp: 18, deployLimit: 8,
+    map: ['#############', '#^^.......^^#', 'R--.......^^#', '#^^^^^^^.^^^#', 'R--.......--B', '#^^^^^^^.^^^#', 'R--.......^^#', '#^^^^^^^^^^^#', '#############'],
+    waves: [
+      { t: 3, enemy: 'hound_pro', count: 3, gap: 1.5, spawn: 0 },
+      { t: 6, enemy: 'hound_pro', count: 3, gap: 1.5, spawn: 2 },
+      { t: 18, enemy: 'soldier', count: 3, gap: 2.5, spawn: 1 },
+      { t: 30, enemy: 'dual_l', count: 2, gap: 3, spawn: 0 },
+      { t: 34, enemy: 'dual_l', count: 2, gap: 3, spawn: 2 },
+      { t: 48, enemy: 'caster_l', count: 2, gap: 4, spawn: 1 },
+      { t: 58, enemy: 'breaker', count: 4, gap: 1.5, spawn: 0 },
+      { t: 62, enemy: 'breaker', count: 4, gap: 1.5, spawn: 2 },
+      { t: 78, enemy: 'agent', count: 2, gap: 4, spawn: 1 },
+      { t: 92, enemy: 'rockbreaker', count: 1, spawn: 1 },
+    ],
+    before: [
+      { who: 'gaeul', text: '세 방향입니다. 하지만 결국 한 곳으로 모입니다. 방어선은 그 앞에 두죠.' },
+      { who: 'simhae', text: '합류 지점이요? 딱 제 자리네요. 이쪽은 통행금지입니다~.' },
+    ],
+    after: [
+      { who: 'gaeul', text: '깔끔했습니다. 보고서에 쓸 말이 별로 없을 정도로요.' },
+      { who: 'iai', text: '……저쪽. 폭발 흔적이에요. 아주 많이.' },
+    ],
+  },
+  {
+    code: '2-5', chapter: 2, sanity: 18, name: '웃는 폭탄마', desc: 'W 출현. 저지하지 않으면 멀리서 폭발물을 던진다.',
+    life: 3, startDp: 18, deployLimit: 8,
+    map: ['##############', '#R-....^^....#', '#^^^^^.^^.^^^#', '#^^^^^....^^^#', '#^^^^^^^.^^^^#', '#^^......^^^^#', '#^^.^^^^^^^^^#', '#B-.....^^^^^#', '##############'],
+    waves: [
+      { t: 3, enemy: 'mob', count: 4, gap: 2 },
+      { t: 14, enemy: 'molotov', count: 3, gap: 3 },
+      { t: 28, enemy: 'sarkaz', count: 1 },
+      { t: 36, enemy: 'crossbow_l', count: 2, gap: 3 },
+      { t: 48, enemy: 'w', count: 1 },
+      { t: 52, enemy: 'breaker', count: 3, gap: 2 },
+      { t: 66, enemy: 'sarkaz', count: 2, gap: 6 },
+      { t: 80, enemy: 'molotov', count: 3, gap: 2.5 },
+    ],
+    before: [
+      { name: 'W', text: '어머, 로도스의 귀여운 쥐들이네? 불꽃놀이 좋아해?' },
+      { who: 'iai', text: '……W. 카즈델에서, 이름을 들은 적 있어요.' },
+      { who: 'gaeul', text: '저지하지 않으면 폭발물을 던집니다. 오퍼레이터를 한곳에 모으지 마세요.' },
+      { who: 'simhae', text: '그럼 제가 가서 붙잡죠. 폭탄 맞는 건 디펜더 전문이니까.' },
+    ],
+    after: [
+      { name: 'W', text: '하하, 재밌었어! 다음엔 더 큰 걸 준비해 올게.' },
+      { who: 'simhae', text: '어이쿠, 귀 울려. 다음에도 저 사람이면 전 휴가 낼게요.' },
+      { who: 'iai', text: '……W 뒤에, 더 큰 그림자가 있어요.' },
+    ],
+  },
+  {
+    code: '2-6', chapter: 2, sanity: 18, name: '긴 행군', desc: '길고 구불구불한 길을 따라 정예 부대가 행군한다.',
+    life: 3, startDp: 18, deployLimit: 8,
+    map: ['##############', 'R-.....^^^^^^#', '#^^^^^......^#', '#^^^^^^^^^^.^#', '#^.........-^#', '#^.^^^^^^^^^^#', '#^.......---B#', '##############'],
+    waves: [
+      { t: 3, enemy: 'yeti', count: 3, gap: 3 },
+      { t: 18, enemy: 'agent', count: 2, gap: 4 },
+      { t: 30, enemy: 'artsmaster', count: 2, gap: 3 },
+      { t: 42, enemy: 'rockbreaker', count: 1 },
+      { t: 50, enemy: 'yeti_sniper', count: 3, gap: 3 },
+      { t: 64, enemy: 'avenger', count: 1 },
+      { t: 72, enemy: 'agent', count: 3, gap: 3 },
+      { t: 88, enemy: 'bombbird', count: 2, gap: 5 },
+      { t: 96, enemy: 'yeti', count: 4, gap: 2.5 },
+    ],
+    before: [
+      { who: 'byeol', text: '박사님, 저 부대…… 눈의 악마 소대예요. 프로스트노바의 부하들이요.' },
+      { who: 'gaeul', text: '대장을 잃고도 흐트러지지 않는군요. 누가 그들을 이끌고 있는 걸까요.' },
+      { who: 'simhae', text: '길이 기네요. 그만큼 오래 버텨야 한다는 뜻이고. 자, 다들 제 뒤만 잘 따라오세요.' },
+    ],
+    after: [
+      { who: 'iai', text: '……발소리가, 하나 더 있었어요. 아주 무거운.' },
+      { who: 'gaeul', text: '정찰 보고입니다. 거대한 방패와 창을 든 사르카즈가 이쪽으로 오고 있다고 합니다.' },
+    ],
+  },
+  {
+    code: '2-7', chapter: 2, sanity: 21, name: '양날의 칼', desc: '양쪽 입구에서 정예와 어벤져가 동시에 들이닥친다.',
+    life: 3, startDp: 20, deployLimit: 8,
+    map: ['##############', 'R-...^^^^...-R', '#^^^.^^^^.^^^#', '#^^^.......^^#', '#^^^^^^.^^^^^#', '#^^^^^^.^^^^^#', '#^^^^^^.^^^^^#', '#######B######'],
+    waves: [
+      { t: 3, enemy: 'dual_l', count: 3, gap: 2, spawn: 0 },
+      { t: 5, enemy: 'dual_l', count: 3, gap: 2, spawn: 1 },
+      { t: 20, enemy: 'agent', count: 2, gap: 3, spawn: 0 },
+      { t: 24, enemy: 'sarkaz', count: 1, spawn: 1 },
+      { t: 38, enemy: 'bombbird', count: 2, gap: 4, spawn: 1 },
+      { t: 46, enemy: 'avenger', count: 1, spawn: 0 },
+      { t: 54, enemy: 'sarkaz_caster', count: 1, spawn: 1 },
+      { t: 66, enemy: 'breaker', count: 4, gap: 1.5, spawn: 0 },
+      { t: 70, enemy: 'breaker', count: 4, gap: 1.5, spawn: 1 },
+      { t: 84, enemy: 'hammer', count: 1, spawn: 0 },
+      { t: 88, enemy: 'avenger', count: 1, spawn: 1 },
+    ],
+    before: [
+      { who: 'gaeul', text: '양쪽에서 옵니다. 어벤져는 체력이 절반 이하가 되면 공격력이 두 배가 됩니다. 한 번에 끝내야 합니다.' },
+      { who: 'iai', text: '……한 번에. 그건, 제 일이에요.' },
+    ],
+    after: [
+      { who: 'byeol', text: '이제…… 긴장이 풀리네요……. 아, 아직 안 끝났죠?' },
+      { who: 'gaeul', text: '네. 마지막이 남았습니다. 패트리어트. 리유니온 최강의 전사입니다.' },
+    ],
+  },
+  {
+    code: '2-8', chapter: 2, sanity: 21, name: '노병', desc: '패트리어트. 저지에 2칸이 필요하고, 쓰러져도 한 번 일어선다. 돌파당하면 목숨 3 감소.',
+    life: 3, startDp: 24, deployLimit: 8,
+    map: ['###############', 'R-......^^^^^^#', '#^^^^^^.^^^^^^#', '#^^^^^^......^#', '#^^^^^^^^^^^.^#', '#^...........^#', '#^.^^^^^^^^^^^#', '#^.........--B#', '###############'],
+    waves: [
+      { t: 3, enemy: 'yeti', count: 3, gap: 3 },
+      { t: 16, enemy: 'yeti_caster', count: 2, gap: 4 },
+      { t: 28, enemy: 'sarkaz', count: 2, gap: 5 },
+      { t: 42, enemy: 'artsmaster', count: 2, gap: 3 },
+      { t: 54, enemy: 'patriot', count: 1 },
+      { t: 60, enemy: 'yeti', count: 4, gap: 3 },
+      { t: 76, enemy: 'sarkaz_caster', count: 1 },
+      { t: 88, enemy: 'yeti_sniper', count: 3, gap: 3 },
+      { t: 104, enemy: 'avenger', count: 1 },
+    ],
+    before: [
+      { name: '패트리어트', text: '……로도스 아일랜드. 너희의 불빛이, 이 대지를 바꿀 수 있다고 믿는가.' },
+      { who: 'gaeul', text: '……대답은 작전으로 하겠습니다.' },
+      { who: 'simhae', text: '저 사람은 진짜로 무섭네. ……그래도 여기부터는 못 지나갑니다.' },
+      { who: 'byeol', text: '박사님. 저…… 이번에도 꼭 엄호할게요.' },
+      { who: 'iai', text: '쓰러져도 일어선대요. 그럼…… 두 번 베면 돼요.' },
+    ],
+    after: [
+      { name: '패트리어트', text: '……좋은 불빛이다. 꺼뜨리지 마라.' },
+      { who: 'gaeul', text: '작전 종료. 행동대 「등대」, 전원 귀환합니다.' },
+      { who: 'simhae', text: '와, 이건 좀 아슬아슬했는데? 다들 살아 있죠? 좋습니다!' },
+      { who: 'byeol', text: '……박사님. 저희, 계속 이 불빛을 지킬 수 있겠죠?' },
+      { text: '— EP 02 「꺼지지 않는 불씨」 끝. (스토리는 data.js에서 자유롭게 바꿀 수 있습니다.)' },
+    ],
+  },
 ];
-
 // ---------------------------------------------------------------------
 //  아이템 · 구매센터 · 헤드헌팅 (원작 명칭)
 // ---------------------------------------------------------------------
