@@ -572,6 +572,7 @@
   $('#slot-grid').addEventListener('click', (e) => {
     const b = e.target.closest('[data-slot]');
     if (!b) return;
+    if (pressed) { pressed = false; return; }   // 꾹 누르기로 정보 창을 연 경우
     const slot = Math.min(+b.dataset.slot, save.squad.length);
     const curId = save.squad[slot];
     const pool = ownedOps().filter((o) => !save.squad.includes(o.id) || o.id === curId);
@@ -593,13 +594,70 @@
     closeModal();
     renderFormation();
   });
-  $('#btn-quick').addEventListener('click', () => {
-    const order = ownedOps().sort((a, b) => (b.rarity || 3) - (a.rarity || 3) || CLASS_ORDER.indexOf(a.class) - CLASS_ORDER.indexOf(b.class));
-    save.squad = order.map((o) => o.id).slice(0, SQUAD_MAX);
-    writeSave();
-    renderFormation();
-    toast('빠른 편성을 완료했습니다');
+  // 빠른 편성: 보유 오퍼레이터를 한 화면에서 여러 명 골라 한꺼번에 편성 (누른 순서대로)
+  let quickSel = [];
+  const quickOrder = () => ownedOps().sort((a, b) => (b.rarity || 3) - (a.rarity || 3) || CLASS_ORDER.indexOf(a.class) - CLASS_ORDER.indexOf(b.class));
+  function renderQuick() {
+    const list = quickOrder();
+    openModal(`<div class="modal-title">빠른 편성</div><div class="modal-sub">누른 순서대로 편성됩니다 · <b id="quick-n">${quickSel.length}</b>/${SQUAD_MAX}</div>
+      <div class="pick-grid quick-grid">${list.map((o) => { const n = quickSel.indexOf(o.id); return `<button class="card-btn ${n >= 0 ? 'picked' : ''}" data-quick="${o.id}">${cardHTML(o, 'small')}${n >= 0 ? `<span class="quick-no">${n + 1}</span>` : ''}</button>`; }).join('')}</div>
+      <div class="panel-btns quick-btns"><button class="btn primary" id="quick-ok">편성 확인</button><button class="btn" id="quick-auto">자동 선택</button><button class="btn" id="quick-none">전체 해제</button></div>`);
+    $('#modal').dataset.kind = 'quick';
+  }
+  $('#btn-quick').addEventListener('click', () => { quickSel = save.squad.filter((id) => owned(id)); renderQuick(); });
+  $('#modal-body').addEventListener('click', (e) => {
+    if ($('#modal').dataset.kind !== 'quick') return;
+    const q = e.target.closest('[data-quick]');
+    if (q) {
+      const id = q.dataset.quick, i = quickSel.indexOf(id);
+      if (i >= 0) quickSel.splice(i, 1);
+      else if (quickSel.length >= SQUAD_MAX) { toast(`최대 ${SQUAD_MAX}명까지 편성할 수 있습니다`); return; }
+      else quickSel.push(id);
+      const sc = $('.quick-grid').scrollTop;
+      renderQuick();
+      $('.quick-grid').scrollTop = sc;
+      return;
+    }
+    if (e.target.closest('#quick-auto')) { quickSel = quickOrder().map((o) => o.id).slice(0, SQUAD_MAX); renderQuick(); return; }
+    if (e.target.closest('#quick-none')) { quickSel = []; renderQuick(); return; }
+    if (e.target.closest('#quick-ok')) {
+      save.squad = quickSel.slice(0, SQUAD_MAX);
+      writeSave();
+      closeModal();
+      renderFormation();
+      if (save.squad[0]) say(OPS[save.squad[0]], 'leader');
+      toast('빠른 편성을 완료했습니다');
+    }
   });
+  // 편성된 오퍼레이터를 꾹 누르면 정보 창
+  let pressT = null, pressed = false;
+  function opInfo(id) {
+    const o = OPS[id], cls = CLASSES[o.class], arch = o.archetype && ARCHETYPES[o.archetype];
+    const list = skillsOf(o), cur = skillIndex(o);
+    openModal(`<div class="opinfo" style="--c:${o.color}">
+      <div class="opinfo-art">${artHTML(o)}</div>
+      <div class="opinfo-main">
+        <div class="modal-title">${esc(o.name)} <small>${stars(o.rarity)}</small></div>
+        <div class="modal-sub">${esc(cls.name)}${arch ? ' · ' + esc(arch.name) : ''} · ${esc(o.race || '')} · 잠재 ${ACCOUNT.potOf(o.id)} · 신뢰도 ${trustOf(o.id)}%</div>
+        <div class="opinfo-stats"><span>체력 <b>${o.hp}</b></span><span>공격 <b>${o.atk}</b></span><span>방어 <b>${o.def}</b></span><span>마항 <b>${o.res || 0}</b></span><span>코스트 <b>${o.cost}</b></span><span>저지 <b>${o.block}</b></span><span>재배치 <b>${o.redeploy}s</b></span><span>공격 범위 ${rangeGridHTML(o.range, 9)}</span></div>
+        <div class="opinfo-sec"><b>특성</b><p>${esc(arch ? arch.trait : cls.trait)}</p></div>
+        ${list.length ? `<div class="opinfo-sec"><b>스킬 ${cur + 1} · ${esc(list[cur].name)}</b><p>${esc(list[cur].desc)}</p></div>` : ''}
+        ${(o.talents || []).map((t) => `<div class="opinfo-sec"><b>재능 · ${esc(t.name)}</b><p>${esc(t.desc)}</p></div>`).join('')}
+        <div class="panel-btns"><button class="btn primary" id="opinfo-detail">상세 보기</button></div>
+      </div></div>`);
+    $('#modal').dataset.kind = 'opinfo';
+    $('#opinfo-detail').addEventListener('click', () => { closeModal(); go('detail', id); });
+    sfx('select');
+  }
+  $('#slot-grid').addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('.slot.filled');
+    pressed = false;
+    clearTimeout(pressT);
+    if (!b) return;
+    pressT = setTimeout(() => { pressed = true; const id = save.squad[+b.dataset.slot]; if (id) opInfo(id); }, 500);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => $('#slot-grid').addEventListener(ev, () => clearTimeout(pressT)));
+  $('#slot-grid').addEventListener('contextmenu', (e) => { if (e.target.closest('.slot.filled')) e.preventDefault(); });
   $('#btn-clear').addEventListener('click', () => {
     if (!clearArmed) { clearArmed = true; toast('한 번 더 누르면 편성을 비웁니다'); return; }
     save.squad = [];
@@ -889,6 +947,14 @@
     sfx('win');
   });
 
+  // 마우스 휠로 가로 목록 넘기기 (오퍼레이터 목록 · 작전 목록 · 구매센터)
+  document.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+    const el = e.target.closest('#op-grid, #ops-map, .pk-row');
+    if (!el || el.scrollWidth <= el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) return;
+    el.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? el.clientWidth : 1);
+    e.preventDefault();
+  }, { passive: false });
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
