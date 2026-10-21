@@ -176,7 +176,7 @@
       if (r.left !== undefined && r.shown !== r.left) { r.shown = r.left; r.el.querySelector('.card-name').textContent = `${r.def.name} ×${r.left}`; }
       r.el.classList.toggle('cooling', r.cd > 0);
       r.el.classList.toggle('poor', S.dp < r.def.cost);
-      r.el.classList.toggle('selected', S.sel === r && (S.mode === 'placing' || S.mode === 'direction'));
+      r.el.classList.toggle('selected', S.sel === r && (S.mode === 'placing' || S.mode === 'direction' || S.mode === 'preview'));
       if (r.cd > 0) r.cdEl.textContent = Math.ceil(r.cd);
     }
   }
@@ -184,9 +184,10 @@
     if (!S || S.ended) return;
     if (S.sel === r && S.mode !== 'idle' && S.mode !== 'inspect') { sfx('cancel'); setMode('idle'); return; }
     if (r.deployed || r.left === 0) return;
-    if (r.cd > 0) { sfx('deny'); toast('재배치 대기 중입니다'); return; }
-    if (S.dp < r.def.cost) { sfx('deny'); toast('배치 코스트가 부족합니다'); return; }
-    if (!r.def.summoned && deployedCount() >= S.deployLimit) { sfx('deny'); toast('배치 가능 인원을 초과했습니다'); return; }
+    // 배치할 수 없을 때도 정보 창은 보여 줌
+    const no = r.cd > 0 ? '재배치 대기 중입니다' : S.dp < r.def.cost ? '배치 코스트가 부족합니다'
+      : !r.def.summoned && deployedCount() >= S.deployLimit ? '배치 가능 인원을 초과했습니다' : null;
+    if (no) { sfx('deny'); toast(no); S.sel = r; setMode('preview'); return; }
     sfx('select');
     S.sel = r;
     setMode('placing');
@@ -195,7 +196,11 @@
   function setMode(mode) {
     S.mode = mode;
     if (mode === 'idle') { S.sel = null; S.tile = null; S.inspect = null; }
-    $('#inspect').classList.toggle('hidden', mode !== 'inspect');
+    if (mode === 'placing' || mode === 'direction' || mode === 'preview') S.inspect = null;
+    $('#inspect').classList.toggle('hidden', mode === 'idle');
+    insKey = null;
+    if (mode !== 'idle') refreshInspect(true);
+    if (!S.ended) placeRing();
     const hint = $('#hint');
     if (mode === 'placing') {
       hint.textContent = tileOf(S.sel.def) === 'ground' ? '지면(어두운 칸)을 선택하세요' : '고지대(밝은 칸)를 선택하세요';
@@ -270,7 +275,7 @@
       if (S.inspect !== op) { const sl = UI.line(op.def, 'select'); if (sl) addText(op.x + 0.5, op.y - 0.1, sl, op.def.color, 1.4, true); }
       S.inspect = op; setMode('inspect'); refreshInspect(true);
     }
-    else if (S.mode === 'inspect') setMode('idle');
+    else if (S.mode === 'inspect' || S.mode === 'preview') setMode('idle');
   });
   let hoverPt = null;   // PC 단축키용: 마우스가 올라가 있는 위치
   canvas.addEventListener('pointerleave', () => { hoverPt = null; });
@@ -348,37 +353,93 @@
   $('#ins-skill').addEventListener('click', () => { if (S && S.inspect) { useSkill(S.inspect); refreshInspect(true); } });
   $('#ins-retreat').addEventListener('click', () => { if (S && S.inspect) { retreat(S.inspect); setMode('idle'); } });
 
+  // 왼쪽 정보 창 — 카드를 눌렀을 때(배치 전)와 배치한 오퍼레이터를 눌렀을 때 함께 씀
+  const SP_NAME = { time: '자연 회복', attack: '공격 회복', hit: '피격 회복', deploy: '배치 발동' };
+  let insTab = 'skill', insKey = null;
+  $('#ins-tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-itab]');
+    if (!b || !S) return;
+    insTab = b.dataset.itab; insKey = null;
+    refreshInspect(true);
+  });
+  function skillChips(sk) {
+    const dur = sk.effect && sk.effect.charges ? `${sk.effect.charges}회` : sk.duration === -1 ? '무한' : sk.duration > 0 ? `${sk.duration}초` : '';
+    return `<span class="chip g">${SP_NAME[sk.spType || 'time']}</span><span class="chip">${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'}</span>${dur ? `<span class="chip d">⏱ ${dur}</span>` : ''}`;
+  }
   function refreshInspect(full) {
-    const op = S.inspect;
-    if (!op) return;
-    const d = op.def, sk = op.skill;
-    if (full) {
-      const face = $('#ins-face');
-      face.className = 'face ins-face';
-      face.style.cssText = faceStyle(d);
-      face.textContent = faceText(d);
-      $('#ins-name').textContent = d.name;
+    const op = S.inspect, r = !op && S.sel;
+    const d = op ? op.def : r ? r.def : null;
+    if (!d) return;
+    const sk = op ? op.skill : chosenSkill(d);
+    const key = (op ? 'op' : 'card') + d.id + insTab;
+    if (full || insKey !== key) {
+      insKey = key;
       const arch = d.archetype && ARCHETYPES[d.archetype];
-      $('#ins-class').textContent = `${CLASSES[d.class].name}${arch ? ' · ' + arch.name : ''} · 저지 ${opBlock(op)}`;
-      $('#ins-skill-name').textContent = sk.name + (sk.trigger === 'auto' ? ' (자동)' : '');
-      $('#ins-skill-desc').textContent = sk.desc;
+      $('#ins-art').innerHTML = d.image ? `<img src="${d.image}" alt="">` : `<b style="color:${d.color}">${d.name[0]}</b>`;
+      $('#ins-art').style.setProperty('--c', d.color);
+      $('#ins-cls').innerHTML = UI.icon(d.class);
+      $('#ins-name').textContent = d.name;
+      $('#ins-class').textContent = `${CLASSES[d.class].name}${arch ? ' · ' + arch.name : ''}`;
+      $('#ins-range').innerHTML = rangeHTML(op ? null : d.range, op) + '<small>공격 범위</small>';
+      $('#ins-tabs').querySelectorAll('[data-itab]').forEach((b) => b.classList.toggle('on', b.dataset.itab === insTab));
+      let body = '';
+      if (insTab === 'skill') {
+        body = `<div class="ins-sk"><span class="ins-sk-ico" style="--c:${d.color}"><b>S${skillsOf(d).indexOf(sk) + 1 || 1}</b></span><div><b class="ins-skill-name" id="ins-skill-name">${UI.esc(sk.name)}</b><div class="ins-chips">${skillChips(sk)}</div></div></div><p class="ins-skill-desc" id="ins-skill-desc">${UI.esc(sk.desc)}</p>`;
+      } else if (insTab === 'trait') {
+        body = `<p>${UI.esc(arch ? arch.trait : CLASSES[d.class].trait)}</p>`;
+      } else {
+        body = (d.talents || []).length ? d.talents.map((t) => `<p><b>${UI.esc(t.name)}</b><br>${UI.esc(t.desc)}</p>`).join('') : '<p class="muted">재능이 없습니다.</p>';
+      }
+      $('#ins-body').innerHTML = body;
     }
-    $('#ins-stats').innerHTML = `<span>체력 <b>${Math.ceil(op.hp)}/${op.maxHp}</b></span><span>${d.class === 'medic' ? '치유' : '공격'} <b>${Math.round(opAtk(op))}</b></span>
-      <span>방어 <b>${Math.round(opDef(op))}</b></span><span>저항 <b>${d.res || 0}</b></span>`;
-    const fill = $('#ins-sp-fill');
-    if (op.skillT > 0) {
+    const hp = op ? op.hp : d.hp, maxHp = op ? op.maxHp : d.hp;
+    $('#ins-stats').innerHTML = `<span>${d.class === 'medic' ? '치유' : '공격'} <b>${Math.round(op ? opAtk(op) : d.atk)}</b></span><span>방어 <b>${Math.round(op ? opDef(op) : d.def)}</b></span>
+      <span>마항 <b>${Math.round(op ? opRes(op) : d.res || 0)}</b></span><span>저지 <b>${op ? opBlock(op) : d.block}</b></span>`;
+    $('#ins-hp-fill').style.width = Math.max(0, Math.min(1, hp / maxHp)) * 100 + '%';
+    $('#ins-hp-text').textContent = `${Math.ceil(hp)}/${Math.round(maxHp)}`;
+    const fill = $('#ins-sp-fill'), btn = $('#ins-skill');
+    let spText;
+    if (op && op.skillT > 0) {
       const inf = op.skillT === Infinity;
-      fill.style.width = (inf ? 100 : (op.skillT / sk.duration) * 100) + '%';
+      fill.style.width = (op.charges > 0 && sk.effect.charges ? (op.charges / sk.effect.charges) * 100 : inf ? 100 : (op.skillT / sk.duration) * 100) + '%';
       fill.classList.add('active');
-      $('#ins-sp-text').textContent = op.charges > 0 ? `발동 중 · ${op.charges}회 남음` : inf ? '발동 중' : `발동 중 ${op.skillT.toFixed(1)}s`;
+      spText = op.charges > 0 ? `발동 중 · ${op.charges}회 남음` : inf ? '발동 중' : `발동 중 ${op.skillT.toFixed(1)}s`;
     } else {
-      fill.style.width = (sk.sp ? Math.min(1, op.sp / sk.sp) : 0) * 100 + '%';
+      const sp = op ? op.sp : sk.initSp || 0;
+      fill.style.width = (sk.sp ? Math.min(1, sp / sk.sp) : 0) * 100 + '%';
       fill.classList.remove('active');
-      $('#ins-sp-text').textContent = sk.spType === 'deploy' ? '배치 시 발동 (재배치하면 다시 발동)' : `SP ${Math.floor(op.sp)}/${sk.sp}`;
+      spText = sk.spType === 'deploy' ? '배치 시 발동' : `SP ${Math.floor(sp)}/${sk.sp}${op ? '' : ' (초기)'}`;
     }
+    $('#ins-sp-text').textContent = spText;
+    if (!op) return;
     const canEnd = op.skillT > 0 && (sk.effect || {}).cancelable;
-    $('#ins-skill').disabled = !(canEnd || (sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp));
-    $('#ins-skill').innerHTML = canEnd ? '스킬 종료<kbd>E</kbd>' : sk.trigger === 'auto' ? '자동 발동' : '스킬 발동<kbd>E</kbd>';
+    const ready = sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp;
+    btn.disabled = !(canEnd || ready);
+    btn.classList.toggle('ready', ready || canEnd);
+    btn.classList.toggle('active', op.skillT > 0);
+    const state = canEnd ? '스킬 종료' : op.skillT > 0 ? '발동 중' : sk.trigger === 'auto' ? '자동 발동' : ready ? '스킬 발동' : `${Math.floor(op.sp)}/${sk.sp}`;
+    const html = `<span class="ring-sk" style="--c:${d.color}">S${skillsOf(d).indexOf(sk) + 1 || 1}</span><span class="ring-sp">${state}</span>${sk.trigger === 'manual' || canEnd ? '<kbd>E</kbd>' : ''}`;
+    if (btn.dataset.h !== html) { btn.innerHTML = html; btn.dataset.h = html; }
+  }
+  // 정보 창의 작은 공격 범위 그림 (배치한 오퍼레이터는 지금 범위)
+  function rangeHTML(range, op) {
+    const pts = op ? op.rangeList.map(([x, y]) => [x - op.x, y - op.y]) : [[0, 0], ...range];
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const set = new Set(pts.map((p) => p.join(',')));
+    const size = Math.max(5, Math.min(11, Math.floor(56 / Math.max(x1 - x0 + 1, y1 - y0 + 1))));
+    let h = `<div class="range-grid" style="grid-template-columns:repeat(${x1 - x0 + 1},${size}px);grid-auto-rows:${size}px">`;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) h += `<i class="${x === 0 && y === 0 ? 'self' : set.has(x + ',' + y) ? 'on' : 'off'}"></i>`;
+    return h + '</div>';
+  }
+  // 배치한 오퍼레이터 주변의 마름모 · 철수/스킬 버튼
+  function placeRing() {
+    const ring = $('#op-ring'), op = S.mode === 'inspect' && S.inspect;
+    ring.classList.toggle('hidden', !op);
+    if (!op) return;
+    const [X, Y, s] = proj(op.x + 0.5, op.y + 0.5, tileH(op.x, op.y));
+    const size = P.T * s * 2.7;
+    ring.style.cssText = `left:${X}px;top:${Y - P.T * s * 0.35}px;width:${size}px;height:${size}px`;
   }
 
   // =====================================================================
@@ -1693,7 +1754,8 @@
     $('#hud-enemy').textContent = `${S.killed + S.leaked}/${S.total}`;
     $('#hud-life').textContent = Math.max(0, S.life);
     updateCards();
-    if (S.mode === 'inspect') refreshInspect(false);
+    if (S.mode !== 'idle') refreshInspect(false);
+    placeRing();
   }
 
   let last = performance.now();

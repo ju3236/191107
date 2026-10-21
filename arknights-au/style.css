@@ -423,21 +423,6 @@ button:focus-visible { outline: 2px solid var(--beacon); outline-offset: 2px; }
 .toast { top: 104px; background: rgba(60,15,17,.92); border-color: var(--danger); }
 .ui-toast { bottom: 64px; }
 
-.inspect { position: absolute; left: max(10px, env(safe-area-inset-left, 0px)); top: 70px; width: 250px; max-width: calc(100% - 20px); background: rgba(20,22,27,.95); border: 1px solid var(--line); border-top: 3px solid var(--beacon); padding: 12px; font-size: 13px; z-index: 4; }
-.ins-head { display: flex; gap: 10px; align-items: center; }
-.ins-face { width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; color: rgba(0,0,0,.65); background-size: 170%; background-position: 50% 8%; background-repeat: no-repeat; border: 2px solid #fff; flex: none; }
-.ins-name { font-weight: 900; font-size: 16px; }
-.ins-class { color: var(--muted); font-size: 12px; }
-.ins-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; margin: 10px 0; color: var(--muted); }
-.ins-stats b { color: var(--text); font-family: var(--f-en); font-weight: 500; }
-.ins-skill-name { color: var(--beacon); font-weight: 700; }
-.ins-skill-desc { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
-.ins-sp { position: relative; height: 16px; background: #2a2e36; overflow: hidden; }
-.ins-sp i { position: absolute; left: 0; top: 0; bottom: 0; background: #6fbf3a; }
-.ins-sp i.active { background: var(--beacon); }
-.ins-sp span { position: relative; font-size: 11px; padding-left: 6px; line-height: 16px; }
-.ins-btns { display: flex; gap: 8px; margin-top: 10px; }
-.ins-btns .btn { flex: 1; padding: 8px 0; }
 
 /* 아래쪽: 코스트 + 배치 카드 */
 .deploy-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; z-index: 3; padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -556,7 +541,6 @@ button:focus-visible { outline: 2px solid var(--beacon); outline-offset: 2px; }
   .tile-ico { font-size: 32px; }
   .dlg-portrait { display: none; }
   .dlg-box { min-height: 100px; }
-  .inspect { width: 210px; padding: 8px; font-size: 12px; top: 58px; }
   .hud-sq { width: 50px; height: 42px; font-size: 19px; }
   .hud-sq > span { font-size: 26px; }
   .hud-stats { padding: 2px 20px; }
@@ -568,8 +552,6 @@ button:focus-visible { outline: 2px solid var(--beacon); outline-offset: 2px; }
   .dp-ico { width: 26px; height: 26px; font-size: 14px; }
   .hint { top: 52px; }
   .toast { top: 84px; }
-  .ins-stats { margin: 6px 0; }
-  .ins-skill-desc { display: none; }
   .card { width: 64px; height: 80px; }
   .card-face { font-size: 26px; }
 }
@@ -868,7 +850,6 @@ kbd { display: none; font-family: var(--f-en); font-size: 10px; font-weight: 500
   kbd { display: inline-block; }
   .hud-sq { position: relative; }
   .hud-sq kbd { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); }
-  .ins-btns .btn kbd { margin-left: 6px; vertical-align: 1px; }
   .btn.primary kbd { color: #1a1205; border-color: rgba(0,0,0,.4); background: rgba(255,255,255,.35); }
 }
 
@@ -1096,7 +1077,6 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
   .dp { width: 130px; }
   .dp-num { font-size: 26px; }
   .voice-line { bottom: 92px; font-size: 12px; }
-  .inspect { top: 46px; width: 190px; }
   /* 통합전략 */
   .is-top { min-height: 48px; height: 48px; }
   .is-map-wrap { top: 48px; bottom: 48px; }
@@ -1148,3 +1128,78 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
 .skin-buy p { margin: 0; font-size: 13px; line-height: 1.5; opacity: .85; }
 @media (max-height: 500px) { .skin-img { height: 120px; } }
 .skin-grid.shop .skin-card em { color: #a8740a; }
+
+
+/* ---------- 작전 중 오퍼레이터 정보 창 (원작 스타일) ---------- */
+.inspect { position: absolute; left: 0; top: 58px; bottom: 120px; width: min(330px, 42vw); z-index: 4; pointer-events: none;
+  background: linear-gradient(90deg, rgba(10,12,16,.92) 0%, rgba(10,12,16,.78) 70%, rgba(10,12,16,0) 100%); padding: 10px 14px 0 max(14px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; font-size: 13px; overflow: hidden; }
+.inspect > * { pointer-events: auto; position: relative; }
+.ins-art { position: absolute !important; left: 0; top: 0; width: 100%; height: 62%; pointer-events: none !important; overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%), linear-gradient(90deg, #000 60%, transparent 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(180deg, #000 55%, transparent 100%); }
+.ins-art img { position: absolute; right: -14%; top: 2%; height: 92%; opacity: .42; }
+.ins-art b { position: absolute; right: 20%; top: 18%; font-size: 120px; font-weight: 900; opacity: .25; }
+.ins-top { display: grid; grid-template-columns: 54px 1fr; column-gap: 8px; align-items: end; }
+.ins-cls { grid-row: span 2; width: 54px; height: 54px; background: rgba(0,0,0,.65); border: 2px solid #d6b85a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ffcf3a; }
+.ins-cls .ico { width: 30px; height: 30px; }
+.ins-cls small { font-size: 9px; color: #e8dca8; margin-top: 1px; white-space: nowrap; }
+.ins-name { font-weight: 900; font-size: 20px; line-height: 1.1; text-shadow: 0 2px 4px #000; }
+.ins-class { color: #c9ccd2; font-size: 11px; text-shadow: 0 1px 3px #000; }
+.ins-row { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; }
+.ins-stats { display: grid; grid-template-columns: auto; gap: 0; color: #c9ccd2; font-size: 12px; text-shadow: 0 1px 3px #000; }
+.ins-stats span { display: flex; gap: 8px; }
+.ins-stats b { color: #fff; font-family: var(--f-en); font-weight: 500; }
+.ins-range { background: rgba(0,0,0,.6); padding: 5px 6px 2px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ins-range small { font-size: 10px; color: #c9ccd2; }
+.ins-range .range-grid i.self { background: #ff9a1f; border-color: #ff9a1f; }
+.ins-range .range-grid i.on { background: rgba(255,154,31,.6); border-color: #ffb45a; }
+.ins-range .range-grid i.off { border-color: transparent; }
+.ins-hp { margin: 10px -14px 0 calc(-1 * max(14px, env(safe-area-inset-left, 0px))); height: 18px; background: rgba(0,0,0,.6); }
+.ins-hp i { position: absolute; left: 0; top: 0; bottom: 0; background: #2a9df4; }
+.ins-hp span { position: absolute; right: 86px; top: 0; font-size: 11px; line-height: 18px; color: #fff; }
+.ins-hp b { position: absolute; right: 6px; top: 1px; font-size: 12px; line-height: 16px; padding: 0 5px; background: #2a9df4; color: #fff; font-family: var(--f-en); font-weight: 500; }
+.ins-tabs { display: flex; margin-top: 8px; background: rgba(0,0,0,.4); }
+.ins-tabs button { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; color: #8d929b; font: inherit; font-weight: 700; padding: 5px 0; cursor: pointer; }
+.ins-tabs button.on { color: #fff; border-bottom-color: #fff; background: rgba(255,255,255,.06); }
+.ins-body { margin-top: 8px; flex: 1; min-height: 0; overflow-y: auto; color: #d9dce1; font-size: 12px; line-height: 1.5; }
+.ins-body p { margin: 0 0 6px; }
+.ins-sk { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.ins-sk-ico { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--c), #1b1d22); border: 2px solid #ddd; }
+.ins-sk-ico b { font-family: var(--f-en); font-size: 15px; }
+.ins-skill-name { font-size: 15px; color: #fff; }
+.ins-chips { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+.ins-chips .chip { font-size: 10px; padding: 1px 6px; background: #3a3f47; color: #fff; }
+.ins-chips .chip.g { background: #7cbf2a; }
+.ins-chips .chip.d { background: #2b2f36; }
+.ins-sp { height: 16px; background: #2a2e36; overflow: hidden; margin: 6px 0 10px; flex: none; }
+.ins-sp i { position: absolute; left: 0; top: 0; bottom: 0; background: #6fbf3a; }
+.ins-sp i.active { background: var(--beacon); }
+.ins-sp span { position: relative; font-size: 11px; padding-left: 6px; line-height: 16px; }
+/* 배치한 오퍼레이터 주변 마름모 */
+.op-ring { position: absolute; transform: translate(-50%, -50%); z-index: 3; pointer-events: none; }
+.ring-diamond { position: absolute; inset: 14%; border: 2px solid rgba(255,255,255,.85); transform: rotate(45deg) scaleY(.82); box-shadow: 0 0 12px rgba(255,255,255,.25); }
+.ring-btn { position: absolute; pointer-events: auto; width: 34%; height: 34%; min-width: 44px; min-height: 44px; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font: inherit; color: #fff; }
+.ring-btn kbd { position: absolute; top: -8px; right: -8px; font-size: 10px; background: #fff; color: #111; padding: 0 4px; font-family: var(--f-en); }
+.ring-btn.retreat { left: 0; top: 4%; background: rgba(20,20,22,.85); border: 2px solid #c44; }
+.ring-btn.retreat .ring-ico { font-size: 22px; color: #ff6b6e; }
+.ring-btn.skill { right: 0; bottom: 4%; background: rgba(20,20,22,.85); border: 2px solid #777; }
+.ring-btn.skill.ready { border-color: #ffcf3a; box-shadow: 0 0 14px rgba(255,207,58,.6); }
+.ring-btn.skill.active { border-color: #7fd8ff; }
+.ring-btn.skill:disabled { cursor: default; }
+.ring-sk { font-family: var(--f-en); font-size: 15px; font-weight: 700; padding: 0 6px; background: linear-gradient(135deg, var(--c), #1b1d22); }
+.ring-sp { font-size: 10px; margin-top: 2px; white-space: nowrap; font-family: var(--f-en); }
+@media (max-height: 500px) {
+  .inspect { top: 46px; padding-top: 6px; bottom: 92px; width: min(270px, 40vw); font-size: 12px; }
+  .ins-name { font-size: 16px; }
+  .ins-cls { width: 44px; height: 44px; }
+  .ins-top { grid-template-columns: 44px 1fr; }
+  .ins-row { margin-top: 6px; }
+  .ins-sk-ico { width: 32px; height: 32px; }
+  .ins-body { font-size: 11px; }
+}
+@media (max-height: 380px) {
+  .inspect { top: 40px; padding-top: 4px; bottom: 76px; width: min(240px, 40vw); }
+  .ins-stats { font-size: 11px; }
+  .ins-range { display: none; }
+  .ins-tabs button { padding: 3px 0; }
+}

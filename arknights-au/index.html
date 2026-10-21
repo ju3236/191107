@@ -278,23 +278,22 @@
     <div id="toast" class="toast hidden"></div>
     <div id="voice-line" class="voice-line hidden"></div>
     <div id="inspect" class="inspect hidden">
-      <div class="ins-head">
-        <span class="ins-face" id="ins-face"></span>
-        <div>
-          <div class="ins-name" id="ins-name"></div>
-          <div class="ins-class" id="ins-class"></div>
-        </div>
+      <div class="ins-art" id="ins-art"></div>
+      <div class="ins-top">
+        <div class="ins-cls" id="ins-cls"></div>
+        <div class="ins-name" id="ins-name"></div>
+        <div class="ins-class" id="ins-class"></div>
+        <div class="ins-row"><div class="ins-stats" id="ins-stats"></div><div class="ins-range" id="ins-range"></div></div>
       </div>
-      <div class="ins-stats" id="ins-stats"></div>
-      <div class="ins-skill">
-        <div class="ins-skill-name" id="ins-skill-name"></div>
-        <div class="ins-skill-desc" id="ins-skill-desc"></div>
-        <div class="ins-sp"><i id="ins-sp-fill"></i><span id="ins-sp-text"></span></div>
-      </div>
-      <div class="ins-btns">
-        <button class="btn primary" id="ins-skill">스킬 발동<kbd>E</kbd></button>
-        <button class="btn danger" id="ins-retreat">철수<kbd>Q</kbd></button>
-      </div>
+      <div class="ins-hp"><i id="ins-hp-fill"></i><span>체력</span><b id="ins-hp-text"></b></div>
+      <div class="ins-tabs" id="ins-tabs"><button data-itab="skill" class="on">스킬</button><button data-itab="trait">특성</button><button data-itab="talent">재능</button></div>
+      <div class="ins-body" id="ins-body"></div>
+      <div class="ins-sp"><i id="ins-sp-fill"></i><span id="ins-sp-text"></span></div>
+    </div>
+    <div id="op-ring" class="op-ring hidden">
+      <div class="ring-diamond"></div>
+      <button class="ring-btn retreat" id="ins-retreat" aria-label="철수"><span class="ring-ico">⤺</span><kbd>Q</kbd></button>
+      <button class="ring-btn skill" id="ins-skill" aria-label="스킬 발동"></button>
     </div>
     <div class="rotate-hint">↻ 화면을 가로로 돌리면 맵이 크게 보입니다</div>
     <div class="deploy-bar">
