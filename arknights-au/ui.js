@@ -1069,8 +1069,8 @@
   ACCOUNT.on('mode', rerender);
   ACCOUNT.on('wallet', renderResources);
   applySkins();
-  TRAIN.giveGift();
-  ACCOUNT.on('player', () => TRAIN.giveGift());
+  TRAIN.migrate(); TRAIN.giveGift();
+  ACCOUNT.on('player', () => { if (!ACCOUNT.player.trainMigrated) { TRAIN.migrate(); rerender(); } TRAIN.giveGift(); });
   ACCOUNT.on('granted', (g) => {
     const items = Object.entries(g.items || {}).map(([k, v]) => (k.startsWith('op:') ? (OPS[k.slice(3)] ? OPS[k.slice(3)].name : '오퍼레이터') : `${ITEMS[k] ? ITEMS[k].name : k} ×${v}`)).join(', ');
     toast(`지급 완료 — ${items}`);

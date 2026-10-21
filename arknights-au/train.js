@@ -131,5 +131,13 @@
     P().trainGift = true;
     ACCOUNT.earn(TRAIN_GIFT);
   }
-  window.TRAIN = { prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, stageDrops, giveGift };
+  // 육성 기능 이전부터 가지고 있던 오퍼레이터는 2정예화 90레벨로 (계정마다 한 번)
+  function migrate() {
+    if (P().trainMigrated) return;
+    P().trainMigrated = true;
+    P().prog = P().prog || {};
+    for (const o of OPERATORS) if (!o.custom && ACCOUNT.owns(o.id)) P().prog[o.id] = { elite: 2, level: R.maxLevel[2], exp: 0 };
+    ACCOUNT.save();
+  }
+  window.TRAIN = { prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, stageDrops, giveGift, migrate };
 })();
