@@ -946,7 +946,13 @@
 
   // 발동 중이고 수동 종료가 가능하면 종료, 아니면 발동
   function useSkill(op) {
-    if (op.skillT > 0 && (op.skill.effect || {}).cancelable) { endSkill(op); addText(op.x + 0.5, op.y - 0.1, '스킬 종료', '#9aa1ab', 0.8, true); return; }
+    if (op.skillT > 0 && (op.skill.effect || {}).cancelable) {
+      endSkill(op);
+      addText(op.x + 0.5, op.y - 0.1, '스킬 종료', '#9aa1ab', 0.8, true);
+      // 토글 스킬: 끄면 SP가 그대로 차 있어서 바로 다시 켤 수 있음
+      if (op.skill.effect.toggle) op.sp = op.skill.sp;
+      return;
+    }
     activateSkill(op);
   }
   function activateSkill(op) {
@@ -1033,7 +1039,7 @@
     if (ef.hpMul) { op.maxHp /= ef.hpMul; op.hp = Math.min(op.hp, op.maxHp); }
     if (ef.endHeal) healOp(op, op.maxHp * ef.endHeal);
     if (ef.endStun) { op.stun = ef.endStun; addText(op.x + 0.5, op.y - 0.1, '기절', '#9aa1ab', 1, true); }
-    if (ef.endGuard) {
+    if (ef.endGuard && (op.skillAge || 0) >= 3) {
       const a = S.ops.filter((o) => o.alive && Math.abs(o.x - op.x) + Math.abs(o.y - op.y) <= 2).sort((p, q) => p.hp / p.maxHp - q.hp / q.maxHp)[0];
       if (a) { a.guardT = ef.endGuard.dur; a.guardCut = ef.endGuard.cut; addText(a.x + 0.5, a.y - 0.2, '받는 피해 감소', '#7fd8ff', 0.9, true); }
     }
@@ -1114,7 +1120,7 @@
       if (ef.regen) healOp(op, op.maxHp * ef.regen * dt, true);
       if (ef.dpRegen) S.dp = Math.min(S.maxDp, S.dp + ef.dpRegen * dt);
       op.skillAge = (op.skillAge || 0) + dt;
-      if (ef.dpFor && op.skillAge <= ef.dpFor.dur) S.dp = Math.min(S.maxDp, S.dp + (ef.dpFor.total / ef.dpFor.dur) * dt);
+      if (ef.dpFor && (op.dpForGot || 0) < ef.dpFor.total) { const g = Math.min((ef.dpFor.total / ef.dpFor.dur) * dt, ef.dpFor.total - (op.dpForGot || 0)); op.dpForGot = (op.dpForGot || 0) + g; S.dp = Math.min(S.maxDp, S.dp + g); }   // 배치당 최대 total
       if (ef.wave && (op.waveT -= dt) <= 0) {
         op.waveT = ef.wave.every;
         const wv = ef.wave;

@@ -883,7 +883,7 @@ const OPERATORS = [
     skills: [
       { name: '아침 조회', desc: '8초 동안 배치 코스트 18을 서서히 획득', sp: 26, initSp: 13, duration: 8, trigger: 'auto', voice: '좋아, 오늘도 시작해 볼까?', effect: { dpRegen: 18 / 8 } },
       { name: '오늘의 운세는?', desc: '발동 시 아츠를 무작위로 다시 뽑음. 12초 동안 배치 코스트 16 획득, 「오늘의 변수」 효과 2배·범위가 주변 8칸에서 주변 12칸으로 확대. 종료 후 자신의 HP를 최대 HP의 25% 회복', sp: 32, initSp: 16, duration: 12, trigger: 'manual', effect: { dpRegen: 16 / 12, dailyMul: 2, dailyWide: true, endHeal: 0.25, reroll: true } },
-      { name: '내일도 출근하자', desc: '발동 시 세 강화 효과 중 무작위로 1종 발현 (발동 후 15초 동안 배치 코스트 20 획득). 깃발을 펼쳐 주변 12칸에 — 「순풍」 아군 공격 속도 +30·공격력 +15% / 「햇빛」 아군 HP 매초 최대 HP의 3% 회복·받는 피해 -20% / 「중력」 적 이동 속도 -45%·공격 속도 -25, 발동 시 적 2초 정지. 스킬 지속 시간 무제한, 스킬 직접 끄기 가능 (끄면 범위 안에서 HP 비율이 가장 낮은 아군 1명이 5초간 받는 피해 -35%)', sp: 38, initSp: 20, duration: -1, trigger: 'manual', effect: { dpFor: { total: 20, dur: 15 }, dailyMax: true, dailyWide: true, endGuard: { cut: 0.35, dur: 5 }, reroll: true, cancelable: true } },
+      { name: '내일도 출근하자', desc: '발동 시 세 강화 효과 중 무작위로 1종 발현 (발동 후 15초 동안 배치 코스트 20 획득). 깃발을 펼쳐 주변 12칸에 — 「순풍」 아군 공격 속도 +30·공격력 +15% / 「햇빛」 아군 HP 매초 최대 HP의 3% 회복·받는 피해 -20% / 「중력」 적 이동 속도 -45%·공격 속도 -25, 발동 시 적 2초 정지. 스킬 지속 시간 무제한, 스킬 직접 끄기 가능 — 끄면 SP가 남아 있어 바로 다시 켤 수 있고, 켤 때마다 강화 효과를 다시 뽑음 (배치 코스트 20은 배치당 1회. 3초 이상 켜 두었다가 끄면 범위 안에서 HP 비율이 가장 낮은 아군 1명이 5초간 받는 피해 -35%)', sp: 38, initSp: 20, duration: -1, trigger: 'manual', effect: { dpFor: { total: 20, dur: 15 }, dailyMax: true, dailyWide: true, endGuard: { cut: 0.35, dur: 5 }, reroll: true, cancelable: true, toggle: true } },
     ],
     voice: {
       obtain: '안녕, 박사! 여명이라고 해. 뱅가드로 배속됐어. 원래는 회사에서 일하고 있는데…… 뭐, 여기서도 잘할 수 있을 것 같네. 잘 부탁해! 아, 내 능력은 매일 바뀌니까 너무 놀라지는 말고.',
