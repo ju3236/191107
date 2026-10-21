@@ -620,7 +620,7 @@
     hidePanel();
     sfx('select');
     window.Battle.begin(st, null, {
-      defs, life: r.life, maxLife: r.life, shield: r.shield, enemies, mods: battleMods(),
+      defs, life: r.life, maxLife: r.life, shield: r.shield, enemies, mods: battleMods(), hard: ['emergency', 'boss'].includes(node.type),
       onEnd: (res) => battleEnd(node, res),
     });
   }
@@ -899,7 +899,7 @@
   function showEnd() {
     const r = R(), x = r.result;
     const leader = r.ops[0] && OPS[r.ops[0].id];
-    const vl = leader && UI.line(leader, x.win ? 'clear' : 'fail');
+    const vl = leader && (x.win ? UI.line(leader, 'hard') || UI.line(leader, 'clear') : UI.line(leader, 'fail'));
     panel(`<div class="isp-head ${x.win ? 't-win' : 't-lose'}"><small>${x.win ? 'EXPLORATION COMPLETE' : 'EXPLORATION ENDED'}</small><b>${x.win ? '탐색 완료' : x.abandoned ? '탐색 포기' : '탐색 실패'}</b></div>
       ${x.win ? `<p class="isp-text story">가라앉은 등대에 불이 켜졌다. 바다는 잠시 조용해졌다.</p>` : ''}
       <div class="is-score">

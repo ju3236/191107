@@ -28,6 +28,7 @@
     caster: '<path d="M12 2.5l2.4 7.1 7.1 2.4-7.1 2.4L12 21.5l-2.4-7.1L2.5 12l7.1-2.4z"/>',
     medic: '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
     specialist: '<path d="M15 3v9.5a5 5 0 1 1-10 0V11"/><path d="M5 11l-2 3M5 11l2.5 2.5"/><path d="M12 3h6"/>',
+    device: '<circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
     supporter: '<path d="M6 21V9"/><circle cx="6" cy="6" r="3"/><path d="M10 6c4 0 8 2 9 6M10 10c3 0 6 1.5 7 4.5"/>',
     home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/>',
     back: '<path d="M15 4l-8 8 8 8"/>',
@@ -436,7 +437,7 @@
   const VOICE_LABEL = [['obtain', '획득'], ['assistant', '비서 임명'], ['talk', '대화'], ['promo', '승진 후 대화'],
     ['trust40', '신뢰도 40%'], ['trust100', '신뢰도 100%'], ['trust150', '신뢰도 150%'], ['trust200', '신뢰도 200%'],
     ['squad', '편성'], ['leader', '대장 임명'], ['depart', '작전 출발'], ['start', '작전 개시'], ['select', '선택'], ['deploy', '배치'],
-    ['combat', '전투 중'], ['clear', '작전 완료(별 3개)'], ['clear2', '작전 완료(별 3개 미만)'], ['fail', '작전 실패'],
+    ['combat', '전투 중'], ['hard', '고난이도 작전 완료'], ['clear', '작전 완료(별 3개)'], ['clear2', '작전 완료(별 3개 미만)'], ['fail', '작전 실패'],
     ['base', '시설 배치'], ['touch', '터치'], ['trustTouch', '신뢰 터치'], ['idle', '방치'], ['greet', '인사'],
     ['study', '작전기록 학습'], ['elite1', '1차 정예화'], ['elite2', '2차 정예화'], ['newyear', '새해'], ['birthday', '생일'], ['anniv', '애니버서리']];
   $('#detail-voice').addEventListener('click', () => {

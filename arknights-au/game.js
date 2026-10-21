@@ -172,7 +172,8 @@
   }
   function updateCards() {
     for (const r of S.roster) {
-      r.el.classList.toggle('hidden', r.deployed);
+      r.el.classList.toggle('hidden', r.deployed || r.left === 0);
+      if (r.left !== undefined && r.shown !== r.left) { r.shown = r.left; r.el.querySelector('.card-name').textContent = `${r.def.name} ×${r.left}`; }
       r.el.classList.toggle('cooling', r.cd > 0);
       r.el.classList.toggle('poor', S.dp < r.def.cost);
       r.el.classList.toggle('selected', S.sel === r && (S.mode === 'placing' || S.mode === 'direction'));
@@ -182,7 +183,7 @@
   function onCard(r) {
     if (!S || S.ended) return;
     if (S.sel === r && S.mode !== 'idle' && S.mode !== 'inspect') { sfx('cancel'); setMode('idle'); return; }
-    if (r.deployed) return;
+    if (r.deployed || r.left === 0) return;
     if (r.cd > 0) { sfx('deny'); toast('재배치 대기 중입니다'); return; }
     if (S.dp < r.def.cost) { sfx('deny'); toast('배치 코스트가 부족합니다'); return; }
     if (!r.def.summoned && deployedCount() >= S.deployLimit) { sfx('deny'); toast('배치 가능 인원을 초과했습니다'); return; }
@@ -250,6 +251,7 @@
     if (!S || S.ended) return;
     const p = toTile(e), tx = Math.floor(p.x), ty = Math.floor(p.y);
     if (S.mode === 'placing') {
+      if (canPlace(S.sel.def, tx, ty) && S.sel.def.noDir) { deploy(S.sel, tx, ty, 'right'); return; }
       if (canPlace(S.sel.def, tx, ty)) {
         S.tile = { x: tx, y: ty };
         S.dir = 'right';
@@ -400,6 +402,10 @@
   }
   const eff = (op) => (op.skillT > 0 ? op.skill.effect || {} : {});
   const B = (op, k) => (op.buff && op.buff[k]) || 0;
+  // 장치·소환물에 걸리는 주인의 스킬 효과
+  const oeff = (op) => (op.def.summoned && op.owner && op.owner.alive ? eff(op.owner) : {});
+  // 적의 무게 (값이 없으면 보스 4 · 정예 3 · 중장갑 2 · 그 외 1로 봄)
+  const wOf = (e) => e.def.weight || (e.def.boss ? 4 : e.def.elite ? 3 : e.def.def >= 400 ? 2 : 1);
   const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1) * (1 + B(op, 'atk'));
   const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0)) * (op.brand ? 0.7 : 1) * (1 + B(op, 'def')) + B(op, 'defFlat');
   const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op) / Math.max(0.1, 1 + B(op, 'aspd') / 100);
@@ -562,6 +568,20 @@
     if (t.houseEdge && S.ops.some((o) => o.owner === op && o.blocked.length)) add('aspd', t.houseEdge.aspd);
     if (op.def.class === 'vanguard') for (const k of S.ops) if (k.alive && k !== op && k.tal.trustGuest && k.range.has(key(op.x, op.y))) { add('aspd', k.tal.trustGuest.aspd); break; }
     if (t.easygoing && op.blocked.length) add('def', t.easygoing.def);
+    if (op.def.class === 'device') {
+      const oe = oeff(op), want = oe.devRange || op.def.range;
+      if (oe.devAspd) add('aspd', oe.devAspd);
+      if (op.rangeSrc !== want) { op.rangeSrc = want; setRange(op, want); }
+    } else {
+      let au = 0;
+      for (const d of S.ops) if (d.alive && d.def.aura && near8(d, op.x, op.y)) au = Math.max(au, d.def.aura + (oeff(d).devAura || 0));
+      if (au) add('aspd', au);
+    }
+    if (op.fatigueT > 0) { op.fatigueT -= dt; add('aspd', op.fatigueAspd); }
+    if (t.choice && S.ops.some((o) => o.alive && o !== op && !o.def.summoned && o.hp / o.maxHp <= t.choice.below && op.range.has(key(o.x, o.y)))) {
+      add('aspd', t.choice.aspd);
+      if (!op.choiceUsed) { op.choiceUsed = true; if (op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + t.choice.sp); addText(op.x + 0.5, op.y - 0.1, '정해지지 않은 선택', op.def.color, 1, true); }
+    }
     if (t.principle && op.prinStacks) { add('aspd', t.principle.aspd * op.prinStacks); }
     if (t.strict && S.ops.some((o) => o.alive && o !== op && o.def.class === 'defender' && near8(o, op.x, op.y))) { add('atk', t.strict.atk); add('dodge', t.strict.dodge); }
     const mc = t.mercenary;
@@ -708,6 +728,7 @@
   const enemiesNear = (op, r) => S.enemies.filter((e) => e.alive && Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) <= r);
 
   function deploy(r, tx, ty, dir) {
+    if (r.left !== undefined && r.left <= 0) { setMode('idle'); return; }
     if (S.dp < r.def.cost) { toast('배치 코스트가 부족합니다'); setMode('idle'); return; }
     if (!r.def.summoned && deployedCount() >= S.deployLimit) { toast('배치 가능 인원을 초과했습니다'); setMode('idle'); return; }
     const def = r.def, tal = talentFx(def), skill = chosenSkill(def);
@@ -723,14 +744,21 @@
     S.ops.push(op);
     if (r.owner) op.owner = r.owner;
     // 소환물을 가진 오퍼레이터: 배치하면 소환물 카드가 생김
-    if (def.summon) {
-      r.summonR = r.summonR || { def: { ...def.summon, id: def.summon.id || def.id + '_summon', skills: [{ name: '-', desc: '', sp: 999, duration: 0, effect: {} }], talents: [], rarity: 0 }, cd: 0, deployed: false };
-      r.summonR.owner = op;
-      if (!S.roster.includes(r.summonR)) { S.roster.splice(S.roster.indexOf(r) + 1, 0, r.summonR); buildCards(); }
+    // charges가 있는 장치는 남은 횟수만큼 여러 개 설치할 수 있음 (작전 중 횟수 유지)
+    const sums = def.summons || (def.summon ? [def.summon] : []);
+    if (sums.length) {
+      r.summonRs = r.summonRs || sums.map((sm, i) => ({ def: { ...sm, summoned: true, id: sm.id || def.id + '_summon' + (i || ''), skills: [{ name: '-', desc: '', sp: 999, duration: 0, effect: {} }], talents: [], rarity: 0 }, cd: 0, deployed: false, left: sm.charges }));
+      let at = S.roster.indexOf(r) + 1, changed = false;
+      for (const sr of r.summonRs) {
+        sr.owner = op;
+        if (!S.roster.includes(sr)) { S.roster.splice(at, 0, sr); changed = true; }
+        at = S.roster.indexOf(sr) + 1;
+      }
+      if (changed) buildCards();
     }
     relicDeploy(op, r);
     sfx('deploy');
-    r.deployed = true;
+    if (r.left !== undefined) { r.left--; r.cd = def.redeploy; } else r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
     addText(tx + 0.5, ty - 0.1, UI.line(def, 'deploy'), def.color, 1.8, true);
     setMode('idle');
@@ -741,10 +769,12 @@
     if (!op.alive) return;
     op.alive = false;
     // 주인이 퇴각하면 소환물도 함께 퇴각, 카드도 사라짐
-    if (op.def.summon) {
+    const srs = op.roster.summonRs;
+    if (srs) {
       for (const sm of S.ops.filter((o) => o.owner === op)) removeOp(sm, false);
-      const sr = op.roster.summonR;
-      if (sr) { S.roster = S.roster.filter((x) => x !== sr); sr.deployed = false; if (S.sel === sr) setMode('idle'); buildCards(); }
+      S.roster = S.roster.filter((x) => !srs.includes(x));
+      for (const sr of srs) { sr.deployed = false; if (S.sel === sr) setMode('idle'); }
+      buildCards();
     }
     for (const e of op.blocked) if (e.blockedBy === op) e.blockedBy = null;
     op.blocked = [];
@@ -777,6 +807,16 @@
     if (ef.nextHit) { op.charge = ef.nextHit; op.chargeStun = ef.nextStun || 0; }
     if (ef.hpMul && sk.duration) { op.maxHp *= ef.hpMul; op.hp *= ef.hpMul; }
     op.rallyUsed = false; op.finN = 0; op.shellN = 0;
+    if (ef.wave) op.waveT = ef.wave.every * 0.5;
+    if (ef.fishing) {
+      const fs = ef.fishing;
+      S.giftMiss = S.giftMiss || 0;
+      const rare = S.giftMiss >= fs.pity || Math.random() < fs.gift;
+      S.giftMiss = rare ? 0 : S.giftMiss + 1;
+      const sr = (op.roster.summonRs || []).find((x) => x.def.id === (rare ? fs.rare : fs.common));
+      if (sr) { sr.left = (sr.left || 0) + 1; addText(op.x + 0.5, op.y - 0.45, sr.def.name + ' 획득!', rare ? '#6fa8ff' : '#ff9a5c', 1.4, true); }
+      op.hp = Math.max(1, op.hp - op.maxHp * fs.hp);
+    }
     if (ef.hits && !sk.duration) op.burst = ef.hits;
     if (ef.allyHeal) {
       for (const a of alliesNear(op, ef.allyHeal.radius)) {
@@ -825,6 +865,7 @@
     if (ef.range) setRange(op, op.def.range);
     if (ef.shield) op.shield = 0;
     if (ef.hpMul) { op.maxHp /= ef.hpMul; op.hp = Math.min(op.hp, op.maxHp); }
+    if (ef.endCost) { op.hp = Math.max(1, op.hp - op.maxHp * ef.endCost.hp); op.fatigueT = ef.endCost.dur; op.fatigueAspd = ef.endCost.aspd; addText(op.x + 0.5, op.y - 0.1, '어지러워……', '#9aa1ab', 1, true); }
     if (ef.proofBlast) {
       const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
       const proven = S.enemies.filter((e) => e.alive && e.proof);
@@ -867,6 +908,7 @@
     list.sort((a, b) =>
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
       (prio === 'proof' ? !!b.proof - !!a.proof : 0) ||
+      (op.def.archetype === 'besieger' ? wOf(b) - wOf(a) : 0) ||
       (b.blockedBy === op) - (a.blockedBy === op) ||
       (antiAir ? isFly(b.def) - isFly(a.def) : 0) ||
       remaining(a) - remaining(b));
@@ -899,6 +941,16 @@
       }
       if (ef.regen) healOp(op, op.maxHp * ef.regen * dt, true);
       if (ef.dpRegen) S.dp = Math.min(S.maxDp, S.dp + ef.dpRegen * dt);
+      if (ef.wave && (op.waveT -= dt) <= 0) {
+        op.waveT = ef.wave.every;
+        const wv = ef.wave;
+        for (const e of S.enemies.filter((e) => e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y))))) {
+          hitEnemy(e, opAtk(op) * wv.mul, 'arts', false, op);
+          e.slowT = wv.dur; e.slowMove = wv.slow; e.slowAtk = 1;
+        }
+        for (const [kx, ky] of op.rangeList) addFx({ type: 'ring', x: kx + 0.5, y: ky + 0.5, life: 0.5, color: '#5fd3ff', r: 0.45 });
+        sfx('arts');
+      }
       if (ef.allyRegen) for (const a of alliesNear(op, ef.allyRegen.radius)) healOp(a, opAtk(op) * ef.allyRegen.mul * dt, true);
     } else if (sk.spType !== 'deploy') {
       if (!sk.spType || sk.spType === 'time') op.sp = Math.min(sk.sp, op.sp + dt);
@@ -919,7 +971,7 @@
 
     op.atkCd -= dt;
     if (op.atkCd > 0) return;
-    const n = eff(op).targets || op.def.targets || 1;
+    const n = eff(op).targets || oeff(op).devTargets || op.def.targets || 1;
     const cx = op.x + 0.5, cy = op.y + 0.5;
 
     if (op.def.class === 'medic') {
@@ -970,24 +1022,45 @@
     // 믿음직한 동료: 펠릭스가 저지한 적을 치는 가드
     const rb = targets[0].blockedBy;
     if (op.def.class === 'guard' && rb && rb !== op && rb.alive && rb.tal.reliable) mul *= 1 + rb.tal.reliable.atk;
-    let stunHit = eff(op).hitStun || 0;
+    let stunHit = eff(op).hitStun || op.def.hitStun || 0, nsplash = 0;
+    if (eff(op).twinShot) mul *= eff(op).twinShot.mul;
+    // 푸른 탄도: 무거운 적 방어 무시, 같은 적 연속 공격 중첩
+    const bs = op.tal.blueShot;
+    let bsMul = 1;
+    if (bs) {
+      if (op.bsTarget === targets[0]) op.bsStacks = Math.min(bs.max, (op.bsStacks || 0) + 1);
+      else { op.bsTarget = targets[0]; op.bsStacks = 0; }
+      bsMul = 1 + op.bsStacks * bs.step;
+    }
+    const ignOf = (t) => (bs && wOf(t) >= bs.weight ? Math.min(1, ignore + bs.ignore) : ignore);
     if (op.firstStrike) { mul *= op.tal.firstStrike; op.firstStrike = false; addText(cx, op.y + 0.1, '발도!', '#ffcf3a', 0.8, true); }
-    if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } }
+    if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } nsplash = (op.skill.effect || {}).nextSplash || 0; }
     const fin = eff(op).finisher;
     const finish = fin && ++op.finN % fin.every === 0;
     const sh = eff(op).shell;
     const shell = sh && ++op.shellN % sh.every === 0;
-    const hits = op.burst || eff(op).hits;
+    const hits = op.burst || eff(op).hits || oeff(op).devHits;
     op.burst = null;
     const count = hits ? hits.count : 1, hitMul = hits ? hits.mul : 1;
-    const atk = opAtk(op) * mul * hitMul, splash = eff(op).splash;
+    const atk = opAtk(op) * mul * hitMul, splash = eff(op).splash || op.def.splash || nsplash;
     sfx(type === 'arts' ? 'arts' : isGround(op.def) ? 'slash' : 'shot');
     for (const t of targets) {
       for (let i = 0; i < count; i++) {
         if (isGround(op.def)) addFx({ type: 'slash', x: t.x, y: t.y, life: 0.15, color: op.def.color });
         else addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x + (i ? (Math.random() - 0.5) * 0.2 : 0), y2: t.y, life: 0.15, color: type === 'arts' ? '#c89bff' : '#fff2b3' });
         const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
-        hitEnemy(t, atk * crit, type, crit > 1, op, ignore);
+        hitEnemy(t, atk * crit * (t === targets[0] ? bsMul : 1), type, crit > 1, op, ignOf(t));
+        const ec = op.def.summoned && op.owner && op.owner.tal.echo;
+        if (ec && t.alive) {
+          t.resDown = ec.res; t.resDownT = ec.dur;
+          if (op.echoTarget === t) hitEnemy(t, opAtk(op) * ec.mul, 'arts', false, op, 0, true);
+          op.echoTarget = t;
+        }
+        const ts = eff(op).twinShot;
+        if (ts && i === 0) {
+          addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#6fa8ff', r: ts.radius });
+          for (const o of S.enemies.filter((o) => o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= ts.radius)) hitEnemy(o, opAtk(op) * ts.blast, 'phys', false, op, ignOf(o));
+        }
         const pf = op.tal.proof;
         if (pf && t.alive && !t.proof) {
           t.proofHits = (t.proofHits || 0) + (eff(op).proofRate || 1);
@@ -1009,6 +1082,12 @@
         }
       }
       if (splash) addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#c89bff', r: splash });
+    }
+    // PARABELLUM BULLET: 가장 무거운 적에게 탄환 집중
+    const hf = eff(op).heavyFocus;
+    if (hf) {
+      const hv = targets.filter((t) => t.alive).sort((a, b) => wOf(b) - wOf(a))[0];
+      if (hv) { addFx({ type: 'shot', x1: cx, y1: cy, x2: hv.x, y2: hv.y, life: 0.15, color: '#6fa8ff' }); hitEnemy(hv, atk * hf, type, false, op, ignOf(hv)); }
     }
     // 편집 없는 생중계: 특수 탄환
     if (shell) {
@@ -1102,6 +1181,17 @@
       dmg -= absorbed;
       if (dmg <= 0) { addText(op.x + 0.5, op.y + 0.25, '보호막', '#7fd8ff', 0.5); return; }
     }
+    // 용기는 조금씩: 범위 안 아군의 치명상을 작전 중 1회 줄이고 부표 횟수 회복
+    if (op.hp - dmg <= 0 && !S.courageUsed) {
+      const cf = S.ops.find((o) => o.alive && o.tal.courage && o.range.has(key(op.x, op.y)));
+      if (cf) {
+        S.courageUsed = true;
+        dmg *= 1 - cf.tal.courage.cut;
+        const br = (cf.roster.summonRs || [])[0];
+        if (br) br.left = (br.left || 0) + 1;
+        addText(cf.x + 0.5, cf.y - 0.1, '용기는 조금씩', cf.def.color, 1.2, true);
+      }
+    }
     // 일단 살고 봐야죠!: 배치 후 첫 치명상 무효
     const sv = op.tal.survive;
     if (sv && !op.surviveUsed && op.hp - dmg <= 0) {
@@ -1170,6 +1260,7 @@
     if (src && src.def && X.ignoreDef && X.ignoreDef.classes.includes(src.def.class)) ignore = Math.min(1, ignore + X.ignoreDef.v);
     let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = relicDealt(e, type, src);
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
+    if (e.resDownT > 0) res = Math.max(0, res - e.resDown);
     if (e.vulnT > 0) amp += e.vulnAmp;
     if (type === 'phys') amp += markAmpOf(e);
     const a = e.ana;
@@ -1301,6 +1392,7 @@
     if (e.vulnT > 0) e.vulnT -= dt;
     if (e.atkDownT > 0) e.atkDownT -= dt;
     if (e.markT > 0) e.markT -= dt;
+    if (e.resDownT > 0) e.resDownT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
     const na = e.def.neuralAura;
@@ -1433,7 +1525,7 @@
     $('#result-info').append(info, rw);
     // 대장(편성 1번)의 결과 대사
     const leader = opById(S.squadIds[0]);
-    const vline = leader && (win ? (stars === 3 ? UI.line(leader, 'clear') : UI.line(leader, 'clear2') || UI.line(leader, 'clear')) : UI.line(leader, 'fail'));
+    const vline = leader && (win ? (stars === 3 ? ((S.ext.hard || S.st.hard) && UI.line(leader, 'hard')) || UI.line(leader, 'clear') : UI.line(leader, 'clear2') || UI.line(leader, 'clear')) : UI.line(leader, 'fail'));
     if (vline) {
       const v = document.createElement('div');
       v.className = 'result-voice';
@@ -1735,7 +1827,7 @@
     ctx.fillStyle = 'rgba(0,0,0,.65)';
     ctx.font = `900 ${r * 1.05}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(def.name[0], X, Y + r * 0.05);
+    ctx.fillText(def.glyph || def.name[0], X, Y + r * 0.05);
     ctx.globalAlpha = 1;
   }
   // 캐릭터 몸체(그림 또는 동그라미). 화면상 영역 [x0, y0, x1, y1]을 돌려줌
@@ -1781,7 +1873,7 @@
     // 바라보는 방향 (주황 화살표)
     const [dx, dy] = DIRV[op.dir];
     const [ax, ay] = proj(op.x + 0.5 + dx * 0.44, op.y + 0.58 + dy * 0.44, h);
-    drawArrowHead(ax, ay, Math.atan2(ay - Y, ax - X), T * 0.11, '#ff9a1f');
+    if (!op.def.noDir) drawArrowHead(ax, ay, Math.atan2(ay - Y, ax - X), T * 0.11, '#ff9a1f');
     op.rect = drawBody(op.def, X, Y, T, 1, op.flash);
     // 체력/SP
     const bw = T * 0.72, bx = X - bw / 2, by = Y + T * 0.1;

@@ -89,6 +89,7 @@
 - 서포터 직군(고지대, 마법 대미지)과 세부 직군 투사·약화자가 있습니다. 재능 효과 `analyze`(분석 누적: 방어력·마법 저항 감소), `deduce`(분석 완료 적 피해 증가, 파트너 추가 보너스), `focus`(같은 적 연속 공격 시 방어력 무시), `partnerSpeed`(약화된 적 공격 시 공격 속도, 파트너 편성 시 강화), 스킬 효과 `analyzeRate`, `slowAnalyzed`, `priority: 'lowDef'`(방어력 낮은 적 우선)를 쓸 수 있습니다.
 - 세부 직군 치료사(메딕)·중추술사(캐스터). 재능 `listen`(같은 아군 연속 치료 시 치료량 증가), `protect`(범위 안 아군 상태 이상 단축), `proof`(같은 적 N회 공격 시 「입증」: 마법 저항 감소), `argue`(입증된 적 추가 마법 피해), 스킬 `resBuff`, `hot`, `burstHeal`, `allyGuard`, `extraHit`, `proofRate`, `priority: 'proof'`, `proofRes`, `proofBlast`.
 - 소환물: 오퍼레이터에 `summon: { … }`(소환물 스탯)을 넣으면, 그 오퍼레이터를 배치했을 때 소환물 카드가 생깁니다. 소환물은 배치 인원을 차지하지 않고, 주인이 퇴각하면 함께 퇴각합니다 (예: 키스 엔라이튼의 하우스 가드).
+- 장치: `summons: [ … ]`처럼 여러 개를 넣을 수 있고, `charges`(배치 가능 횟수)를 주면 그 횟수만큼 여러 개를 설치할 수 있습니다. 0이면 스킬로 얻기 전까지 카드가 숨겨집니다. `noDir: true`면 방향을 고르지 않고 바로 설치됩니다 (예: 클라운피쉬의 해류 부표).
 - 대사(`voice`) 키: 획득 `obtain` · 비서 `assistant` · 대화 `talk` · 승진 후 대화 `promo`(신뢰도 120%에서 해금) · 신뢰도 `trust40`/`trust100`/`trust150`/`trust200` · 편성 `squad` · 대장 `leader` · 출발 `depart` · 개시 `start` · 선택 `select` · 배치 `deploy` · 전투 `combat` · 별 3개 완료 `clear` · 별 3개 미만 완료 `clear2` · 실패 `fail` · 시설 배치 `base`(음성 기록에만 표시) · 터치 `touch` · 신뢰 터치 `trustTouch`(신뢰도 100%부터) · 방치 `idle`(메인 화면에서 1분 동안 입력이 없을 때) · 인사 `greet`(게임을 켜고 처음 메인 화면에 왔을 때). 터치 대사는 메인 화면 비서 그림을 누르면 나옵니다.
 
 진행 상황·편성·비서·스킬·재화는 claude.ai에서는 계정(공용 데이터의 `players/<id>`)에, 그 밖에서는 브라우저 localStorage에 저장됩니다.
