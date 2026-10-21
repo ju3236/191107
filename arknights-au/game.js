@@ -311,6 +311,7 @@
     if (code === 'KeyQ') { retreat(op); setMode('idle'); return; }
     const sk = op.skill;
     if (sk.trigger !== 'manual') toast(`${op.def.name}의 스킬은 자동 발동입니다`);
+    else if (op.skillT > 0 && (sk.effect || {}).cancelable) { useSkill(op); if (S.inspect === op) refreshInspect(true); }
     else if (op.skillT > 0) toast('스킬 발동 중입니다');
     else if (op.sp < sk.sp) toast(`SP가 부족합니다 (${Math.floor(op.sp)}/${sk.sp})`);
     else { activateSkill(op); if (S.inspect === op) refreshInspect(true); }
@@ -342,7 +343,7 @@
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) togglePause(true); });
 
-  $('#ins-skill').addEventListener('click', () => { if (S && S.inspect) { activateSkill(S.inspect); refreshInspect(true); } });
+  $('#ins-skill').addEventListener('click', () => { if (S && S.inspect) { useSkill(S.inspect); refreshInspect(true); } });
   $('#ins-retreat').addEventListener('click', () => { if (S && S.inspect) { retreat(S.inspect); setMode('idle'); } });
 
   function refreshInspect(full) {
@@ -373,8 +374,9 @@
       fill.classList.remove('active');
       $('#ins-sp-text').textContent = sk.spType === 'deploy' ? '배치 시 발동 (재배치하면 다시 발동)' : `SP ${Math.floor(op.sp)}/${sk.sp}`;
     }
-    $('#ins-skill').disabled = !(sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp);
-    $('#ins-skill').innerHTML = sk.trigger === 'auto' ? '자동 발동' : '스킬 발동<kbd>E</kbd>';
+    const canEnd = op.skillT > 0 && (sk.effect || {}).cancelable;
+    $('#ins-skill').disabled = !(canEnd || (sk.trigger === 'manual' && op.skillT <= 0 && op.sp >= sk.sp));
+    $('#ins-skill').innerHTML = canEnd ? '스킬 종료<kbd>E</kbd>' : sk.trigger === 'auto' ? '자동 발동' : '스킬 발동<kbd>E</kbd>';
   }
 
   // =====================================================================
@@ -412,7 +414,7 @@
   }
   const opBlock = (op) => op.def.block + (eff(op).block || 0) + B(op, 'block');
   const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0) + (op.def.dodge || 0) + B(op, 'dodge');
-  const opArtsDodge = (op) => (op.def.artsDodge || 0) + B(op, 'artsDodge');
+  const opArtsDodge = (op) => (op.def.artsDodge || 0) + (eff(op).artsDodge || 0) + B(op, 'artsDodge');
   const isGround = (def) => CLASSES[def.class].tile === 'ground';
   const isFly = (def) => !!(def.fly || def.flying);
 
@@ -759,6 +761,11 @@
     removeOp(op, false);
   }
 
+  // 발동 중이고 수동 종료가 가능하면 종료, 아니면 발동
+  function useSkill(op) {
+    if (op.skillT > 0 && (op.skill.effect || {}).cancelable) { endSkill(op); addText(op.x + 0.5, op.y - 0.1, '스킬 종료', '#9aa1ab', 0.8, true); return; }
+    activateSkill(op);
+  }
   function activateSkill(op) {
     const sk = op.skill, ef = sk.effect || {};
     if (op.skillT > 0 || op.sp < sk.sp) return false;
@@ -769,7 +776,7 @@
     if (ef.shield) op.shield = op.maxHp * ef.shield;
     if (ef.nextHit) { op.charge = ef.nextHit; op.chargeStun = ef.nextStun || 0; }
     if (ef.hpMul && sk.duration) { op.maxHp *= ef.hpMul; op.hp *= ef.hpMul; }
-    op.rallyUsed = false; op.finN = 0;
+    op.rallyUsed = false; op.finN = 0; op.shellN = 0;
     if (ef.hits && !sk.duration) op.burst = ef.hits;
     if (ef.allyHeal) {
       for (const a of alliesNear(op, ef.allyHeal.radius)) {
@@ -803,8 +810,8 @@
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.5, color: '#ffcf3a' });
     addText(op.x + 0.5, op.y - 0.1, sk.name, '#ffcf3a', 1.2, true);
-    const cl = UI.line(op.def, 'combat');
-    if (cl && op.def.voice) addText(op.x + 0.5, op.y - 0.45, cl, op.def.color, 1.8, true);
+    const cl = sk.voice || UI.line(op.def, 'combat');
+    if (cl && (op.def.voice || sk.voice)) addText(op.x + 0.5, op.y - 0.45, cl, op.def.color, 1.8, true);
     return true;
   }
 
@@ -855,7 +862,7 @@
     // 공격수: 저지 중인 적 전부 동시 공격
     if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
-      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && isFly(e.def)))));
+      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && isFly(e.def) && op.def.archetype !== 'sentry'))));
     const prio = eff(op).priority;
     list.sort((a, b) =>
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
@@ -878,6 +885,7 @@
     op.flash = Math.max(0, op.flash - dt);
     op.chill = Math.max(0, op.chill - dt);
     if (op.resT > 0) op.resT -= dt;
+    if (op.surviveT > 0) op.surviveT -= dt;
     op.brand = onBrand(op.x, op.y);
     if (op.brand && !S.mods.brandImmune) { op.hp -= op.maxHp * 0.01 * dt; if (op.hp <= 0) { removeOp(op, true); return; } }
     if (op.stun > 0) { op.stun -= dt; op.atkCd = Math.max(op.atkCd, 0.2); return; }
@@ -967,6 +975,8 @@
     if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } }
     const fin = eff(op).finisher;
     const finish = fin && ++op.finN % fin.every === 0;
+    const sh = eff(op).shell;
+    const shell = sh && ++op.shellN % sh.every === 0;
     const hits = op.burst || eff(op).hits;
     op.burst = null;
     const count = hits ? hits.count : 1, hitMul = hits ? hits.mul : 1;
@@ -990,6 +1000,7 @@
         }
         if (op.tal.argue && t.alive && t.proof) hitEnemy(t, opAtk(op) * op.tal.argue.mul, 'arts', false, op);
         if (stunHit && t.alive) stunEnemy(t, stunHit);
+        if (op.tal.relay && i === 0) markEnemy(op, t);
         if (finish && i === 0 && t.alive) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#ffcf3a', r: 0.5 }); hitEnemy(t, opAtk(op) * fin.mul, 'phys', true, op, ignore, true); }
         if (splash) {
           for (const o of S.enemies) {
@@ -999,9 +1010,30 @@
       }
       if (splash) addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#c89bff', r: splash });
     }
+    // 편집 없는 생중계: 특수 탄환
+    if (shell) {
+      const c = targets[0];
+      addFx({ type: 'ring', x: c.x, y: c.y, life: 0.4, color: '#ffcf3a', r: sh.radius });
+      for (const o of S.enemies.filter((o) => o.alive && Math.hypot(o.x - c.x, o.y - c.y) <= sh.radius)) {
+        hitEnemy(o, opAtk(op) * sh.mul, 'phys', true, op);
+        stunEnemy(o, sh.stun);
+        if (op.tal.relay) markEnemy(op, o);
+      }
+      sfx('strike');
+    }
+    if (eff(op).hitHeal) healOp(op, op.maxHp * eff(op).hitHeal, true);
     relicAttack(op, targets);
     afterAttack(op);
   }
+  // 현장 생중계: 중계 표식 (동시에 최대 max명)
+  function markEnemy(op, e) {
+    if (!e.alive) return;
+    const rl = op.tal.relay;
+    if (!(e.markT > 0) && S.enemies.filter((o) => o.alive && o.markT > 0).length >= rl.max) return;
+    e.markT = rl.dur + (eff(op).markExtra || 0);
+    e.markBy = op;
+  }
+  const markAmpOf = (e) => (e.markT > 0 && e.markBy ? eff(e.markBy).markAmp || e.markBy.tal.relay.amp : 0);
 
   function afterAttack(op) {
     const sk = op.skill;
@@ -1045,6 +1077,8 @@
     if (eg && Math.random() < eg.nullify) { addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); return; }
     if (op.immune > 0) { op.immune--; addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); if (X.dodgeNext) op.charge = Math.max(op.charge || 0, 1 + X.dodgeNext); return; }
     let dmg = calcDamage(atk, type, opDef(op), opRes(op)) * guardMul(op);
+    if (src && src.markT > 0 && eff(op).markCut) dmg *= 1 - eff(op).markCut;
+    if (op.surviveT > 0) dmg *= 1 - op.tal.survive.cut;
     if (src && src.def) {
       if (X.firstHitCut && !src.firstHitDone) { src.firstHitDone = true; dmg *= 1 - X.firstHitCut; }
       if (X.blockedTaken && src.blockedBy) dmg *= 1 - X.blockedTaken;
@@ -1067,6 +1101,16 @@
       op.shield -= absorbed;
       dmg -= absorbed;
       if (dmg <= 0) { addText(op.x + 0.5, op.y + 0.25, '보호막', '#7fd8ff', 0.5); return; }
+    }
+    // 일단 살고 봐야죠!: 배치 후 첫 치명상 무효
+    const sv = op.tal.survive;
+    if (sv && !op.surviveUsed && op.hp - dmg <= 0) {
+      op.surviveUsed = true;
+      op.surviveT = sv.dur;
+      healOp(op, op.maxHp * sv.heal);
+      if (op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + sv.sp);
+      addText(op.x + 0.5, op.y - 0.1, '일단 살고 봐야죠!', '#7fd8ff', 1.2, true);
+      return;
     }
     op.hp -= dmg;
     op.flash = 0.12;
@@ -1127,6 +1171,7 @@
     let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = relicDealt(e, type, src);
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
     if (e.vulnT > 0) amp += e.vulnAmp;
+    if (type === 'phys') amp += markAmpOf(e);
     const a = e.ana;
     if (a && e.analysis > 0) {
       const st = Math.floor(e.analysis);
@@ -1246,7 +1291,7 @@
 
   function enemyAtk(e) {
     const en = e.def.enrage;
-    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1);
+    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1) * (e.markT > 0 && e.markBy ? 1 - e.markBy.tal.relay.atkDown : 1);
   }
 
   function updateEnemy(e, dt, healAura) {
@@ -1255,6 +1300,7 @@
     if (e.slowT > 0) e.slowT -= dt;
     if (e.vulnT > 0) e.vulnT -= dt;
     if (e.atkDownT > 0) e.atkDownT -= dt;
+    if (e.markT > 0) e.markT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
     const na = e.def.neuralAura;
@@ -1812,6 +1858,17 @@
       ctx.font = `900 ${T * 0.12}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText('입증', X, cy + r + T * 0.14);
+    }
+    if (e.markT > 0) {
+      // 중계 표식: 빨간 REC 점
+      ctx.beginPath();
+      ctx.arc(X - r * 0.95, cy - r * 0.95, Math.max(3, T * 0.045), 0, Math.PI * 2);
+      ctx.fillStyle = Math.sin(S.time * 8) > -0.3 ? '#ff3b47' : '#7a1a20'; ctx.fill();
+      ctx.fillStyle = '#ff6b70';
+      ctx.font = `900 ${T * 0.09}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText('REC', X - r * 0.95 + T * 0.06, cy - r * 0.95 + T * 0.03);
+      ctx.textAlign = 'center';
     }
     if (e.slowT > 0) {
       ctx.beginPath();

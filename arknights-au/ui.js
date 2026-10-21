@@ -437,18 +437,20 @@
     ['trust40', '신뢰도 40%'], ['trust100', '신뢰도 100%'], ['trust150', '신뢰도 150%'], ['trust200', '신뢰도 200%'],
     ['squad', '편성'], ['leader', '대장 임명'], ['depart', '작전 출발'], ['start', '작전 개시'], ['select', '선택'], ['deploy', '배치'],
     ['combat', '전투 중'], ['clear', '작전 완료(별 3개)'], ['clear2', '작전 완료(별 3개 미만)'], ['fail', '작전 실패'],
-    ['base', '시설 배치'], ['touch', '터치'], ['trustTouch', '신뢰 터치'], ['idle', '방치'], ['greet', '인사']];
+    ['base', '시설 배치'], ['touch', '터치'], ['trustTouch', '신뢰 터치'], ['idle', '방치'], ['greet', '인사'],
+    ['study', '작전기록 학습'], ['elite1', '1차 정예화'], ['elite2', '2차 정예화'], ['newyear', '새해'], ['birthday', '생일'], ['anniv', '애니버서리']];
   $('#detail-voice').addEventListener('click', () => {
     const o = OPS[detailId];
     const v = o.voice || { talk: o.voices || [], deploy: [o.quote] };
     const t = trustOf(o.id);
+    const sv = (o.skills || []).map((sk, i) => sk.voice && `<div class="vrow"><b>${i + 1}스킬 발동 — ${esc(sk.name)}</b><p>${esc(sk.voice)}</p></div>`).filter(Boolean).join('');
     const rows = VOICE_LABEL.flatMap(([k, label]) => {
       const list = [].concat(v[k] || []).filter(Boolean);
       return list.map((txt, i) => {
         const need = VOICE_UNLOCK[k] || (k === 'trustTouch' ? 100 : 0), locked = t < need;
         return `<div class="vrow ${locked ? 'locked' : ''}"><b>${label}${list.length > 1 ? ' ' + (i + 1) : ''}</b><p>${locked ? `신뢰도 ${need}% 달성 시 해금` : esc(txt)}</p></div>`;
       });
-    }).join('');
+    }).join('') + sv;
     openModal(`<div class="modal-title">${esc(o.name)} — 음성 기록</div><div class="modal-sub">신뢰도 ${t}% · 작전에서 사용한 이성만큼 신뢰도가 오릅니다</div><div class="voice-list">${rows}</div>`);
   });
 
