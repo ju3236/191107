@@ -1115,15 +1115,15 @@ const ENEMIES = {
 
 // 3·4장 적 (아이언 게이트 · 제약 기업) — 그림은 비슷한 원작 적 아이콘을 빌려 씀
 Object.assign(ENEMIES, {
-  ig_baton:    { code: 'IG1', name: '진압대원', hp: 2300, atk: 290, def: 150, res: 0, speed: 0.6, interval: 1.3, range: 0, color: '#8a8f6a', image: 'img/enemy/dual.png', desc: '아이언 게이트의 진압대원. 진압봉으로 빠르게 공격한다.' },
-  ig_guard:    { code: 'IG2', name: '아이언 게이트 경비병', hp: 2900, atk: 330, def: 330, res: 10, speed: 0.5, interval: 2.2, range: 0, color: '#7f8c9a', image: 'img/enemy/shieldguard.png', desc: '정식 명령 계통 밖에서 움직이는 교정시설 경비병. 방패를 들어 방어력이 높다.' },
-  ig_drone:    { code: 'IG3', name: '감시 드론', hp: 1900, atk: 240, def: 80, res: 10, speed: 0.5, interval: 2.8, range: 2.0, fly: true, color: '#6ab0d9', image: 'img/enemy/drone.png', desc: '교정시설과 연구시설을 감시하는 비행 드론.' },
-  corp_sec:    { code: 'CS1', name: '기업 보안요원', hp: 3100, atk: 360, def: 200, res: 20, speed: 0.55, interval: 2.0, range: 0, color: '#4a5a6a', image: 'img/enemy/soldier.png', desc: '제약 기업이 고용한 보안요원. 상당수가 전직 용병이다.' },
-  corp_sniper: { code: 'CS2', name: '보안 저격수', hp: 2500, atk: 420, def: 120, res: 0, speed: 0.45, interval: 2.6, range: 2.2, color: '#5a6a7a', image: 'img/enemy/crossbow_l.png', desc: '멀리서 오퍼레이터를 노리는 보안 저격수.' },
-  corp_caster: { code: 'CS3', name: '아츠 연구원', hp: 2700, atk: 320, def: 80, res: 50, speed: 0.4, interval: 3.5, range: 2.0, arts: true, color: '#8a6ad9', image: 'img/enemy/caster_l.png', desc: '실험에 참여한 아츠 연구원. 마법 피해를 준다.' },
-  corp_heavy:  { code: 'CS4', name: '진압 기갑병', hp: 9000, atk: 700, def: 900, res: 10, speed: 0.35, interval: 2.6, range: 0, elite: true, weight: 3, color: '#7f8c8d', image: 'img/enemy/heavy.png', desc: '중장갑 진압 병력. 방어력이 매우 높다.' },
-  subject:     { code: 'EX1', name: '실험체', hp: 3300, atk: 380, def: 100, res: 20, speed: 0.6, interval: 1.8, range: 0, regen: 0.01, color: '#b05050', image: 'img/enemy/host.png', desc: '불법 실험으로 오리지늄이 주입된 감염자. 서서히 HP를 회복한다. 원래는 수감자였다.' },
-  subject_l:   { code: 'EX2', name: '폭주 실험체', hp: 7200, atk: 600, def: 200, res: 30, speed: 0.5, interval: 2.0, range: 0, elite: true, enrage: { below: 0.5, atk: 1.5 }, color: '#d04040', image: 'img/enemy/host_l.png', desc: '실험이 진행된 개체. HP가 절반 아래로 떨어지면 공격력이 오른다.' },
+  ig_baton:    { code: 'IG1', name: '진압대원', hp: 1850, atk: 230, def: 150, res: 0, speed: 0.55, interval: 1.6, range: 0, color: '#8a8f6a', image: 'img/enemy/dual.png', desc: '아이언 게이트의 진압대원. 진압봉으로 빠르게 공격한다.' },
+  ig_guard:    { code: 'IG2', name: '아이언 게이트 경비병', hp: 2300, atk: 260, def: 330, res: 10, speed: 0.5, interval: 2.2, range: 0, color: '#7f8c9a', image: 'img/enemy/shieldguard.png', desc: '정식 명령 계통 밖에서 움직이는 교정시설 경비병. 방패를 들어 방어력이 높다.' },
+  ig_drone:    { code: 'IG3', name: '감시 드론', hp: 1500, atk: 190, def: 80, res: 10, speed: 0.38, interval: 2.8, range: 2.0, fly: true, color: '#6ab0d9', image: 'img/enemy/drone.png', desc: '교정시설과 연구시설을 감시하는 비행 드론.' },
+  corp_sec:    { code: 'CS1', name: '기업 보안요원', hp: 2500, atk: 290, def: 200, res: 20, speed: 0.55, interval: 2.0, range: 0, color: '#4a5a6a', image: 'img/enemy/soldier.png', desc: '제약 기업이 고용한 보안요원. 상당수가 전직 용병이다.' },
+  corp_sniper: { code: 'CS2', name: '보안 저격수', hp: 2000, atk: 340, def: 120, res: 0, speed: 0.45, interval: 2.6, range: 2.2, color: '#5a6a7a', image: 'img/enemy/crossbow_l.png', desc: '멀리서 오퍼레이터를 노리는 보안 저격수.' },
+  corp_caster: { code: 'CS3', name: '아츠 연구원', hp: 2150, atk: 260, def: 80, res: 50, speed: 0.4, interval: 3.5, range: 2.0, arts: true, color: '#8a6ad9', image: 'img/enemy/caster_l.png', desc: '실험에 참여한 아츠 연구원. 마법 피해를 준다.' },
+  corp_heavy:  { code: 'CS4', name: '진압 기갑병', hp: 7200, atk: 560, def: 900, res: 10, speed: 0.35, interval: 2.6, range: 0, elite: true, weight: 3, color: '#7f8c8d', image: 'img/enemy/heavy.png', desc: '중장갑 진압 병력. 방어력이 매우 높다.' },
+  subject:     { code: 'EX1', name: '실험체', hp: 2650, atk: 300, def: 100, res: 20, speed: 0.6, interval: 1.8, range: 0, regen: 0.01, color: '#b05050', image: 'img/enemy/host.png', desc: '불법 실험으로 오리지늄이 주입된 감염자. 서서히 HP를 회복한다. 원래는 수감자였다.' },
+  subject_l:   { code: 'EX2', name: '폭주 실험체', hp: 5750, atk: 480, def: 200, res: 30, speed: 0.5, interval: 2.0, range: 0, elite: true, enrage: { below: 0.5, atk: 0.5 }, color: '#d04040', image: 'img/enemy/host_l.png', desc: '실험이 진행된 개체. HP가 절반 아래로 떨어지면 공격력이 오른다.' },
   warden:      { code: 'IGX', name: '그레이브스 소장', hp: 28000, atk: 900, def: 600, res: 40, speed: 0.25, interval: 3.0, range: 0, aoe: 1.0, weight: 3, enrage: { below: 0.5, atk: 1.4 }, lifeCost: 3, boss: true, color: '#3a4a5a', image: 'img/enemy/avenger.png', desc: '아이언 게이트 소장. 감염자 수감자를 기업에 팔아넘겼다. HP가 절반 아래로 떨어지면 공격력이 오른다.' },
   omega:       { code: 'EXΩ', name: '실험체 Ω', hp: 34000, atk: 1000, def: 450, res: 45, speed: 0.3, interval: 3.0, range: 0, aoe: 1.2, weight: 3, revive: { atk: 1.4 }, summon: { enemy: 'subject', every: 14, count: 2 }, lifeCost: 5, boss: true, color: '#3f6fd8', image: 'img/enemy/dssalr.png', desc: '터너를 대신하려고 만들어진 실험체. 쓰러져도 한 번 일어서고, 주기적으로 실험체를 불러낸다.' },
   // 훈련장 표적 (공격하지 않음)
