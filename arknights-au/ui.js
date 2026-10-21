@@ -6,7 +6,7 @@
   const $ = (s) => document.querySelector(s);
   // 오퍼레이터 목록은 관리자가 실장하면 늘어나므로 매번 찾아봄
   const OPS = new Proxy({}, { get: (_, id) => OPERATORS.find((o) => o.id === id) });
-  const CLASS_ORDER = Object.keys(CLASSES);
+  const CLASS_ORDER = Object.keys(CLASSES).filter((c) => c !== 'device');
   const SQUAD_MAX = 12;
 
   // ---------- 저장 (account.js) ----------
@@ -106,32 +106,38 @@
   }
   const skillsOf = (def) => def.skills || (def.skill ? [def.skill] : []);
   function skillIndex(def) {
-    const n = skillsOf(def).length;
+    let n = skillsOf(def).length;
+    // 육성: 정예화 단계까지 열린 스킬만 (통합전략의 오퍼레이터는 따로 정함)
+    if (!def.trained && def.promoted === undefined && !def.summoned && window.TRAIN) n = Math.min(n, TRAIN.prog(def.id).elite + 1);
     const i = save.skills[def.id];
     return Number.isInteger(i) && i >= 0 && i < n ? i : n - 1;
   }
   const SP_TYPE = { time: '자동 회복', attack: '공격 회복', hit: '피격 회복', deploy: '배치 시 발동' };
   const durText = (sk) => (sk.duration > 0 ? ` · ${sk.duration}초` : sk.duration === -1 ? ' · 지속' : '');
   function cardHTML(def, extra = '') {
+    const t = window.TRAIN && !def.trained && !def.summoned ? TRAIN.trained(def) : def;
     return `<div class="op-card ${extra}" style="--c:${def.color}">
       <div class="oc-art">${artHTML(def)}</div>
       <div class="oc-top"><span class="oc-class">${icon(def.class)}</span><span class="oc-stars">${stars(def.rarity)}</span></div>
       ${skillsOf(def).length > 1 ? `<span class="oc-skill">S${skillIndex(def) + 1}</span>` : ''}
       <div class="oc-foot">
-        <div class="oc-cost"><b>${def.cost}</b><small>COST</small></div>
+        <div class="oc-cost"><b>${t.cost}</b><small>COST</small></div>
         <div class="oc-name">${esc(def.name)}</div>
       </div>
     </div>`;
   }
+  // 정예화 표시 (0: 없음, 1: 꺾쇠 하나, 2: 둘)
+  const eliteIcon = (e) => `<svg viewBox="0 0 40 24" class="elite-ico">${e === 0 ? '<path d="M6 4 20 13 34 4" fill="none" stroke="currentColor" stroke-width="2" opacity=".6"/>' : '<path d="M2 2 20 14 38 2" fill="none" stroke="currentColor" stroke-width="4"/>'}${e >= 2 ? '<path d="M2 10 20 22 38 10" fill="none" stroke="currentColor" stroke-width="4"/>' : ''}</svg>`;
   // 오퍼레이터 목록 카드 (원작 목록 화면 모양)
   function rosterCardHTML(def) {
-    const list = skillsOf(def), si = skillIndex(def), pot = ACCOUNT.potOf(def.id);
+    const list = skillsOf(def), si = skillIndex(def), pot = ACCOUNT.potOf(def.id), pg = TRAIN.prog(def.id);
     return `<div class="rcard" style="--c:${def.color}">
       <div class="rc-art">${def.image ? `<img src="${esc(def.image)}" alt="">` : `<b>${esc(def.name[0])}</b>`}</div>
       <div class="rc-top"><span class="rc-class">${icon(def.class)}</span><span class="rc-stars">${stars(def.rarity)}</span></div>
       <div class="rc-band"></div>
       <div class="rc-foot">
-        <div class="rc-lv"><small>COST</small><b>${def.cost}</b></div>
+        <span class="rc-elite e${pg.elite}">${eliteIcon(pg.elite)}</span>
+        <div class="rc-lv"><small>LV</small><b>${pg.level}</b></div>
         <span class="rc-pot" title="잠재">${pot > 1 ? 'P' + pot : ''}</span>
         ${list.length ? `<span class="rc-sk" style="--c:${def.color}">S${si + 1}</span>` : ''}
       </div>
@@ -395,8 +401,9 @@
 
   RENDER.detail = (id) => {
     if (id) detailId = id;
-    const o = OPS[detailId], cls = CLASSES[o.class], arch = o.archetype && ARCHETYPES[o.archetype];
+    const base = OPS[detailId], o = TRAIN.trained(base), pg = TRAIN.prog(base.id), cls = CLASSES[o.class], arch = o.archetype && ARCHETYPES[o.archetype];
     $('#detail-bg').style.setProperty('--c', o.color);
+    renderLevel(base, pg);
     $('#detail-art').innerHTML = artHTML(o);
     $('#detail-stats').innerHTML = `
       <span><i>＋</i><b>${o.hp}</b></span><span><i>⌛</i>${redeployText(o.redeploy)} <small>${o.redeploy}s</small></span>
@@ -414,14 +421,14 @@
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
     $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
     $('#detail-cost').textContent = o.cost;
-    const list = skillsOf(o), cur = skillIndex(o);
+    const list = skillsOf(base), cur = skillIndex(base);
     $('#detail-skill').innerHTML = list.map((sk, i) => `
-      <button class="skill-row ${i === cur ? 'on' : ''}" data-skill="${i}">
+      <button class="skill-row ${i === cur ? 'on' : ''} ${i > pg.elite ? 'locked' : ''}" data-skill="${i}">${i > pg.elite ? `<span class="lock-tag">${eliteIcon(i)} ${i}차 정예화 해금</span>` : ''}
         <div class="sk-ico" style="--c:${o.color}"><b>S${i + 1}</b><small>${sk.spType === 'deploy' ? '배치' : 'SP ' + sk.sp}</small></div>
         <div><b>${esc(sk.name)}</b><em>${SP_TYPE[sk.spType || 'time']} · ${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'}${durText(sk)}</em><p>${esc(sk.desc)}</p></div>
       </button>`).join('') + (list.length > 1 ? '<div class="skill-hint">눌러서 전투에 쓸 스킬을 고르세요</div>' : '');
     $('#detail-talents').innerHTML = `<div class="trait"><span class="chip">특성</span>${esc(arch ? arch.trait : cls.trait)}</div>` +
-      (o.talents || []).map((t) => `<div class="talent"><b>${esc(t.name)}</b><p>${esc(t.desc)}</p></div>`).join('');
+      (base.talents || []).map((t, i) => `<div class="talent ${i >= pg.elite ? 'locked' : ''}"><b>${esc(t.name)}${i >= pg.elite ? ` <small>${i + 1}차 정예화 해금</small>` : ''}</b><p>${esc(t.desc)}</p></div>`).join('');
     $('#detail-race').textContent = `${o.race} · ${o.faction || cls.name}`;
     $('#detail-profile').textContent = o.profile;
     $('#detail-quote').textContent = `“${o.quote}”`;
@@ -429,6 +436,126 @@
     $('#detail-assist').textContent = !owned(o.id) ? '미보유 오퍼레이터' : isA ? '현재 비서' : '비서로 지정';
     $('#detail-assist').disabled = isA || !owned(o.id);
   };
+  // ---------- 육성: 레벨 · 정예화 ----------
+  const itemCircle = (k, top, bottom, cls = '') => `<div class="tv-item ${cls}"><span class="tv-ring">${`<i class="ri ${esc(k)} big"></i>`}<b>${top}</b></span><small>${bottom}</small></div>`;
+  function renderLevel(def, pg) {
+    const max = TRAIN.maxLevel(pg.elite), need = pg.level < max ? TRAIN.expNeed(pg.elite, pg.level) : 0, own = owned(def.id);
+    $('#detail-lv').innerHTML = `
+      <div class="lvw-ring"><small>LV</small><b>${pg.level}</b></div><span class="lvw-max">/${max}</span>
+      <div class="lvw-exp"><small>EXP</small><span><em>${pg.level < max ? pg.exp : '-'}</em>/${pg.level < max ? need : 'MAX'}</span><i style="width:${need ? (pg.exp / need) * 100 : 100}%"></i></div>
+      <button class="lvw-plus" id="lv-open" ${own && pg.level < max ? '' : 'disabled'} aria-label="레벨업">＋</button>
+      <button class="lvw-elite e${pg.elite}" id="elite-open" ${own ? '' : 'disabled'}>${eliteIcon(pg.elite)}<span>정예화 ${pg.elite}단계</span></button>`;
+  }
+  let lvTarget = 1;
+  const statRows = (a, b) => [['최대 체력', 'hp'], ['공격', 'atk'], ['방어', 'def'], ['마법 저항', 'res']].map(([n, k]) => `<div><span>${n}</span><b>${a[k] || 0}</b><i>→</i><b class="${(b[k] || 0) > (a[k] || 0) ? 'up' : ''}">${b[k] || 0}</b></div>`).join('');
+  function openLevelUp() {
+    const def = OPS[detailId], pg = TRAIN.prog(def.id), max = TRAIN.maxLevel(pg.elite);
+    if (pg.level >= max) { toast('이미 최대 레벨입니다. 정예화하면 더 올릴 수 있습니다'); return; }
+    // 가진 작전기록으로 오를 수 있는 최대 레벨
+    const allExp = TRAIN_RULE.expItems.reduce((sum, k) => sum + ACCOUNT.bal(k) * ITEMS[k].exp, 0);
+    const reach = TRAIN.levelAfter(def.id, allExp).level;
+    lvTarget = Math.max(pg.level + 1, Math.min(lvTarget > pg.level ? lvTarget : reach, max));
+    const need = TRAIN.expTo(def.id, lvTarget), pick = TRAIN.pickRecords(need);
+    const after = TRAIN.levelAfter(def.id, pick.exp), lmd = TRAIN.lmdFor(pick.exp), lmdShort = ACCOUNT.bal('lmd') < lmd;
+    const cur = TRAIN.trained(def), nxt = TRAIN.trained(def, { elite: pg.elite, level: after.level, exp: after.exp });
+    const v = $('#train-view');
+    v.className = 'train-view lvup';
+    v.style.setProperty('--c', def.color);
+    v.innerHTML = `
+      <button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
+      <div class="tv-art">${artHTML(def)}</div>
+      <div class="tv-panel">
+        <div class="tv-update">UPDATE -</div>
+        <div class="tv-stats">${statRows(cur, nxt)}</div>
+        <div class="tv-target"><div><span>목표 레벨</span><b>LV ${after.level}</b></div><div class="tv-exp">EXP- <em>${after.exp}</em>/${after.level < max ? TRAIN.expNeed(pg.elite, after.level) : 'MAX'}</div>
+          ${pick.short ? '<div class="tv-warn">작전기록이 부족해 목표 레벨까지 올릴 수 없습니다</div>' : ''}${lmdShort ? '<div class="tv-warn">용문폐가 부족합니다</div>' : ''}</div>
+      </div>
+      <div class="tv-items">${TRAIN_RULE.expItems.map((k) => itemCircle(k, ACCOUNT.bal(k), (pick.use[k] || 0) ? `사용 ${pick.use[k]}` : '&nbsp;', (pick.use[k] || 0) ? 'on' : '')).join('')}
+        <span class="tv-sep"></span>${itemCircle('lmd', lmd >= 10000 ? (lmd / 10000).toFixed(1) + '만' : lmd, `보유 ${ACCOUNT.bal('lmd') >= 10000 ? (ACCOUNT.bal('lmd') / 10000).toFixed(1) + '만' : ACCOUNT.bal('lmd')}`, lmdShort ? 'short' : '')}</div>
+      <div class="tv-dial" id="tv-dial">
+        <button class="tv-up" data-lv="1" aria-label="레벨 올리기">${lvTarget < max ? lvTarget + 1 : ''}</button>
+        <div class="tv-big">${lvTarget}</div>
+        <div class="tv-ring"><small>LV</small><b>${pg.level}</b></div>
+        <button class="tv-down" data-lv="-1" aria-label="레벨 내리기">︾</button>
+        <small class="tv-hint">레벨을 바꾸면 작전기록이 자동으로 선택됩니다</small>
+      </div>
+      <div class="tv-side"><button class="tv-max" data-lvmax>MAX ${max}</button><span class="tv-target-tag">TARGET</span></div>
+      <button class="tv-go" id="tv-lvgo" ${pick.exp && !lmdShort && after.level > pg.level ? '' : 'disabled'}>︽ 레벨업</button>`;
+    v.dataset.use = JSON.stringify(pick.use);
+  }
+  function openElite() {
+    const def = OPS[detailId], pg = TRAIN.prog(def.id);
+    const v = $('#train-view');
+    v.className = 'train-view elite';
+    v.style.setProperty('--c', def.color);
+    if (pg.elite >= 2) {
+      v.innerHTML = `<button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button><div class="tv-art big">${artHTML(def)}</div>
+        <div class="el-band"><div class="el-step"><b>2</b><span>정예화 단계</span></div><div class="el-ico">${eliteIcon(2)}</div><div class="el-gain">최고 정예화 단계입니다.<br>모든 스킬과 재능이 열려 있습니다.</div></div>`;
+      return;
+    }
+    const to = pg.elite + 1, cost = TRAIN.promoteCost(def, to), max = TRAIN.maxLevel(pg.elite);
+    const sk = skillsOf(def)[to], tal = (def.talents || [])[pg.elite];
+    const gains = [`최대 레벨 ${max} → ${TRAIN.maxLevel(to)}`, '최대 스탯 상승'];
+    if (TRAIN_RULE.costDown[pg.elite] > TRAIN_RULE.costDown[to]) gains.push(`배치 코스트 <em class="r">${TRAIN_RULE.costDown[pg.elite] - TRAIN_RULE.costDown[to]}</em> 증가`);
+    if (sk) gains.push(`신규 스킬 <em>${esc(sk.name)}</em> 획득`);
+    if (tal) gains.push(`신규 재능 <em>${esc(tal.name)}</em> 획득`);
+    const lvOk = pg.level >= max, lmdOk = ACCOUNT.bal('lmd') >= cost.lmd;
+    const fmtN = (n) => Number(n).toLocaleString('ko-KR');
+    const req = [`<div class="tv-item ${lvOk ? '' : 'short'}"><span class="tv-ring lvr"><b>${max}</b><small>레벨</small></span><small class="${lvOk ? '' : 'bad'}"><em>${pg.level}</em>/${max}</small></div>`,
+      `<div class="tv-item"><span class="tv-ring"><i class="ri lmd big"></i></span><small class="tag ${lmdOk ? '' : 'bad'}">${fmtN(cost.lmd)}</small></div>`]
+      .concat(Object.entries(cost.items).map(([k, n]) => { const have = ACCOUNT.bal(k); return `<div class="tv-item" title="${esc(ITEMS[k].name)}"><span class="tv-ring"><i class="ri ${esc(k)} big"></i></span><small class="tag ${have >= n ? '' : 'bad'}"><em>${have}</em>/${n}</small><span class="tv-iname">${esc(ITEMS[k].name)}</span></div>`; }));
+    const chk = TRAIN.canPromote(def);
+    v.innerHTML = `
+      <button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
+      <div class="tv-art big">${artHTML(def)}</div>
+      <div class="el-band">
+        <div class="el-step"><b>${pg.elite}</b><span>정예화 단계</span></div><div class="el-ico small">${eliteIcon(pg.elite)}</div>
+        <div class="el-arrow"></div>
+        <div class="el-ico">${eliteIcon(to)}</div><div class="el-step"><b>${to}</b><span>정예화 단계</span></div>
+        <div class="el-gain">${gains.join('<br>')}</div>
+      </div>
+      <div class="el-req">${req.join('')}</div>
+      <div class="el-ask"><p>${chk.ok ? '계속 진행하시겠습니까?' : esc(chk.why)}</p>
+        <div class="el-btns"><button class="el-no" data-tvclose aria-label="취소">✕</button><button class="el-yes" id="tv-elgo" ${chk.ok ? '' : 'disabled'} aria-label="정예화">✓</button></div></div>`;
+  }
+  const closeTrain = () => { $('#train-view').classList.add('hidden'); RENDER.detail(); };
+  $('#detail-lv').addEventListener('click', (e) => {
+    if (e.target.closest('#lv-open')) { lvTarget = 0; openLevelUp(); }
+    else if (e.target.closest('#elite-open')) openElite();
+  });
+  $('#train-view').addEventListener('click', (e) => {
+    if (e.target.closest('[data-tvclose]')) { closeTrain(); return; }
+    const pg = TRAIN.prog(detailId), max = TRAIN.maxLevel(pg.elite);
+    const st = e.target.closest('[data-lv]');
+    if (st) { lvTarget = Math.max(pg.level + 1, Math.min(max, lvTarget + +st.dataset.lv)); openLevelUp(); return; }
+    if (e.target.closest('[data-lvmax]')) { lvTarget = max; openLevelUp(); return; }
+    if (e.target.closest('#tv-lvgo')) {
+      const r = TRAIN.levelUp(OPS[detailId], JSON.parse($('#train-view').dataset.use || '{}'));
+      if (!r.ok) { toast(r.why); return; }
+      sfx('select');
+      toast(`레벨 ${r.from} → ${r.to}`);
+      closeTrain();
+      return;
+    }
+    if (e.target.closest('#tv-elgo')) {
+      const def = OPS[detailId], r = TRAIN.promote(def);
+      if (!r.ok) { toast(r.why); return; }
+      sfx('skill');
+      const p2 = TRAIN.prog(def.id);
+      toast(`${def.name} — ${p2.elite}차 정예화 완료!`);
+      if (def.voice && def.voice['elite' + p2.elite]) say(def, 'elite' + p2.elite);
+      closeTrain();
+    }
+  });
+  // 레벨 다이얼: 휠로 목표 레벨 바꾸기
+  $('#train-view').addEventListener('wheel', (e) => {
+    if (!e.target.closest('#tv-dial')) return;
+    e.preventDefault();
+    const pg = TRAIN.prog(detailId), max = TRAIN.maxLevel(pg.elite);
+    lvTarget = Math.max(pg.level + 1, Math.min(max, lvTarget + (e.deltaY < 0 ? 1 : -1)));
+    openLevelUp();
+  }, { passive: false });
+
   function stepDetail(d) {
     const list = sortedOps().length ? sortedOps() : OPERATORS;
     let i = list.findIndex((o) => o.id === detailId);
@@ -438,6 +565,7 @@
   $('#detail-skill').addEventListener('click', (e) => {
     const b = e.target.closest('[data-skill]');
     if (!b) return;
+    if (b.classList.contains('locked')) { toast(`${b.dataset.skill}차 정예화를 하면 쓸 수 있습니다`); return; }
     save.skills[detailId] = +b.dataset.skill;
     writeSave();
     RENDER.detail();
@@ -678,7 +806,7 @@
     if (!squad.length) { toast('편성된 오퍼레이터가 없습니다'); return false; }
     if (!ACCOUNT.useSanity(sanityCost(st))) { openSanity(() => startOperation(idx, skipStory)); return false; }
     sfx('select');
-    const run = () => window.Battle.begin(idx, squad);
+    const run = () => window.Battle.begin(idx, squad, { defs: squad.map((id) => TRAIN.trained(OPS[id])) });
     if (!skipStory && st.before && st.before.length && !(save.stars[st.code] > 0)) playDialog(st.before, run);
     else run();
     return true;
@@ -709,7 +837,7 @@
     save.trust = save.trust || {};
     for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
     const first = !(save.stars[st.code] > 0);
-    const reward = { lmd: cost * 12 };
+    const reward = TRAIN.stageDrops({ ...st, sanity: cost }, idx, starCount, first);
     if (first) reward.originite = 1;
     ACCOUNT.earn(reward);
     return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}`).join(' · ') + ` · 신뢰도 +${cost}%`;
@@ -941,6 +1069,8 @@
   ACCOUNT.on('mode', rerender);
   ACCOUNT.on('wallet', renderResources);
   applySkins();
+  TRAIN.giveGift();
+  ACCOUNT.on('player', () => TRAIN.giveGift());
   ACCOUNT.on('granted', (g) => {
     const items = Object.entries(g.items || {}).map(([k, v]) => (k.startsWith('op:') ? (OPS[k.slice(3)] ? OPS[k.slice(3)].name : '오퍼레이터') : `${ITEMS[k] ? ITEMS[k].name : k} ×${v}`)).join(', ');
     toast(`지급 완료 — ${items}`);

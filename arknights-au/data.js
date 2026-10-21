@@ -1611,6 +1611,49 @@ const ITEMS = {
   cert_lo:   { name: '초급 자격증', short: '초급 자격증', color: '#9fd6ff', desc: '3·4성 오퍼레이터를 획득하면 얻는다.' },
 };
 
+// ---------------------------------------------------------------------
+//  육성 — 레벨업 · 정예화
+//  정예화 단계마다 만렙: 0정 70 / 1정 80 / 2정 90. 1정에서 2스킬·1재능, 2정에서 3스킬·2재능이 열립니다.
+//  오퍼레이터 데이터의 hp·atk·def는 2정 90레벨 기준이고, 그보다 낮으면 STAT_RANGE 비율로 줄어듭니다.
+//  오퍼레이터에 promote: [{ lmd, items: {...} }, { lmd, items: {...} }]를 넣으면 정예화 재료를 직접 정할 수 있고,
+//  없으면 레어도와 직군에 따라 정해집니다(재료 2종은 오퍼레이터마다 다름).
+// ---------------------------------------------------------------------
+const TRAIN_RULE = {
+  maxLevel: [70, 80, 90],
+  statRange: [[0.6, 0.78], [0.78, 0.9], [0.9, 1]],   // [1레벨, 만렙] 배율
+  costDown: [2, 0, 0],                               // 0정은 배치 코스트 -2
+  expNeed: [[100, 8], [250, 15], [500, 25]],         // 다음 레벨까지: a + 레벨 × b
+  lmdPerExp: 0.6,
+  // 레어도별 정예화 비용 [1정, 2정]
+  promote: {
+    6: [{ lmd: 30000, chip: 5, a: 8, b: 5 }, { lmd: 120000, chip: 4, a: 6, b: 4 }],
+    5: [{ lmd: 20000, chip: 4, a: 6, b: 4 }, { lmd: 80000, chip: 3, a: 5, b: 3 }],
+    4: [{ lmd: 10000, chip: 3, a: 4, b: 3 }, { lmd: 40000, chip: 2, a: 3, b: 2 }],
+    3: [{ lmd: 6000, chip: 2, a: 3, b: 2 }, { lmd: 20000, chip: 2, a: 2, b: 2 }],
+  },
+  matsT2: ['m_rock', 'm_sugar', 'm_poly', 'm_iron', 'm_keton', 'm_device'],
+  matsT3: ['m_rock3', 'm_sugar3', 'm_poly3', 'm_iron3', 'm_keton3', 'm_device3'],
+  expItems: ['exp_1', 'exp_2', 'exp_3', 'exp_4'],
+};
+(() => {
+  const add = (k, v) => { ITEMS[k] = v; };
+  add('exp_1', { name: '기초작전기록', short: '기초작전기록', color: '#9fd6ff', exp: 200, desc: '오퍼레이터 경험치 200. 레벨업에 사용한다.' });
+  add('exp_2', { name: '초급작전기록', short: '초급작전기록', color: '#f5e45a', exp: 400, desc: '오퍼레이터 경험치 400. 레벨업에 사용한다.' });
+  add('exp_3', { name: '중급작전기록', short: '중급작전기록', color: '#5ab5f5', exp: 1000, desc: '오퍼레이터 경험치 1000. 레벨업에 사용한다.' });
+  add('exp_4', { name: '고급작전기록', short: '고급작전기록', color: '#ffb84a', exp: 2000, desc: '오퍼레이터 경험치 2000. 레벨업에 사용한다.' });
+  const T2 = { m_rock: ['원암 큐브', '#b9c4cc'], m_sugar: ['포도당', '#f2f2f2'], m_poly: ['폴리에스테르', '#e8c27a'], m_iron: ['이철 조각', '#a7b7c9'], m_keton: ['아케톤 응집체', '#d97a6a'], m_device: ['장치', '#7aa0d9'] };
+  const T3 = { m_rock3: ['원암 큐브 묶음', '#8fa2b0'], m_sugar3: ['포도당 팩', '#ffffff'], m_poly3: ['폴리에스테르 팩', '#e8a84a'], m_iron3: ['이철 큐브', '#7f97b5'], m_keton3: ['아케톤 결정', '#c94f3c'], m_device3: ['개량 장치', '#4f7fd9'] };
+  for (const [k, [n, c]] of Object.entries(T2)) add(k, { name: n, short: n, color: c, tier: 2, desc: `1차 정예화에 쓰이는 재료. 작전에서 얻을 수 있다.` });
+  for (const [k, [n, c]] of Object.entries(T3)) add(k, { name: n, short: n, color: c, tier: 3, desc: `2차 정예화에 쓰이는 고급 재료. 2장 이후 작전에서 가끔 얻을 수 있다.` });
+  for (const [cls, v] of Object.entries(CLASSES)) {
+    if (cls === 'device') continue;
+    add('chip_' + cls, { name: `${v.name} 칩`, short: `${v.name} 칩`, color: '#5fd3b0', chip: cls, desc: `${v.name} 오퍼레이터의 1차 정예화에 쓰이는 칩. 작전에서 얻을 수 있다.` });
+    add('dual_' + cls, { name: `${v.name} 듀얼칩`, short: `${v.name} 듀얼칩`, color: '#ffcf3a', chip: cls, desc: `${v.name} 오퍼레이터의 2차 정예화에 쓰이는 듀얼칩. 2장 이후 작전에서 드물게 얻을 수 있다.` });
+  }
+})();
+// 육성 기능이 생기기 전부터 플레이하던 계정에 한 번 주는 지원 물자
+const TRAIN_GIFT = { exp_4: 40, exp_3: 30, lmd: 150000, m_rock: 10, m_sugar: 10, m_poly: 10, m_iron: 10, m_keton: 10, m_device: 10 };
+
 // 처음 시작할 때 주는 재화
 const STARTER_GIFT = { orundum: 6000, permit10: 1, lmd: 10000 };
 
