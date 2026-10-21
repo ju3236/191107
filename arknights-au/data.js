@@ -31,17 +31,12 @@ const CLASSES = {
   device:     { name: '장치',       tile: 'ground', trait: '오퍼레이터가 설치하는 장치. 배치 인원을 차지하지 않음' },
 };
 
-// 여명의 「오늘의 변수」 — 오전 4시에 바뀌는 그날의 아츠 (모든 작전에서 같음)
+// 여명의 「오늘의 변수」 — 배치할 때와 2·3스킬을 발동할 때 셋 중 하나가 무작위로 발현
 const DAILY_ARTS = {
-  wind:    { name: '순풍', desc: '주변 아군 공격 속도 상승' },
-  sun:     { name: '햇빛', desc: '주변 아군 HP 회복' },
-  gravity: { name: '중력', desc: '주변 적 이동 속도 감소' },
+  wind:    { name: '순풍', color: '#7dffc8', desc: '주변 아군 공격 속도 상승' },
+  sun:     { name: '햇빛', color: '#ffd86b', desc: '주변 아군 HP 회복' },
+  gravity: { name: '중력', color: '#b48cff', desc: '주변 적 이동 속도 감소' },
 };
-function todayArts() {
-  const d = new Date(Date.now() - 4 * 3600e3);
-  const n = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-  return ['wind', 'sun', 'gravity'][(Math.imul(n, 2654435761) >>> 0) % 3];
-}
 
 // 세부 직군(원작의 아키타입). 특성 효과는 게임 엔진에 구현되어 있습니다.
 const ARCHETYPES = {
@@ -882,13 +877,13 @@ const OPERATORS = [
     hp: 1950, atk: 430, def: 340, res: 0, interval: 1.0,
     range: area(0, 1, 0, 0),
     talents: [
-      { name: '오늘의 변수', get desc() { const d = DAILY_ARTS[todayArts()]; return `하루가 시작될 때(오전 4시) 세 가지 아츠 중 하나가 발현되고, 그날은 작전이 바뀌어도 유지됨 — 「순풍」 주변 8칸 아군 공격 속도 +12 / 「햇빛」 주변 8칸 아군 HP 초당 35 회복 / 「중력」 주변 8칸 적 이동 속도 -20%. 오늘의 아츠: 「${d.name}」`; }, effect: { daily: true } },
+      { name: '오늘의 변수', desc: '배치할 때 세 아츠 중 하나가 무작위로 발현 (배치 중 유지, 재배치하면 다시 뽑음) — 「순풍」 주변 8칸 아군 공격 속도 +12 / 「햇빛」 주변 8칸 아군 HP 초당 35 회복 / 「중력」 주변 8칸 적 이동 속도 -20%', effect: { daily: true } },
       { name: '변하지 않는 약속', desc: '스킬 사용 중 주변 8칸 아군이 받는 피해 -12%. 그 범위의 아군 HP가 50% 이하가 되면 최대 HP 20%의 보호막 (아군마다 스킬 발동당 1회)', effect: { promise: { cut: 0.12, below: 0.5, shield: 0.2 } } },
     ],
     skills: [
       { name: '아침 조회', desc: '8초 동안 배치 코스트 18을 서서히 획득', sp: 26, initSp: 13, duration: 8, trigger: 'auto', voice: '좋아, 오늘도 시작해 볼까?', effect: { dpRegen: 18 / 8 } },
-      { name: '오늘의 운세는?', desc: '12초 동안 배치 코스트 16 획득. 「오늘의 변수」 효과 2배, 범위가 주변 8칸에서 주변 12칸으로 확대. 종료 후 자신의 HP를 최대 HP의 25% 회복', sp: 32, initSp: 16, duration: 12, trigger: 'manual', effect: { dpRegen: 16 / 12, dailyMul: 2, dailyWide: true, endHeal: 0.25 } },
-      { name: '내일도 출근하자', desc: '15초 동안 배치 코스트 20 획득. 깃발을 펼쳐 주변 12칸에 오늘의 아츠에 따른 강화 — 「순풍」 아군 공격 속도 +30·공격력 +15% / 「햇빛」 아군 HP 매초 최대 HP의 3% 회복·받는 피해 -20% / 「중력」 적 이동 속도 -45%·공격 속도 -25, 발동 시 적 2초 정지. 종료 시 범위 안에서 HP 비율이 가장 낮은 아군 1명이 5초간 받는 피해 -35%', sp: 38, initSp: 20, duration: 15, trigger: 'manual', effect: { dpRegen: 20 / 15, dailyMax: true, dailyWide: true, endGuard: { cut: 0.35, dur: 5 } } },
+      { name: '오늘의 운세는?', desc: '발동 시 아츠를 무작위로 다시 뽑음. 12초 동안 배치 코스트 16 획득, 「오늘의 변수」 효과 2배·범위가 주변 8칸에서 주변 12칸으로 확대. 종료 후 자신의 HP를 최대 HP의 25% 회복', sp: 32, initSp: 16, duration: 12, trigger: 'manual', effect: { dpRegen: 16 / 12, dailyMul: 2, dailyWide: true, endHeal: 0.25, reroll: true } },
+      { name: '내일도 출근하자', desc: '발동 시 세 강화 효과 중 무작위로 1종 발현 (발동 후 15초 동안 배치 코스트 20 획득). 깃발을 펼쳐 주변 12칸에 — 「순풍」 아군 공격 속도 +30·공격력 +15% / 「햇빛」 아군 HP 매초 최대 HP의 3% 회복·받는 피해 -20% / 「중력」 적 이동 속도 -45%·공격 속도 -25, 발동 시 적 2초 정지. 스킬 지속 시간 무제한, 스킬 직접 끄기 가능 (끄면 범위 안에서 HP 비율이 가장 낮은 아군 1명이 5초간 받는 피해 -35%)', sp: 38, initSp: 20, duration: -1, trigger: 'manual', effect: { dpFor: { total: 20, dur: 15 }, dailyMax: true, dailyWide: true, endGuard: { cut: 0.35, dur: 5 }, reroll: true, cancelable: true } },
     ],
     voice: {
       obtain: '안녕, 박사! 여명이라고 해. 뱅가드로 배속됐어. 원래는 회사에서 일하고 있는데…… 뭐, 여기서도 잘할 수 있을 것 같네. 잘 부탁해! 아, 내 능력은 매일 바뀌니까 너무 놀라지는 말고.',
@@ -1019,6 +1014,45 @@ const OPERATORS = [
     ],
   },
 ];
+
+// ---------------------------------------------------------------------
+//  오퍼레이터 고유 이펙트
+//  shot: 투사체 모양 — tracer(총탄) star(별빛) orb(아츠 구체) glyph(문양) lance(빛의 창) card(카드)
+//        blue(푸른 대형 탄환) bubble(물방울) fish(흰동가리) perfume(던지는 향수병)
+//  hit: 근접 타격 모양 — slash(베기) iai(발도) punch(주먹) claw(세 줄 할퀴기) bash(방패·진압봉) dagger(쌍단검)
+//  color / color2: 주색 · 보조색, cast: 스킬 발동 때 퍼지는 파티클 모양, heal: 치료 광선 색
+//  particle 모양 — star card bubble feather shard petal mist circle
+// ---------------------------------------------------------------------
+const OP_VFX = {
+  byeol:     { shot: 'star', color: '#9fd8ff', color2: '#ffffff', cast: 'star' },
+  simhae:    { shot: 'tracer', color: '#ff7a4a', color2: '#ffe0a0', cast: 'shard', muzzle: true },
+  iai:       { hit: 'iai', color: '#c9dcff', color2: '#ff5a6a', cast: 'petal' },
+  gaeul:     { hit: 'slash', color: '#5b8cff', color2: '#d6e4ff', cast: 'shard' },
+  igyeong:   { hit: 'punch', color: '#ff4a3c', color2: '#ffd0a0', cast: 'circle' },
+  yeoun:     { shot: 'glyph', color: '#46d08a', color2: '#d0ffe6', cast: 'shard' },
+  sousuke:   { heal: '#ffd86b', color: '#ffd86b', color2: '#fff6d0', cast: 'feather' },
+  yuki:      { shot: 'lance', color: '#ffe36b', color2: '#ffffff', cast: 'feather' },
+  keith:     { shot: 'card', color: '#4a6bff', color2: '#ff4a5a', cast: 'card' },
+  lucia:     { hit: 'dagger', color: '#ffb35a', color2: '#ffffff', cast: 'circle' },
+  felix:     { hit: 'bash', color: '#9fb6d0', color2: '#ffffff', cast: 'shard' },
+  russell:   { hit: 'punch', color: '#a07bff', color2: '#ffffff', cast: 'shard' },
+  turner:    { shot: 'blue', color: '#3f8cff', color2: '#bfe0ff', cast: 'circle' },
+  clownfish: { shot: 'bubble', color: '#7fe0ff', color2: '#ffffff', cast: 'bubble' },
+  yeongha:   { shot: 'perfume', color: '#a67bff', color2: '#ffd0f0', cast: 'mist' },
+  yeomyeong: { hit: 'slash', color: '#ffb04a', color2: '#fff0c0', cast: 'daily' },
+  rea:       { hit: 'slash', color: '#ffb04a', color2: '#ffffff', cast: 'circle' },
+  khan:      { hit: 'slash', color: '#ff4a4a', color2: '#ffd0d0', cast: 'shard' },
+  mujin:     { hit: 'bash', color: '#c9a07a', color2: '#ffffff', cast: 'shard' },
+  noa:       { shot: 'orb', color: '#b47bff', color2: '#ffffff', cast: 'circle' },
+  hayul:     { heal: '#7dff9a', color: '#7dff9a', color2: '#ffffff', cast: 'feather' },
+  ciel:      { shot: 'tracer', color: '#7dff7a', color2: '#ffffff', cast: 'star' },
+  vito:      { hit: 'dagger', color: '#8fd0ff', color2: '#ffffff', cast: 'circle' },
+  // 소환물 · 장치
+  house_guard: { hit: 'bash', color: '#6a7fd0', color2: '#ffffff' },
+  cf_buoy:   { shot: 'fish', color: '#ff9a3c', color2: '#ffffff' },
+  cf_fish:   { shot: 'fish', color: '#ff7a2a', color2: '#ffffff' },
+  cf_gift:   { shot: 'fish', color: '#3f8cff', color2: '#ffffff' },
+};
 
 // ---------------------------------------------------------------------
 //  적 — 원작 적 도감 수치 참고 (이동 속도는 이 게임 기준으로 환산)

@@ -1513,29 +1513,3 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
 }
 .skill-row.locked { padding-top: 26px; }
 .lock-tag { left: 8px; right: auto; top: 4px; }
-
-/* ---------- 스킬 컷인 ---------- */
-.cutin { position: absolute; left: 0; right: 0; top: 22%; height: 120px; z-index: 6; pointer-events: none; overflow: hidden; }
-.cutin.hidden { display: none; }
-.ci-band { position: absolute; left: -10%; right: -10%; top: 0; bottom: 0; transform: skewY(-4deg) translateX(-110%); opacity: 0;
-  background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(10,10,14,.92) 18%, rgba(10,10,14,.92) 70%, rgba(0,0,0,0) 100%);
-  border-top: 3px solid var(--c); border-bottom: 3px solid var(--c); display: flex; align-items: center; justify-content: center; gap: 24px; }
-.ci-band::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(-60deg, transparent 0 18px, color-mix(in srgb, var(--c) 18%, transparent) 18px 22px); }
-.ci-band::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; left: -30%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); }
-.ci-art { position: relative; height: 150%; align-self: flex-end; transform: skewY(4deg); }
-.ci-art img { height: 100%; filter: drop-shadow(0 0 10px var(--c)); }
-.ci-text { position: relative; transform: skewY(4deg); display: flex; flex-direction: column; color: #fff; }
-.ci-text small { font-family: var(--f-en); letter-spacing: .3em; font-size: 12px; color: var(--c); filter: brightness(1.6); }
-.ci-text b { font-size: 34px; font-weight: 900; line-height: 1.15; text-shadow: 0 0 12px var(--c), 0 2px 4px #000; }
-.ci-text span { font-size: 14px; color: #ccc; }
-.cutin.play .ci-band { animation: ci-in 1.25s cubic-bezier(.2,.8,.2,1) forwards; }
-.cutin.play .ci-band::after { animation: ci-shine 1.25s ease-out forwards; }
-@keyframes ci-in {
-  0% { transform: skewY(-4deg) translateX(-110%); opacity: 0; }
-  18% { transform: skewY(-4deg) translateX(0); opacity: 1; }
-  75% { transform: skewY(-4deg) translateX(3%); opacity: 1; }
-  100% { transform: skewY(-4deg) translateX(110%); opacity: 0; }
-}
-@keyframes ci-shine { 0%, 15% { left: -30%; } 60%, 100% { left: 120%; } }
-@media (max-height: 500px) { .cutin { height: 80px; top: 18%; } .ci-text b { font-size: 22px; } .ci-text small { font-size: 9px; } }
-@media (prefers-reduced-motion: reduce) { .cutin.play .ci-band { animation-duration: .01s; } }

@@ -637,7 +637,7 @@
     if (op.guardT > 0) { op.guardT -= dt; cut *= 1 - op.guardCut; }
     for (const b of S.ops) {
       if (!b.alive || !b.tal.daily || !inBearer(b, op.x, op.y)) continue;
-      const be = eff(b), kind = todayArts(), m = be.dailyMul || 1;
+      const be = eff(b), kind = b.arts, m = be.dailyMul || 1;
       if (be.dailyMax) {
         if (kind === 'wind') { add('aspd', 30); add('atk', 0.15); }
         if (kind === 'sun') { healOp(op, op.maxHp * 0.03 * dt, true); cut *= 0.8; }
@@ -681,13 +681,20 @@
       if (op.killAspdT > 0) { op.killAspdT -= dt; add('aspd', mc.killAspd * m * (op.killStacks || 0)); } else op.killStacks = 0;
     }
   }
+  // 오늘의 변수: 세 아츠 중 하나를 무작위로 (배치 · 2·3스킬 발동 때)
+  function rollArts(op) {
+    const keys = Object.keys(DAILY_ARTS);
+    op.arts = keys[Math.floor(Math.random() * keys.length)];
+    const d = DAILY_ARTS[op.arts];
+    addText(op.x + 0.5, op.y - 0.5, `「${d.name}」 발현`, d.color, 1.6, true);
+    rise(op.x + 0.5, op.y + 0.55, d.color, 8, 0.6, op.arts === 'sun' ? 'circle' : op.arts === 'gravity' ? 'shard' : 'petal');
+  }
   // 여명의 깃발 범위: 평소 주변 8칸, 스킬로 주변 12칸
   const inBearer = (b, x, y) => (eff(b).dailyWide ? Math.abs(b.x - x) + Math.abs(b.y - y) <= 2 : near8(b, x, y));
   const luckOps = () => S.ops.filter((o) => o.alive && o.tal.unluck);
   // 매 프레임: 적에게 걸리는 이동·공격 속도 배율 (불운 · 중력), 잔향 지대
   function fieldTick(dt) {
     const seal = luckOps().some((o) => eff(o).sealLuck);
-    const kind = todayArts();
     const bearers = S.ops.filter((o) => o.alive && o.tal.daily);
     for (const e of S.enemies) {
       if (!e.alive) continue;
@@ -696,7 +703,7 @@
       if (e.failCd > 0) e.failCd -= dt;
       const tx = Math.floor(e.x), ty = Math.floor(e.y);
       for (const b of bearers) {
-        if (kind !== 'gravity' || !inBearer(b, tx, ty)) continue;
+        if (b.arts !== 'gravity' || !inBearer(b, tx, ty)) continue;
         if (eff(b).dailyMax) { mv *= 0.55; ai *= 1.25; } else mv *= 1 - 0.2 * (eff(b).dailyMul || 1);
       }
       e.auraMove = mv; e.auraAtkI = ai;
@@ -905,7 +912,7 @@
     if (r.left !== undefined) { r.left--; r.cd = def.redeploy; } else r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
     addText(tx + 0.5, ty - 0.1, UI.line(def, 'deploy'), def.color, 1.8, true);
-    if (tal.daily) addText(tx + 0.5, ty - 0.5, `오늘의 아츠 「${DAILY_ARTS[todayArts()].name}」`, '#ffd27a', 2.2, true);
+    if (tal.daily) rollArts(op);
     setMode('idle');
     if (skill.spType === 'deploy') activateSkill(op);
   }
@@ -957,7 +964,9 @@
       const rg = ef.range ? computeRange(ef.range, op.dir, op.x, op.y).set : op.range;
       for (const e of S.enemies) if (e.alive && rg.has(key(Math.floor(e.x), Math.floor(e.y)))) e.unluckyT = op.tal.unluck.dur;
     }
-    if (ef.dailyMax && op.tal.daily && todayArts() === 'gravity') {
+    if (ef.reroll && op.tal.daily) rollArts(op);
+    op.skillAge = 0;
+    if (ef.dailyMax && op.tal.daily && op.arts === 'gravity') {
       for (const e of S.enemies) if (e.alive && Math.abs(Math.floor(e.x) - op.x) + Math.abs(Math.floor(e.y) - op.y) <= 2) stunEnemy(e, 2);
     }
     if (ef.wave) op.waveT = ef.wave.every * 0.5;
@@ -989,7 +998,7 @@
     }
     if (ef.strike) {
       for (const t of enemiesNear(op, ef.strike.radius)) {
-        addFx({ type: 'slash', x: t.x, y: t.y, life: 0.32, color: '#ffcf3a', big: true });
+        addFx({ type: 'hit', style: vfxOf(op.def).hit || 'punch', x: t.x, y: t.y, life: 0.32, color: '#ffcf3a', color2: '#fff', big: true });
         sparks(t.x, t.y, '#ffcf3a', 5, { speed: 1.8, size: 0.05, h: 0.35 });
         hitEnemy(t, atk * ef.strike.mul, 'phys');
         if (ef.strike.stun) stunEnemy(t, ef.strike.stun);
@@ -1004,10 +1013,7 @@
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.6, color: op.def.color, r: 0.9 });
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.45, color: '#ffcf3a', r: 0.6 });
-    addFx({ type: 'cast', x: op.x + 0.5, y: op.y + 0.58, h: tileH(op.x, op.y), life: 0.9, color: op.def.color });
-    rise(op.x + 0.5, op.y + 0.55, op.def.color, 10, 0.5);
-    rise(op.x + 0.5, op.y + 0.55, '#ffe9a0', 6, 0.4);
-    if (sk.trigger === 'manual' && sk.duration !== 0) cutin(op);
+    castFx(op);
     addText(op.x + 0.5, op.y - 0.1, sk.name, '#ffcf3a', 1.2, true);
     const cl = sk.voice || UI.line(op.def, 'combat');
     if (cl && (op.def.voice || sk.voice)) addText(op.x + 0.5, op.y - 0.45, cl, op.def.color, 1.8, true);
@@ -1106,6 +1112,8 @@
       }
       if (ef.regen) healOp(op, op.maxHp * ef.regen * dt, true);
       if (ef.dpRegen) S.dp = Math.min(S.maxDp, S.dp + ef.dpRegen * dt);
+      op.skillAge = (op.skillAge || 0) + dt;
+      if (ef.dpFor && op.skillAge <= ef.dpFor.dur) S.dp = Math.min(S.maxDp, S.dp + (ef.dpFor.total / ef.dpFor.dur) * dt);
       if (ef.wave && (op.waveT -= dt) <= 0) {
         op.waveT = ef.wave.every;
         const wv = ef.wave;
@@ -1119,7 +1127,7 @@
       if (ef.allyRegen) for (const a of alliesNear(op, ef.allyRegen.radius)) healOp(a, opAtk(op) * ef.allyRegen.mul * dt, true);
     } else if (sk.spType !== 'deploy') {
       if (!sk.spType || sk.spType === 'time') op.sp = Math.min(sk.sp, op.sp + dt);
-      if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && hasWork(op)) activateSkill(op);
+      if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && (op.def.archetype === 'bearer' || hasWork(op))) activateSkill(op);
     }
 
     // 예리한 관찰: 공격 범위 안의 적에게 「분석」 누적
@@ -1163,7 +1171,9 @@
         healOp(a, opAtk(op) * (ls && a === op.healTarget ? 1 + op.healStacks * ls.step : 1));
         if (rb) { a.resBuff = rb.res; a.resT = rb.dur; }
         if (hot) { a.hotAmt = opAtk(op) * hot.mul; a.hotT = hot.dur; }
-        addFx({ type: 'beam', x1: cx, y1: cy, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.25, color: '#7dff9a' });
+        const hv = vfxOf(op.def);
+        addFx({ type: 'beam', x1: cx, y1: cy, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.3, color: hv.heal || '#7dff9a' });
+        if (Math.random() < 0.5) rise(a.x + 0.5, a.y + 0.55, hv.heal || '#7dff9a', 2, 0.4, hv.cast === 'feather' ? 'feather' : 'cross');
       }
       sfx('heal');
       relicAttack(op, []);
@@ -1220,9 +1230,7 @@
     sfx(type === 'arts' ? 'arts' : isGround(op.def) ? 'slash' : 'shot');
     for (const t of targets) {
       for (let i = 0; i < count; i++) {
-        const strong = op.skillT > 0 || mul > 1.4;
-        if (isGround(op.def) && op.def.class !== 'device') addFx({ type: 'slash', x: t.x, y: t.y, life: strong ? 0.26 : 0.2, color: strong ? '#ffcf3a' : op.def.color, rot: -2.4 + (Math.random() - 0.5) * 1.2 + i * 0.9, big: strong });
-        else addFx({ type: 'shot', x1: cx, y1: cy, x2: t.x + (i ? (Math.random() - 0.5) * 0.2 : 0), y2: t.y, life: type === 'arts' ? 0.32 : 0.22, color: type === 'arts' ? (op.def.class === 'device' ? '#ff9a3c' : '#b47bff') : strong ? '#ffd86b' : '#fff2b3', arts: type === 'arts', big: strong });
+        attackFx(op, t, i, type, op.skillT > 0 || mul > 1.4, cx, cy);
         const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
         hitEnemy(t, atk * crit * (t === targets[0] ? bsMul : 1), type, crit > 1, op, ignOf(t));
         const ec = op.def.summoned && op.owner && op.owner.tal.echo;
@@ -1650,7 +1658,7 @@
     if (e.def.range > 0 && !e.blockedBy) {
       addFx({ type: 'shot', x1: e.x, y1: e.y, x2: target.x + 0.5, y2: target.y + 0.5, life: type === 'arts' ? 0.3 : 0.2, color: type === 'arts' ? '#b36bff' : '#ff9a5c', arts: type === 'arts' });
     } else {
-      addFx({ type: 'slash', x: target.x + 0.5, y: target.y + 0.5, life: 0.18, color: '#ff5c5c', rot: -0.8 });
+      addFx({ type: 'hit', style: 'slash', x: target.x + 0.5, y: target.y + 0.5, life: 0.18, color: '#ff5c5c', color2: '#fff', rot: -0.8 });
     }
     const atk = enemyAtk(e);
     if (e.def.aoe) {
@@ -2095,6 +2103,15 @@
     const spRatio = op.skillT > 0 ? (op.skillT === Infinity ? 1 : op.skillT / sk.duration) : sk.sp ? op.sp / sk.sp : 0;
     bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
     if (op.neural > 0) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), op.neural / 1000, '#c77dff');
+    if (op.arts) {
+      // 오늘의 변수: 지금 발현 중인 아츠
+      const d = DAILY_ARTS[op.arts], tx2 = X, ty2 = op.rect[1] - T * 0.02;
+      ctx.font = `900 ${Math.max(10, T * 0.15)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(d.name).width + T * 0.14;
+      ctx.fillStyle = 'rgba(10,12,16,.8)'; ctx.fillRect(tx2 - w / 2, ty2 - T * 0.1, w, T * 0.2);
+      ctx.fillStyle = d.color; ctx.fillText(d.name, tx2, ty2 + T * 0.005);
+    }
     if (op.stun > 0) {
       ctx.fillStyle = '#c77dff';
       ctx.font = `900 ${T * 0.2}px sans-serif`;
@@ -2198,6 +2215,41 @@
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill();
   }
+  // 파티클 모양 그리기
+  function shapeAt(X, Y, r, shape, color, rot) {
+    if (shape === 'circle' || !shape) { glow(X, Y, r, color); return; }
+    ctx.save(); ctx.translate(X, Y); ctx.rotate(rot || 0);
+    ctx.fillStyle = color; ctx.strokeStyle = color;
+    if (shape === 'star') {
+      glow(0, 0, r * 1.4, color, 0.6);
+      ctx.fillStyle = '#ffffff'; ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 - Math.PI / 2, q = i % 2 ? r * 0.4 : r; ctx.lineTo(Math.cos(a) * q, Math.sin(a) * q); }
+      ctx.fill();
+    } else if (shape === 'card') {
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(-r * 0.7, -r, r * 1.4, r * 2);
+      ctx.fillStyle = color; ctx.fillRect(-r * 0.5, -r * 0.8, r * 1.0, r * 1.6);
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(0, -r * 0.45); ctx.lineTo(r * 0.3, 0); ctx.lineTo(0, r * 0.45); ctx.lineTo(-r * 0.3, 0); ctx.fill();
+    } else if (shape === 'bubble') {
+      ctx.lineWidth = Math.max(1, r * 0.22); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(-r * 0.35, -r * 0.35, r * 0.25, 0, Math.PI * 2); ctx.fill();
+    } else if (shape === 'feather') {
+      ctx.beginPath(); ctx.ellipse(0, 0, r * 0.35, r * 1.1, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1, r * 0.1); ctx.beginPath(); ctx.moveTo(0, -r * 1.1); ctx.lineTo(0, r * 1.1); ctx.stroke();
+    } else if (shape === 'shard') {
+      ctx.beginPath(); ctx.moveTo(0, -r * 1.2); ctx.lineTo(r * 0.45, 0); ctx.lineTo(0, r * 1.2); ctx.lineTo(-r * 0.45, 0); ctx.fill();
+    } else if (shape === 'petal') {
+      ctx.beginPath(); ctx.ellipse(0, 0, r * 0.5, r, 0.5, 0, Math.PI * 2); ctx.fill();
+    } else if (shape === 'mist') {
+      ctx.restore(); ctx.save();
+      const g = ctx.createRadialGradient(X, Y, 0, X, Y, r * 2.4);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(X, Y, r * 2.4, 0, Math.PI * 2); ctx.fill();
+    } else if (shape === 'cross') {
+      ctx.fillRect(-r * 0.25, -r, r * 0.5, r * 2); ctx.fillRect(-r, -r * 0.25, r * 2, r * 0.5);
+    }
+    ctx.restore();
+  }
+  const FISH = new Image(); FISH.src = 'img/fish.png';
   function drawFx(f) {
     const k = f.t / f.life;
     ctx.save();
@@ -2205,58 +2257,109 @@
       // 파티클
       const t = f.t, x = f.x + f.vx * t, y = f.y + f.vy * t, h = f.h + f.vh * t - 0.9 * (f.g || 0) * t * t;
       const [X, Y, s] = proj(x, y, Math.max(0, h));
-      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalCompositeOperation = f.shape && f.shape !== 'circle' && f.shape !== 'mist' ? 'source-over' : 'lighter';
       ctx.globalAlpha = (1 - k) * (f.a || 1);
-      glow(X, Y, P.T * s * (f.size || 0.06) * (1 - k * 0.5), f.color);
+      shapeAt(X, Y, P.T * s * (f.size || 0.06) * (1 - k * 0.4), f.shape, f.color, (f.spin || 0) * t + (f.rot0 || 0));
     } else if (f.type === 'shot') {
-      // 투사체: 머리가 날아가며 꼬리를 남기고, 맞으면 불꽃
-      const hitAt = 0.55, m = Math.min(1, k / hitAt);
+      // 투사체: 모양은 오퍼레이터마다 다름
+      const st = f.style || 'tracer', lob = st === 'perfume';
+      const hitAt = lob ? 0.7 : 0.55, m = Math.min(1, k / hitAt);
       const [x1, y1, s] = proj(f.x1, f.y1, 0.5), [x2, y2] = proj(f.x2, f.y2, 0.35);
-      const hx = x1 + (x2 - x1) * m, hy = y1 + (y2 - y1) * m;
-      const tail = Math.max(0, m - 0.35), tx = x1 + (x2 - x1) * tail, ty = y1 + (y2 - y1) * tail;
-      const arts = f.arts, big = f.big ? 1.6 : 1;
+      const arc = lob ? Math.sin(m * Math.PI) * P.T * s * 1.1 : 0;
+      const hx = x1 + (x2 - x1) * m, hy = y1 + (y2 - y1) * m - arc;
+      const tail = Math.max(0, m - (st === 'tracer' ? 0.5 : 0.3)), tx = x1 + (x2 - x1) * tail, ty = y1 + (y2 - y1) * tail - (lob ? Math.sin(tail * Math.PI) * P.T * s * 1.1 : 0);
+      const big = f.big ? 1.5 : 1, T = P.T * s;
       ctx.globalCompositeOperation = 'lighter';
-      if (k < hitAt + 0.15) {
-        ctx.globalAlpha = 1;
-        const g = ctx.createLinearGradient(tx, ty, hx, hy);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, f.color);
-        ctx.strokeStyle = g; ctx.lineCap = 'round';
-        ctx.lineWidth = P.T * s * (arts ? 0.09 : 0.045) * big;
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
-        glow(hx, hy, P.T * s * (arts ? 0.2 : 0.11) * big, f.color);
+      if (k < hitAt) {
+        if (st !== 'perfume' && st !== 'card' && st !== 'fish' && st !== 'bubble') {
+          const g = ctx.createLinearGradient(tx, ty, hx, hy);
+          g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, f.color);
+          ctx.strokeStyle = g; ctx.lineCap = 'round';
+          ctx.lineWidth = T * ({ tracer: 0.03, star: 0.05, orb: 0.09, glyph: 0.06, lance: 0.07, blue: 0.16 }[st] || 0.05) * big;
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+        }
+        const ang = Math.atan2(y2 - y1, x2 - x1);
+        if (st === 'tracer') { glow(hx, hy, T * 0.08 * big, f.color); }
+        else if (st === 'star') { ctx.globalCompositeOperation = 'source-over'; shapeAt(hx, hy, T * 0.13 * big, 'star', f.color, k * 12); if (Math.random() < 0.6) sparks(f.x1 + (f.x2 - f.x1) * m, f.y1 + (f.y2 - f.y1) * m, f.color2 || '#fff', 1, { speed: 0.2, size: 0.03, h: 0.45, up: 0.1, shape: 'star' }); }
+        else if (st === 'orb') { glow(hx, hy, T * 0.2 * big, f.color); }
+        else if (st === 'glyph') { glow(hx, hy, T * 0.16 * big, f.color); ctx.save(); ctx.translate(hx, hy); ctx.rotate(k * 10); ctx.strokeStyle = f.color2 || '#fff'; ctx.lineWidth = Math.max(1, T * 0.02); ctx.strokeRect(-T * 0.08, -T * 0.08, T * 0.16, T * 0.16); ctx.restore(); }
+        else if (st === 'lance') { ctx.save(); ctx.translate(hx, hy); ctx.rotate(ang); const g = ctx.createLinearGradient(-T * 0.5, 0, T * 0.1, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, '#fff'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(T * 0.12, 0); ctx.lineTo(-T * 0.5, -T * 0.05); ctx.lineTo(-T * 0.5, T * 0.05); ctx.fill(); ctx.restore(); glow(hx, hy, T * 0.14 * big, f.color); }
+        else if (st === 'blue') { glow(hx, hy, T * 0.3 * big, f.color); glow(hx, hy, T * 0.14 * big, '#ffffff'); }
+        else if (st === 'card') { ctx.globalCompositeOperation = 'source-over'; shapeAt(hx, hy, T * 0.12 * big, 'card', Math.floor(k * 20) % 2 ? f.color : f.color2, k * 25); }
+        else if (st === 'bubble') { ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 0.9; shapeAt(hx, hy, T * 0.12 * big, 'bubble', f.color, 0); }
+        else if (st === 'fish') {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.save(); ctx.translate(hx, hy); if (x2 < x1) ctx.scale(-1, 1);
+          ctx.beginPath(); ctx.arc(0, 0, T * 0.15 * big, 0, Math.PI * 2); ctx.fillStyle = f.color; ctx.fill();
+          if (FISH.complete && FISH.naturalWidth) { const w = T * 0.25 * big, hh = (w * FISH.naturalHeight) / FISH.naturalWidth; ctx.drawImage(FISH, -w / 2, -hh / 2, w, hh); }
+          ctx.restore();
+        } else if (st === 'perfume') {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.save(); ctx.translate(hx, hy); ctx.rotate(k * 9); ctx.scale(1.4, 1.4);
+          ctx.fillStyle = 'rgba(230,210,255,.95)'; ctx.fillRect(-T * 0.05, -T * 0.06, T * 0.1, T * 0.12);
+          ctx.fillStyle = f.color; ctx.fillRect(-T * 0.04, -T * 0.01, T * 0.08, T * 0.06);
+          ctx.fillStyle = '#d9c070'; ctx.fillRect(-T * 0.025, -T * 0.1, T * 0.05, T * 0.04);
+          ctx.restore();
+        }
+        if (f.muzzle && k < 0.15) glow(x1, y1, T * 0.22, f.color2 || '#fff');
       }
       if (k >= hitAt) {
         const q = (k - hitAt) / (1 - hitAt);
         ctx.globalAlpha = 1 - q;
-        glow(x2, y2, P.T * s * (0.18 + q * 0.25) * big, f.color, 0.9);
-        if (!f.burst) { f.burst = true; sparks(f.x2, f.y2, f.color, arts ? 7 : 4, { speed: 1.4, size: 0.045, h: 0.35 }); }
+        if (!f.burst) {
+          f.burst = true;
+          const sh = { star: 'star', card: 'card', bubble: 'bubble', perfume: 'mist', glyph: 'shard', lance: 'feather', fish: 'bubble' }[st] || 'circle';
+          if (st === 'perfume') { sparks(f.x2, f.y2, f.color, 5, { speed: 0.5, size: 0.12, h: 0.15, up: 0.2, g: 0, shape: 'mist', life: 0.9 }); sparks(f.x2, f.y2, '#e8d8ff', 3, { speed: 1.2, size: 0.03, h: 0.3, shape: 'shard' }); }
+          else if (st === 'blue') { addFx({ type: 'ring', x: f.x2, y: f.y2, life: 0.4, color: f.color, r: f.big ? 1 : 0.6 }); sparks(f.x2, f.y2, f.color2, 8, { speed: 1.8, size: 0.05, h: 0.35 }); }
+          else sparks(f.x2, f.y2, f.color, f.arts ? 6 : 4, { speed: 1.3, size: sh === 'circle' ? 0.045 : 0.035, h: 0.35, shape: sh });
+        }
+        if (st !== 'perfume') glow(x2, y2, T * (0.16 + q * 0.22) * big * (st === 'blue' ? 1.8 : 1), f.color, 0.9);
       }
+    } else if (f.type === 'hit') {
+      // 근접 타격: 오퍼레이터마다 모양이 다름
+      const [X, Y, s] = proj(f.x, f.y, 0.35), T = P.T * s, big = f.big ? 1.45 : 1, st = f.style || 'slash';
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      const fade = 1 - k * k;
+      const stroke = (w, c, al, fn) => { ctx.globalAlpha = fade * al; ctx.strokeStyle = c; ctx.lineWidth = Math.max(1.5, T * w * (1 - k * 0.5)); ctx.beginPath(); fn(); ctx.stroke(); };
+      if (st === 'slash' || st === 'dagger') {
+        const R = T * 0.34 * big, a0 = (f.rot ?? -2.4) + k * 1.8;
+        const arcs = st === 'dagger' ? [[0, 1.2], [0.6, 1.1]] : [[0, 1.7]];
+        for (const [off, len] of arcs) {
+          const a = a0 + off * 1.6;
+          for (const [w, c, al] of [[0.3, f.color, 0.25], [0.11, f.color, 1], [0.035, '#ffffff', 1]]) stroke(w, c, al, () => ctx.arc(X, Y, R * (1 - off * 0.2), a, a + len));
+        }
+      } else if (st === 'iai') {
+        // 발도: 대상을 가로지르는 긴 일직선 + 늦게 번지는 붉은 잔상
+        const L = T * 0.9 * big, a = f.rot ?? -0.35, dx = Math.cos(a) * L, dy = Math.sin(a) * L, m = Math.min(1, k * 4);
+        for (const [w, c, al] of [[0.22, f.color, 0.3], [0.06, f.color, 1], [0.02, '#ffffff', 1]]) stroke(w, c, al, () => { ctx.moveTo(X - dx, Y - dy); ctx.lineTo(X - dx + dx * 2 * m, Y - dy + dy * 2 * m); });
+        if (k > 0.35) stroke(0.05, f.color2, 0.8 * (1 - k), () => { ctx.moveTo(X - dx * 0.8, Y - dy * 0.8 + T * 0.04); ctx.lineTo(X + dx * 0.8, Y + dy * 0.8 + T * 0.04); });
+      } else if (st === 'punch') {
+        // 주먹: 별 모양 충격 + 짧은 충격파
+        const R = T * (0.18 + k * 0.25) * big;
+        ctx.globalAlpha = fade; ctx.fillStyle = f.color;
+        ctx.beginPath(); for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + (f.rot || 0), q = i % 2 ? R * 0.45 : R; ctx.lineTo(X + Math.cos(a) * q, Y + Math.sin(a) * q * 0.8); } ctx.fill();
+        glow(X, Y, R * 0.8, '#ffffff', fade);
+        stroke(0.04, f.color2, 0.9, () => ctx.ellipse(X, Y, R * 1.5, R * 0.7, 0, 0, Math.PI * 2));
+      } else if (st === 'claw') {
+        for (let i = -1; i <= 1; i++) stroke(0.05, f.color, 1, () => { ctx.moveTo(X - T * 0.25 + i * T * 0.08, Y - T * 0.3); ctx.lineTo(X + T * 0.2 + i * T * 0.08, Y + T * 0.25); });
+      } else if (st === 'bash') {
+        // 방패·진압봉: 넓은 호 + 둔탁한 섬광
+        const R = T * 0.42 * big, a0 = -2.9 + k * 0.8;
+        for (const [w, c, al] of [[0.4, f.color, 0.2], [0.14, f.color, 0.9], [0.04, '#ffffff', 1]]) stroke(w, c, al, () => ctx.arc(X, Y, R, a0, a0 + 1.3));
+        glow(X, Y, T * 0.3 * (1 - k), f.color2, 0.8 * fade);
+      }
+      if (!f.burst) { f.burst = true; sparks(f.x, f.y, f.color, st === 'punch' ? 5 : 3, { speed: 1.3, size: 0.04, h: 0.35, shape: st === 'iai' ? 'petal' : 'circle' }); }
     } else if (f.type === 'beam') {
       // 치료 광선: 부드러운 빛 + 흐르는 빛 알갱이
       const [x1, y1, s] = proj(f.x1, f.y1, 0.5), [x2, y2] = proj(f.x2, f.y2, 0.45);
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 1 - k;
       ctx.lineCap = 'round';
       ctx.strokeStyle = f.color; ctx.lineWidth = P.T * s * 0.14; ctx.globalAlpha = (1 - k) * 0.25;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-      ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#eafff0'; ctx.lineWidth = P.T * s * 0.025;
+      ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = P.T * s * 0.025;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
       for (let i = 0; i < 3; i++) { const m = (k * 1.8 + i / 3) % 1; glow(x1 + (x2 - x1) * m, y1 + (y2 - y1) * m, P.T * s * 0.08, f.color); }
       glow(x2, y2, P.T * s * 0.3 * (1 - k * 0.5), f.color, 0.7);
-    } else if (f.type === 'slash') {
-      // 베기: 빛나는 초승달 두 줄기
-      const [X, Y, s] = proj(f.x, f.y, 0.35);
-      const R = P.T * 0.34 * s * (f.big ? 1.5 : 1), a0 = (f.rot || -2.4) + k * 1.8;
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 1 - k * k;
-      ctx.lineCap = 'round';
-      // 넓고 옅은 선으로 번짐을 흉내 (shadowBlur는 휴대폰에서 무거움)
-      for (const [w, c, off, al] of [[0.3, f.color, 0, 0.25], [0.12, f.color, 0, 1], [0.04, '#ffffff', 0, 1], [0.05, f.color, 0.5, 1]]) {
-        ctx.globalAlpha = (1 - k * k) * al;
-        ctx.strokeStyle = c; ctx.lineWidth = Math.max(1.5, P.T * s * w * (1 - k * 0.6));
-        ctx.beginPath(); ctx.arc(X + off * R * 0.2, Y - off * R * 0.15, R * (1 - off * 0.25), a0, a0 + 1.7); ctx.stroke();
-      }
-      if (!f.burst) { f.burst = true; sparks(f.x, f.y, f.color, 3, { speed: 1.2, size: 0.04, h: 0.35 }); }
     } else if (f.type === 'ring') {
       // 충격파: 안쪽 빛 + 선명한 고리 두 겹
       const [X, Y, s] = proj(f.x, f.y, 0.02);
@@ -2315,32 +2418,65 @@
     }
     ctx.restore();
   }
+  // 오퍼레이터 이펙트 설정 (data.js의 OP_VFX, 없으면 직군 기본값)
+  function vfxOf(def) {
+    const v = (typeof OP_VFX !== 'undefined' && (OP_VFX[def.id] || (def.icon && OP_VFX.cf_buoy))) || null;
+    if (v) return v;
+    const c = def.class;
+    if (c === 'medic') return { heal: '#7dff9a', color: '#7dff9a', cast: 'feather' };
+    if (c === 'caster' || c === 'supporter') return { shot: 'orb', color: '#b47bff', color2: '#fff', cast: 'circle' };
+    if (c === 'sniper') return { shot: 'tracer', color: '#fff2b3', color2: '#fff', cast: 'star' };
+    return { hit: 'slash', color: def.color, color2: '#fff', cast: 'circle' };
+  }
+  // 공격 이펙트 (투사체 또는 근접 타격)
+  function attackFx(op, t, i, type, strong, cx, cy) {
+    const v = vfxOf(op.def), melee = !v.shot && (isGround(op.def) || v.hit);
+    if (melee) {
+      const st = v.hit || 'slash';
+      addFx({ type: 'hit', style: st, x: t.x, y: t.y, life: strong ? 0.3 : 0.22, color: strong ? '#ffcf3a' : v.color, color2: v.color2, big: strong, rot: st === 'iai' ? -0.35 + (Math.random() - 0.5) * 0.5 : -2.4 + (Math.random() - 0.5) * 1.2 + i * 0.9 });
+    } else {
+      const st = v.shot || (type === 'arts' ? 'orb' : 'tracer');
+      const life = { perfume: 0.5, blue: 0.3, orb: 0.32, glyph: 0.3, bubble: 0.34, fish: 0.34, card: 0.28 }[st] || 0.22;
+      addFx({ type: 'shot', style: st, x1: cx, y1: cy, x2: t.x + (i ? (Math.random() - 0.5) * 0.2 : 0), y2: t.y, life, color: strong && st === 'tracer' ? '#ffd86b' : v.color, color2: v.color2, arts: type === 'arts', big: strong, muzzle: v.muzzle });
+    }
+  }
+  // 스킬 발동 연출: 빛기둥·마법진 + 오퍼레이터 고유 파티클
+  function castFx(op) {
+    const v = vfxOf(op.def), x = op.x + 0.5, y = op.y + 0.55;
+    addFx({ type: 'cast', x, y: op.y + 0.58, h: tileH(op.x, op.y), life: 0.9, color: v.color || op.def.color });
+    let shape = v.cast || 'circle', c1 = v.color || op.def.color, c2 = v.color2 || '#ffe9a0';
+    if (shape === 'daily') {
+      const a = op.arts || 'wind';
+      shape = a === 'sun' ? 'circle' : a === 'gravity' ? 'shard' : 'petal';
+      c1 = a === 'sun' ? '#ffd86b' : a === 'gravity' ? '#a07bff' : '#9fffd0';
+    }
+    if (shape === 'star') {
+      // 별이 쏟아짐
+      for (let i = 0; i < 14; i++) S.effects.push({ type: 'p', t: 0, life: 0.8 + Math.random() * 0.4, x: x + (Math.random() - 0.5) * 1.4, y: y + (Math.random() - 0.5) * 0.8, h: 1.6 + Math.random() * 0.6, vx: 0, vy: 0, vh: -1.6, g: 0, color: Math.random() < 0.5 ? c1 : c2, size: 0.05 + Math.random() * 0.04, shape: 'star', spin: 6 });
+    } else if (shape === 'card') {
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; S.effects.push({ type: 'p', t: 0, life: 0.9, x, y, h: 0.5, vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 0.8, vh: 0.6, g: 0.4, color: i % 2 ? c1 : c2, size: 0.07, shape: 'card', spin: 8, rot0: a }); }
+    } else if (shape === 'mist') {
+      sparks(x, y, c1, 8, { speed: 0.6, size: 0.14, h: 0.2, up: 0.3, g: 0, shape: 'mist', life: 1.1 });
+      rise(x, y, c2, 8, 0.6, 'circle');
+    } else {
+      rise(x, y, c1, 10, 0.6, shape);
+      rise(x, y, c2, 6, 0.5, shape === 'bubble' ? 'bubble' : 'circle');
+    }
+  }
   // 불꽃 파티클 뿌리기 (타일 좌표)
   function sparks(x, y, color, n, o = {}) {
     if (S.effects.length > 420) return;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, v = (o.speed || 1) * (0.4 + Math.random() * 0.8);
-      S.effects.push({ type: 'p', t: 0, life: (o.life || 0.45) * (0.6 + Math.random() * 0.6), x, y, h: o.h ?? 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vh: (o.up ?? 0.8) * (0.5 + Math.random()), g: o.g ?? 1.2, color, size: (o.size || 0.05) * (0.7 + Math.random() * 0.6) });
+      S.effects.push({ type: 'p', t: 0, life: (o.life || 0.45) * (0.6 + Math.random() * 0.6), x, y, h: o.h ?? 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vh: (o.up ?? 0.8) * (0.5 + Math.random()), g: o.g ?? 1.2, color, size: (o.size || 0.05) * (0.7 + Math.random() * 0.6), shape: o.shape, spin: (Math.random() - 0.5) * 10 });
     }
   }
   // 위로 떠오르는 빛 알갱이
-  function rise(x, y, color, n, spread = 0.35) {
+  function rise(x, y, color, n, spread = 0.35, shape) {
     if (S.effects.length > 420) return;
-    for (let i = 0; i < n; i++) S.effects.push({ type: 'p', t: 0, life: 0.7 + Math.random() * 0.6, x: x + (Math.random() - 0.5) * spread, y: y + (Math.random() - 0.5) * spread * 0.6, h: Math.random() * 0.2, vx: 0, vy: 0, vh: 0.8 + Math.random() * 0.8, g: 0, color, size: 0.035 + Math.random() * 0.03, a: 0.9 });
+    for (let i = 0; i < n; i++) S.effects.push({ type: 'p', t: 0, life: 0.7 + Math.random() * 0.6, x: x + (Math.random() - 0.5) * spread, y: y + (Math.random() - 0.5) * spread * 0.6, h: Math.random() * 0.2, vx: 0, vy: 0, vh: 0.8 + Math.random() * 0.8, g: 0, color, size: (shape && shape !== 'circle' ? 0.05 : 0.035) + Math.random() * 0.03, a: 0.9, shape, spin: (Math.random() - 0.5) * 4 });
   }
-  // 스킬 컷인 (수동 스킬)
-  let cutinT = 0;
-  function cutin(op) {
-    const now = performance.now();
-    if (now - cutinT < 700) return;
-    cutinT = now;
-    const el = $('#skill-cutin');
-    el.style.setProperty('--c', op.def.color);
-    el.innerHTML = `<div class="ci-band"><div class="ci-art">${op.def.image ? `<img src="${op.def.image}" alt="">` : ''}</div><div class="ci-text"><small>SKILL ACTIVATED</small><b>${UI.esc(op.skill.name)}</b><span>${UI.esc(op.def.name)}</span></div></div>`;
-    el.classList.remove('hidden', 'play');
-    void el.offsetWidth;
-    el.classList.add('play');
-  }
+
 
   function draw() {
     ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
@@ -2407,7 +2543,7 @@
 
   // 디버그/테스트용
   window.Battle = { begin: beginBattle, stop: () => { S = null; } };
-  window.__game = { get state() { return S; }, beginBattle, addFx: (f) => addFx(f), sparks: (...a) => sparks(...a), rise: (...a) => rise(...a), cutin: (op) => cutin(op), proj: (u, v, h) => proj(u, v, h), deploy: (id, x, y, dir) => {
+  window.__game = { get state() { return S; }, beginBattle, addFx: (f) => addFx(f), sparks: (...a) => sparks(...a), rise: (...a) => rise(...a), proj: (u, v, h) => proj(u, v, h), deploy: (id, x, y, dir) => {
     const r = S.roster.find((q) => q.def.id === id);
     if (r) deploy(r, x, y, dir || 'right');
   } };
