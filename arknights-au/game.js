@@ -102,6 +102,7 @@
       for (let i = 0; i < (w.count || 1); i++) queue.push({ t: w.t + i * (w.gap || 2), enemy: w.enemy, spawn: w.spawn || 0 });
     }
     queue.sort((a, b) => a.t - b.t);
+    if (opts.practice) opts.waveSet = queue.map((q) => ({ ...q }));
     const squad = opts.defs || (squadIds || UI.save.squad).map(opById).filter(Boolean);
     squadIds = squad.map((d) => d.id);
     const mods = opts.mods || {}, life = opts.life ?? st.life ?? 3;
@@ -932,7 +933,7 @@
     op.blocked = [];
     S.ops = S.ops.filter((o) => o !== op);
     op.roster.deployed = false;
-    op.roster.cd = op.def.redeploy * Math.max(0.2, 1 - perDep('redeploy'));
+    op.roster.cd = S.ext.practice ? 2 : op.def.redeploy * Math.max(0.2, 1 - perDep('redeploy'));
     if (S.inspect === op) setMode('idle');
     if (died) { sfx('down'); addText(op.x + 0.5, op.y + 0.2, '전투 불능', '#ff6b6e', 1.2, true); }
   }
@@ -1126,7 +1127,7 @@
       }
       if (ef.allyRegen) for (const a of alliesNear(op, ef.allyRegen.radius)) healOp(a, opAtk(op) * ef.allyRegen.mul * dt, true);
     } else if (sk.spType !== 'deploy') {
-      if (!sk.spType || sk.spType === 'time') op.sp = Math.min(sk.sp, op.sp + dt);
+      if (!sk.spType || sk.spType === 'time') op.sp = Math.min(sk.sp, op.sp + dt * (S.ext.practice ? 3 : 1));
       if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && (op.def.archetype === 'bearer' || hasWork(op))) activateSkill(op);
     }
 
@@ -1574,6 +1575,7 @@
   function leak(e) {
     e.alive = false;
     S.leaked++;
+    if (S.ext.practice) return;   // 훈련장: 방어 지점이 깎이지 않음
     let cost = e.def.lifeCost || 1;
     if (S.shield > 0) { const a = Math.min(S.shield, cost); S.shield -= a; cost -= a; }
     S.life -= cost;
@@ -1620,6 +1622,7 @@
     if (!e.blockedBy) moveEnemy(e, dt);
     if (!e.alive) return;
 
+    if (!e.def.atk) return;   // 훈련용 표적은 공격하지 않음
     e.atkCd -= dt;
     if (e.atkCd > 0) return;
 
@@ -1702,6 +1705,12 @@
     for (const f of S.effects) f.t += dt;
     S.effects = S.effects.filter((f) => f.t < f.life);
 
+    if (S.ext.practice) {
+      // 훈련장: 코스트 무한, 적은 끝없이 반복
+      S.dp = S.maxDp;
+      if (!S.queue.length && !S.enemies.length) { S.queue = S.ext.waveSet.map((q) => ({ ...q, t: q.t + S.time + 2 })); S.total += S.queue.length; S.round = (S.round || 1) + 1; toast(`${S.round}번째 반복`); }
+      return;
+    }
     if (S.life <= 0) endBattle(false);
     else if (!S.queue.length && !S.enemies.length) endBattle(true);
   }
@@ -1769,7 +1778,7 @@
     $('#dp-fill').style.width = (S.dp >= S.maxDp ? 100 : (S.dp % 1) * 100) + '%';
     $('#deploy-left').textContent = S.deployLimit - deployedCount();
     $('#hud-enemy').textContent = `${S.killed + S.leaked}/${S.total}`;
-    $('#hud-life').textContent = Math.max(0, S.life);
+    $('#hud-life').textContent = S.ext.practice ? '∞' : Math.max(0, S.life);
     updateCards();
     if (S.mode !== 'idle') refreshInspect(false);
     placeRing();

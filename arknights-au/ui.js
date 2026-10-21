@@ -842,6 +842,17 @@
     ACCOUNT.earn(reward);
     return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}`).join(' · ') + ` · 신뢰도 +${cost}%`;
   }
+  // 훈련장: 지금 편성으로, 목숨이 줄지 않는 연습 작전
+  function startPractice() {
+    fixPlayer();
+    const squad = [...save.squad];
+    if (!squad.length) { toast('편성된 오퍼레이터가 없습니다. 편성에서 오퍼레이터를 골라 주세요'); return; }
+    sfx('select');
+    window.Battle.begin(PRACTICE_STAGE, squad, {
+      defs: squad.map((id) => TRAIN.trained(OPS[id])), practice: true,
+      onEnd: (r) => ({ text: `훈련 종료 · 처치 ${r.killed}`, buttons: [{ label: '다시 훈련', cls: 'primary', fn: startPractice }, { label: '편성', fn: () => go('formation') }, { label: '작전 목록', fn: () => go('operations') }] }),
+    });
+  }
   function onBattleQuit(idx) { ACCOUNT.addSanity(sanityCost(STAGES[idx]) - 1); }
   const sfx = (n) => window.SFX && SFX.play(n);
 
@@ -938,6 +949,7 @@
     $('#op-start').addEventListener('click', () => go('formation', { stage: opSel }));
   }
 
+  $('#btn-practice').addEventListener('click', startPractice);
   $('#ops-map').addEventListener('click', (e) => {
     const b = e.target.closest('[data-stage]');
     if (!b) return;

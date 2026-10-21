@@ -1513,3 +1513,10 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
 }
 .skill-row.locked { padding-top: 26px; }
 .lock-tag { left: 8px; right: auto; top: 4px; }
+
+/* ---------- 훈련장 버튼 ---------- */
+.practice-btn { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); bottom: 18px; z-index: 4; display: flex; flex-direction: column; align-items: flex-start; padding: 10px 22px 10px 16px; background: linear-gradient(100deg, rgba(20,22,27,.92), rgba(40,44,52,.92)); border-left: 4px solid #2fc3e6; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+.practice-btn b { font-size: 18px; font-weight: 900; }
+.practice-btn small { font-family: var(--f-en); font-size: 10px; color: #9ad8ea; letter-spacing: .05em; }
+.practice-btn:hover { border-left-color: #ffcf3a; }
+@media (max-height: 500px) { .practice-btn { bottom: 8px; padding: 6px 14px 6px 10px; } .practice-btn b { font-size: 14px; } }
