@@ -393,7 +393,7 @@
     fitName($('#detail-name'));
     $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${esc(arch.name)}</small>` : ''}`;
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
-    $('#detail-tags').innerHTML = [cls.tile === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
+    $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
     $('#detail-cost').textContent = o.cost;
     const list = skillsOf(o), cur = skillIndex(o);
     $('#detail-skill').innerHTML = list.map((sk, i) => `

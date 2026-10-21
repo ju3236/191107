@@ -31,7 +31,7 @@
   const RARITY = { common: '평범', rare: '진귀', special: '매우 진귀' };
   const BASE_SQUAD = 8, MAX_SQUAD = 13;
   const CLASS_NAME = (c) => (CLASSES[c] ? CLASSES[c].name : c);
-  const isMelee = (def) => CLASSES[def.class] && CLASSES[def.class].tile === 'ground';
+  const isMelee = (def) => CLASSES[def.class] && (def.tile || CLASSES[def.class].tile) === 'ground';
   const rec = () => (P().isRec = P().isRec || { runs: 0, wins: 0, best: 0, seen: [] });
   const PAIRS = ['vs', 'gs', 'dm', 'sc'];
 

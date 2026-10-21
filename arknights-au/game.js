@@ -161,7 +161,7 @@
       const c = document.createElement('button');
       c.className = 'card';
       c.style.setProperty('--c', r.def.color);
-      c.innerHTML = `<span class="card-face">${r.def.image ? `<img src="${r.def.image}" alt="">` : r.def.name[0]}</span>
+      c.innerHTML = `<span class="card-face">${r.def.image ? `<img src="${r.def.image}" alt="">` : r.def.icon ? `<img src="${r.def.icon}" alt="" style="object-fit:contain;padding:14%;background:${r.def.color}">` : r.def.name[0]}</span>
         <span class="card-cost">${r.def.cost}</span><span class="card-class">${UI.icon(r.def.class)}</span>
         <span class="card-name">${r.def.name}</span><span class="card-cd"></span>`;
       c.addEventListener('click', () => onCard(r));
@@ -198,7 +198,7 @@
     $('#inspect').classList.toggle('hidden', mode !== 'inspect');
     const hint = $('#hint');
     if (mode === 'placing') {
-      hint.textContent = CLASSES[S.sel.def.class].tile === 'ground' ? '지면(어두운 칸)을 선택하세요' : '고지대(밝은 칸)를 선택하세요';
+      hint.textContent = tileOf(S.sel.def) === 'ground' ? '지면(어두운 칸)을 선택하세요' : '고지대(밝은 칸)를 선택하세요';
     } else if (mode === 'direction') {
       hint.textContent = '드래그하거나 화살표를 눌러 방향 결정 · 가운데를 누르면 취소';
     }
@@ -237,7 +237,7 @@
   function canPlace(def, tx, ty) {
     if (tx < 0 || ty < 0 || tx >= S.cols || ty >= S.rows) return false;
     const ch = S.map[ty][tx];
-    const need = CLASSES[def.class].tile === 'ground' ? '.' : '^';
+    const need = tileOf(def) === 'ground' ? '.' : '^';
     const ok = ch === need || (need === '.' && ch === '~') || (need === '^' && S.mods.rangedGround && (ch === '.' || ch === '~'));
     return ok && !opAt(tx, ty);
   }
@@ -421,7 +421,8 @@
   const opBlock = (op) => op.def.block + (eff(op).block || 0) + B(op, 'block');
   const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0) + (op.def.dodge || 0) + B(op, 'dodge');
   const opArtsDodge = (op) => (op.def.artsDodge || 0) + (eff(op).artsDodge || 0) + B(op, 'artsDodge');
-  const isGround = (def) => CLASSES[def.class].tile === 'ground';
+  const tileOf = (def) => def.tile || CLASSES[def.class].tile;
+  const isGround = (def) => tileOf(def) === 'ground';
   const isFly = (def) => !!(def.fly || def.flying);
 
   function setRange(op, range) {
@@ -529,6 +530,7 @@
       if (X.spTick && (st === 'attack' || st === 'hit')) { op.spTickT = (op.spTickT || 0) + dt; if (op.spTickT >= X.spTick) { op.spTickT -= X.spTick; gainSp(op, 1); } }
     }
     summonAuras();
+    fieldTick(dt);
     // 서포터 범위 안 적 약화
     if (X.supporterDebuff) for (const e of S.enemies) e.supDebuff = S.ops.some((o) => o.alive && o.def.class === 'supporter' && o.range.has(key(Math.floor(e.x), Math.floor(e.y))));
     // 전장 전체 주기 효과
@@ -568,6 +570,33 @@
     if (t.houseEdge && S.ops.some((o) => o.owner === op && o.blocked.length)) add('aspd', t.houseEdge.aspd);
     if (op.def.class === 'vanguard') for (const k of S.ops) if (k.alive && k !== op && k.tal.trustGuest && k.range.has(key(op.x, op.y))) { add('aspd', k.tal.trustGuest.aspd); break; }
     if (t.easygoing && op.blocked.length) add('def', t.easygoing.def);
+    if (ef.aspd) add('aspd', ef.aspd);
+    // 받는 피해 배율 (여명 · 주영하 · 보호 효과)
+    let cut = 1;
+    if (op.guardT > 0) { op.guardT -= dt; cut *= 1 - op.guardCut; }
+    for (const b of S.ops) {
+      if (!b.alive || !b.tal.daily || !inBearer(b, op.x, op.y)) continue;
+      const be = eff(b), kind = todayArts(), m = be.dailyMul || 1;
+      if (be.dailyMax) {
+        if (kind === 'wind') { add('aspd', 30); add('atk', 0.15); }
+        if (kind === 'sun') { healOp(op, op.maxHp * 0.03 * dt, true); cut *= 0.8; }
+      } else {
+        if (kind === 'wind') add('aspd', 12 * m);
+        if (kind === 'sun') healOp(op, 35 * m * dt, true);
+      }
+      const pm = b.tal.promise;
+      if (pm && b.skillT > 0 && near8(b, op.x, op.y)) {
+        cut *= 1 - pm.cut;
+        if (op.hp / op.maxHp <= pm.below && op.promiseOf !== b.skillN) { op.promiseOf = b.skillN; op.shield = Math.max(op.shield || 0, op.maxHp * pm.shield); addText(op.x + 0.5, op.y - 0.2, '변하지 않는 약속', b.def.color, 0.9, true); }
+      }
+    }
+    for (const z of S.zones || []) {
+      if (Math.hypot(op.x + 0.5 - z.x, op.y + 0.5 - z.y) > z.r + 0.3) continue;
+      const zt = z.owner.tal.memory;
+      cut *= (1 - (zt ? zt.cut : 0)) * (1 - (eff(z.owner).zoneCut || 0));
+      break;
+    }
+    op.takenMul = cut;
     if (op.def.class === 'device') {
       const oe = oeff(op), want = oe.devRange || op.def.range;
       if (oe.devAspd) add('aspd', oe.devAspd);
@@ -589,6 +618,60 @@
       const m = ef.talentMul || 1;
       if (op.blocked.length) { add('def', mc.def * m); add('dodge', mc.dodge * m); }
       if (op.killAspdT > 0) { op.killAspdT -= dt; add('aspd', mc.killAspd * m * (op.killStacks || 0)); } else op.killStacks = 0;
+    }
+  }
+  // 여명의 깃발 범위: 평소 주변 8칸, 스킬로 주변 12칸
+  const inBearer = (b, x, y) => (eff(b).dailyWide ? Math.abs(b.x - x) + Math.abs(b.y - y) <= 2 : near8(b, x, y));
+  const luckOps = () => S.ops.filter((o) => o.alive && o.tal.unluck);
+  // 매 프레임: 적에게 걸리는 이동·공격 속도 배율 (불운 · 중력), 잔향 지대
+  function fieldTick(dt) {
+    const seal = luckOps().some((o) => eff(o).sealLuck);
+    const kind = todayArts();
+    const bearers = S.ops.filter((o) => o.alive && o.tal.daily);
+    for (const e of S.enemies) {
+      if (!e.alive) continue;
+      let mv = 1, ai = 1;
+      if (e.unluckyT > 0) { if (!seal) e.unluckyT -= dt; mv *= 0.8; ai *= 1.15; }
+      if (e.failCd > 0) e.failCd -= dt;
+      const tx = Math.floor(e.x), ty = Math.floor(e.y);
+      for (const b of bearers) {
+        if (kind !== 'gravity' || !inBearer(b, tx, ty)) continue;
+        if (eff(b).dailyMax) { mv *= 0.55; ai *= 1.25; } else mv *= 1 - 0.2 * (eff(b).dailyMul || 1);
+      }
+      e.auraMove = mv; e.auraAtkI = ai;
+    }
+    if (!S.zones) return;
+    for (const z of S.zones) {
+      z.t -= dt; z.killCd -= dt;
+      const o = z.owner;
+      if (!o.alive) { z.t = 0; continue; }
+      if (z.dps && (z.tick = (z.tick || 0) + dt) >= 1) {
+        z.tick -= 1;
+        for (const e of S.enemies.filter((e) => e.alive && !isFly(e.def) && Math.hypot(e.x - z.x, e.y - z.y) <= z.r)) hitEnemy(e, opAtk(o) * z.dps, 'arts', false, o, 0, true);
+      }
+      const zh = eff(o).zoneHeal;
+      if (zh && (z.healT = (z.healT || 0) + dt) >= zh.every) {
+        z.healT -= zh.every;
+        for (const a of S.ops) if (a.alive && Math.hypot(a.x + 0.5 - z.x, a.y + 0.5 - z.y) <= z.r + 0.3) healOp(a, opAtk(o) * zh.mul);
+      }
+    }
+    S.zones = S.zones.filter((z) => z.t > 0);
+  }
+  function addZone(op, x, y, r, zn) {
+    S.zones = S.zones || [];
+    const old = S.zones.find((z) => z.owner === op && Math.hypot(z.x - x, z.y - y) < 0.6);
+    if (old) { old.t = Math.max(old.t, zn.dur); old.dps = Math.max(old.dps, zn.dps); old.r = Math.max(old.r, r); return; }
+    S.zones.push({ owner: op, x, y, r, t: zn.dur, max: zn.dur, dps: zn.dps, killCd: 0 });
+    if (S.zones.length > 8) S.zones.shift();
+  }
+  // 기억하는 향: 불운 상태의 적이 지대 안에서 쓰러지면 가장 다친 아군 회복
+  function zoneKill(e) {
+    for (const z of S.zones || []) {
+      const mm = z.owner.tal.memory;
+      if (!mm || z.killCd > 0 || Math.hypot(e.x - z.x, e.y - z.y) > z.r) continue;
+      const a = S.ops.filter((o) => o.alive && Math.hypot(o.x + 0.5 - z.x, o.y + 0.5 - z.y) <= z.r + 0.3).sort((p, q) => p.hp / p.maxHp - q.hp / q.maxHp)[0];
+      if (a) { healOp(a, a.maxHp * mm.heal); z.killCd = mm.cd; }
+      return;
     }
   }
   // 소환물이 적에게 거는 효과 (취약 · 공격력 감소)
@@ -761,6 +844,7 @@
     if (r.left !== undefined) { r.left--; r.cd = def.redeploy; } else r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
     addText(tx + 0.5, ty - 0.1, UI.line(def, 'deploy'), def.color, 1.8, true);
+    if (tal.daily) addText(tx + 0.5, ty - 0.5, `오늘의 아츠 「${DAILY_ARTS[todayArts()].name}」`, '#ffd27a', 2.2, true);
     setMode('idle');
     if (skill.spType === 'deploy') activateSkill(op);
   }
@@ -807,6 +891,14 @@
     if (ef.nextHit) { op.charge = ef.nextHit; op.chargeStun = ef.nextStun || 0; }
     if (ef.hpMul && sk.duration) { op.maxHp *= ef.hpMul; op.hp *= ef.hpMul; }
     op.rallyUsed = false; op.finN = 0; op.shellN = 0;
+    if (ef.accident) op.accT = ef.accident.every;
+    if (ef.luckAll && op.tal.unluck) {
+      const rg = ef.range ? computeRange(ef.range, op.dir, op.x, op.y).set : op.range;
+      for (const e of S.enemies) if (e.alive && rg.has(key(Math.floor(e.x), Math.floor(e.y)))) e.unluckyT = op.tal.unluck.dur;
+    }
+    if (ef.dailyMax && op.tal.daily && todayArts() === 'gravity') {
+      for (const e of S.enemies) if (e.alive && Math.abs(Math.floor(e.x) - op.x) + Math.abs(Math.floor(e.y) - op.y) <= 2) stunEnemy(e, 2);
+    }
     if (ef.wave) op.waveT = ef.wave.every * 0.5;
     if (ef.fishing) {
       const fs = ef.fishing;
@@ -865,6 +957,12 @@
     if (ef.range) setRange(op, op.def.range);
     if (ef.shield) op.shield = 0;
     if (ef.hpMul) { op.maxHp /= ef.hpMul; op.hp = Math.min(op.hp, op.maxHp); }
+    if (ef.endHeal) healOp(op, op.maxHp * ef.endHeal);
+    if (ef.endStun) { op.stun = ef.endStun; addText(op.x + 0.5, op.y - 0.1, '기절', '#9aa1ab', 1, true); }
+    if (ef.endGuard) {
+      const a = S.ops.filter((o) => o.alive && Math.abs(o.x - op.x) + Math.abs(o.y - op.y) <= 2).sort((p, q) => p.hp / p.maxHp - q.hp / q.maxHp)[0];
+      if (a) { a.guardT = ef.endGuard.dur; a.guardCut = ef.endGuard.cut; addText(a.x + 0.5, a.y - 0.2, '받는 피해 감소', '#7fd8ff', 0.9, true); }
+    }
     if (ef.endCost) { op.hp = Math.max(1, op.hp - op.maxHp * ef.endCost.hp); op.fatigueT = ef.endCost.dur; op.fatigueAspd = ef.endCost.aspd; addText(op.x + 0.5, op.y - 0.1, '어지러워……', '#9aa1ab', 1, true); }
     if (ef.proofBlast) {
       const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
@@ -903,7 +1001,7 @@
     // 공격수: 저지 중인 적 전부 동시 공격
     if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
-      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !(ground && isFly(e.def) && op.def.archetype !== 'sentry'))));
+      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry'))));
     const prio = eff(op).priority;
     list.sort((a, b) =>
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
@@ -969,6 +1067,15 @@
       }
     }
 
+    // 기수: 스킬 중에는 공격하지 않음
+    if (op.def.archetype === 'bearer' && op.skillT > 0) return;
+    // 불행을 밀봉하는 법: 5초마다 「사고」
+    const acc = ef.accident;
+    if (acc && op.skillT > 0 && (op.accT = (op.accT ?? acc.every) - dt) <= 0) {
+      op.accT = acc.every;
+      const v = S.enemies.filter((e) => e.alive && e.unluckyT > 0).sort((a, b) => b.hp - a.hp)[0];
+      if (v) { addFx({ type: 'ring', x: v.x, y: v.y, life: 0.5, color: '#b48cff', r: 0.6 }); addText(v.x, v.y - 0.5, '사고', '#b48cff', 0.9, true); hitEnemy(v, opAtk(op) * acc.mul, 'arts', true, op); stunEnemy(v, acc.stun); sfx('strike'); }
+    }
     op.atkCd -= dt;
     if (op.atkCd > 0) return;
     const n = eff(op).targets || oeff(op).devTargets || op.def.targets || 1;
@@ -1034,7 +1141,7 @@
     }
     const ignOf = (t) => (bs && wOf(t) >= bs.weight ? Math.min(1, ignore + bs.ignore) : ignore);
     if (op.firstStrike) { mul *= op.tal.firstStrike; op.firstStrike = false; addText(cx, op.y + 0.1, '발도!', '#ffcf3a', 0.8, true); }
-    if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } nsplash = (op.skill.effect || {}).nextSplash || 0; }
+    if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } nsplash = (op.skill.effect || {}).nextSplash || 0; op.zoneBoost = (op.skill.effect || {}).nextZone; }
     const fin = eff(op).finisher;
     const finish = fin && ++op.finN % fin.every === 0;
     const sh = eff(op).shell;
@@ -1082,6 +1189,15 @@
         }
       }
       if (splash) addFx({ type: 'ring', x: t.x, y: t.y, life: 0.3, color: '#c89bff', r: splash });
+    }
+    // 연금술사: 시약이 떨어진 자리에 불운과 잔향 지대
+    if (op.def.zone) {
+      const ul = op.tal.unluck, r0 = splash || 0.9;
+      for (const t of targets) {
+        if (ul) for (const o of S.enemies) if (o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= r0) o.unluckyT = ul.dur;
+        addZone(op, t.x, t.y, r0, op.zoneBoost || op.def.zone);
+      }
+      op.zoneBoost = null;
     }
     // PARABELLUM BULLET: 가장 무거운 적에게 탄환 집중
     const hf = eff(op).heavyFocus;
@@ -1158,6 +1274,7 @@
     let dmg = calcDamage(atk, type, opDef(op), opRes(op)) * guardMul(op);
     if (src && src.markT > 0 && eff(op).markCut) dmg *= 1 - eff(op).markCut;
     if (op.surviveT > 0) dmg *= 1 - op.tal.survive.cut;
+    if (op.takenMul) dmg *= op.takenMul;
     if (src && src.def) {
       if (X.firstHitCut && !src.firstHitDone) { src.firstHitDone = true; dmg *= 1 - X.firstHitCut; }
       if (X.blockedTaken && src.blockedBy) dmg *= 1 - X.blockedTaken;
@@ -1261,6 +1378,12 @@
     let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = relicDealt(e, type, src);
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
     if (e.resDownT > 0) res = Math.max(0, res - e.resDown);
+    if (e.unluckyT > 0) for (const o of luckOps()) {
+      const le = eff(o);
+      if (le.luckDef) def *= 1 - le.luckDef;
+      if (le.luckRes) res *= 1 - le.luckRes;
+      if (le.luckAmp && type === 'arts') amp += le.luckAmp;
+    }
     if (e.vulnT > 0) amp += e.vulnAmp;
     if (type === 'phys') amp += markAmpOf(e);
     const a = e.ana;
@@ -1311,6 +1434,7 @@
     e.alive = false;
     S.killed++;
     if (src && src.def && src.tal) onOpKill(src);
+    if (e.unluckyT > 0) zoneKill(e);
     relicKill(e);
     sfx('kill');
     addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: e.def.color });
@@ -1356,7 +1480,7 @@
   }
 
   function moveEnemy(e, dt) {
-    let step = e.def.speed * dt * (e.slowT > 0 ? e.slowMove : 1) * Math.max(0.2, 1 - perDep('enemySlow'));
+    let step = e.def.speed * dt * (e.slowT > 0 ? e.slowMove : 1) * (e.auraMove || 1) * Math.max(0.2, 1 - perDep('enemySlow'));
     while (step > 0 && e.alive) {
       const p = e.path[e.pi];
       const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
@@ -1382,7 +1506,7 @@
 
   function enemyAtk(e) {
     const en = e.def.enrage;
-    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1) * (e.markT > 0 && e.markBy ? 1 - e.markBy.tal.relay.atkDown : 1);
+    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1) * (e.markT > 0 && e.markBy ? 1 - e.markBy.tal.relay.atkDown : 1) * (e.unluckyT > 0 && luckOps().some((o) => eff(o).luckAtk) ? 1 - Math.max(...luckOps().map((o) => eff(o).luckAtk || 0)) : 1);
   }
 
   function updateEnemy(e, dt, healAura) {
@@ -1445,6 +1569,11 @@
       target = inRange[0];
     }
     if (!target) return;
+    // 불행의 연쇄: 공격 실패
+    if (e.unluckyT > 0 && !(e.failCd > 0)) {
+      const ul = luckOps()[0];
+      if (ul && Math.random() < ul.tal.unluck.fail) { e.failCd = ul.tal.unluck.failCd; addText(e.x, e.y - 0.4, '실패', '#b48cff', 0.8, true); e.atkCd = e.def.interval; return; }
+    }
     // 여러 명 동시 공격
     if (e.def.targets > 1) for (const op of inRange.filter((o) => o !== target).slice(0, e.def.targets - 1)) hitOp(op, enemyAtk(e), e.def.arts ? 'arts' : 'phys', e);
     const type = e.def.arts ? 'arts' : 'phys';
@@ -1461,7 +1590,7 @@
       }
     }
     hitOp(target, atk, type, e);
-    e.atkCd = e.def.interval * (e.slowT > 0 ? e.slowAtk : 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
+    e.atkCd = e.def.interval * (e.slowT > 0 ? e.slowAtk : 1) * (e.auraAtkI || 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
   }
 
   // =====================================================================
@@ -1827,7 +1956,9 @@
     ctx.fillStyle = 'rgba(0,0,0,.65)';
     ctx.font = `900 ${r * 1.05}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(def.glyph || def.name[0], X, Y + r * 0.05);
+    const ic = def.icon && imgOf({ image: def.icon });
+    if (ic) { const w = r * 1.5, h = (w * ic.naturalHeight) / ic.naturalWidth; ctx.drawImage(ic, X - w / 2, Y - h / 2, w, h); }
+    else ctx.fillText(def.glyph || def.name[0], X, Y + r * 0.05);
     ctx.globalAlpha = 1;
   }
   // 캐릭터 몸체(그림 또는 동그라미). 화면상 영역 [x0, y0, x1, y1]을 돌려줌
@@ -2026,6 +2157,14 @@
     }
     ctx.setLineDash([]);
     drawGates();
+    // 잔향 지대
+    for (const z of S.zones || []) {
+      const [X, Y, sc] = proj(z.x, z.y, 0.02);
+      ctx.globalAlpha = Math.min(1, z.t / 0.6) * 0.5;
+      ellipse(X, Y, P.T * sc * z.r, P.T * sc * z.r * 0.5);
+      ctx.fillStyle = z.dps ? 'rgba(160,110,255,.55)' : 'rgba(160,110,255,.3)'; ctx.fill();
+      ctx.globalAlpha = 1;
+    }
 
     if (S.mode === 'placing') {
       const valid = [];

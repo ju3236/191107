@@ -31,6 +31,18 @@ const CLASSES = {
   device:     { name: '장치',       tile: 'ground', trait: '오퍼레이터가 설치하는 장치. 배치 인원을 차지하지 않음' },
 };
 
+// 여명의 「오늘의 변수」 — 오전 4시에 바뀌는 그날의 아츠 (모든 작전에서 같음)
+const DAILY_ARTS = {
+  wind:    { name: '순풍', desc: '주변 아군 공격 속도 상승' },
+  sun:     { name: '햇빛', desc: '주변 아군 HP 회복' },
+  gravity: { name: '중력', desc: '주변 적 이동 속도 감소' },
+};
+function todayArts() {
+  const d = new Date(Date.now() - 4 * 3600e3);
+  const n = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  return ['wind', 'sun', 'gravity'][(Math.imul(n, 2654435761) >>> 0) % 3];
+}
+
 // 세부 직군(원작의 아키타입). 특성 효과는 게임 엔진에 구현되어 있습니다.
 const ARCHETYPES = {
   marksman:  { name: '명사수', trait: '공중 목표 우선 공격' },
@@ -46,6 +58,8 @@ const ARCHETYPES = {
   protector: { name: '중장', trait: '적 3명 저지' },
   besieger:  { name: '공성사수', trait: '공격 범위가 넓으며, 무게가 가장 무거운 적을 우선 공격' },
   artificer: { name: '기능공', trait: '아군에게 지원 효과를 제공하는 장치(해류 부표)를 배치할 수 있음. 장치는 배치 인원을 차지하지 않음' },
+  alchemist: { name: '연금술사', trait: '고지대 배치. 시약을 던져 범위 안 지상 적에게 마법 피해를 주고, 잠시 유지되는 「잔향 지대」를 만듦' },
+  bearer:    { name: '기수', trait: '스킬 사용 중 공격을 멈추고, 아군에게 지원 효과를 주며 대량의 배치 코스트를 획득' },
   sentry:    { name: '센트리 프로텍터', trait: '적 3명 저지, 전방의 적을 원거리 사격 가능, 공중 목표 공격 가능' },
 };
 
@@ -73,6 +87,10 @@ function area(x0, x1, y0, y1) {
 //           easygoing({def, slow, nullify}: 저지 중 방어력, 저지한 적 공격 간격 배율·공격 무효 확률), reliable({cut, atk}: 주변 가드 물리 피해 감소, 저지한 적을 치는 가드 공격력),
 //           relay({dur, atkDown, amp, max}: 공격한 적에게 중계 표식), survive({heal, dur, cut, sp}: 배치당 1회 치명상 무효),
 //           principle({aspd, ignore, max, amp}: 같은 적 연속 공격 중첩), strict({cut, atk, dodge}: 저지한 적 피해 감소, 주변 디펜더가 있으면 공격력·회피)
+//  tile: 'high' — 직군과 다른 타일에 배치 / groundOnly: 지상 적만 공격 / zone({dur, dps}): 공격할 때 남기는 잔향 지대
+//  (연금술사) unluck({dur, fail, failCd}), memory({cut, heal, cd}) / (기수) daily(오늘의 변수), promise({cut, below, shield})
+//  스킬: nextZone, aspd, luckAmp, luckAtk, zoneHeal({every, mul}), luckAll, sealLuck, luckDef, luckRes, accident({every, mul, stun}), zoneCut, endStun,
+//        dailyMul, dailyWide, dailyMax, endHeal, endGuard({cut, dur})
 //  summons: [소환물·장치 정의, …] — charges(배치 가능 횟수, 0이면 스킬로 얻을 때까지 숨김), noDir(방향 선택 없이 설치), aura(주변 8칸 아군 공격 속도 +)
 //  (공성사수) blueShot({weight, ignore, step, max}), choice({below, aspd, sp}) / (기능공) echo({res, dur, mul}), courage({cut})
 //  스킬: nextSplash, twinShot({mul, blast, radius}), heavyFocus, devAspd, devHits, devAura, devRange, devTargets, fishing({gift, pity, hp}), wave({every, mul, slow, dur}), endCost({hp, aspd, dur})
@@ -741,13 +759,13 @@ const OPERATORS = [
     hp: 1350, atk: 470, def: 130, res: 20, interval: 1.6,
     range: area(0, 2, -1, 1),
     summons: [
-      { id: 'cf_buoy', glyph: '◎', name: '해류 부표', class: 'device', color: '#ffb347', charges: 3, noDir: true,
+      { id: 'cf_buoy', icon: 'img/fish.png', name: '해류 부표', class: 'device', color: '#ffb347', charges: 3, noDir: true,
         cost: 3, redeploy: 3, block: 0, hp: 1200, atk: 320, def: 150, res: 30, interval: 2, dmgType: 'arts', range: area(-1, 1, -1, 1), aura: 12,
         profile: '주변 아군의 공격 속도를 올리고, 가까운 적에게 흰동가리 모양의 아츠 탄환을 쏘는 장치.' },
-      { id: 'cf_fish', glyph: '🐟', name: '흰동가리', class: 'device', color: '#ff7f3f', charges: 0, noDir: true,
+      { id: 'cf_fish', icon: 'img/fish.png', name: '흰동가리', class: 'device', color: '#ff7f3f', charges: 0, noDir: true,
         cost: 3, redeploy: 3, block: 0, hp: 1400, atk: 560, def: 150, res: 30, interval: 1.6, dmgType: 'arts', range: area(-1, 1, -1, 1), aura: 12,
         profile: 'DREAMING FISHING으로 낚아 올린 장치. 기본 해류 부표보다 공격력이 높다.' },
-      { id: 'cf_gift', glyph: '🐚', name: '깊은 바다의 선물', class: 'device', color: '#3f7fff', charges: 0, noDir: true,
+      { id: 'cf_gift', icon: 'img/fish.png', name: '깊은 바다의 선물', class: 'device', color: '#3f7fff', charges: 0, noDir: true,
         cost: 3, redeploy: 3, block: 0, hp: 1600, atk: 480, def: 150, res: 30, interval: 2.4, dmgType: 'arts', range: area(-1, 1, -1, 1), aura: 12, splash: 1.2, hitStun: 0.8,
         profile: 'DREAMING FISHING으로 드물게 낚이는 강화 장치. 범위 안 적에게 광역 마법 피해를 주고 정지시킨다.' },
     ],
@@ -794,6 +812,118 @@ const OPERATORS = [
       trustTouch: '후후, 박사님. 제가 작은 선물을 준비했어요. 조개껍데기로 만든 장식인데…… 받아 주실래요?',
       idle: '……박사님? ……주무시나 봐요. 그럼 조용히…… 꺅! ……아, 제 그림자였어요……! 으으…… 놀랐어…….',
       greet: '안녕하세요, 박사님! 오늘도 좋은 하루 보내세요!',
+    },
+  },
+  // ================= 같은 회사의 두 사람 =================
+  {
+    id: 'yeongha', name: '주영하', class: 'specialist', archetype: 'alchemist', race: '페로', color: '#8a6fd6',
+    en: 'Ju Yeongha', rarity: 6, tags: ['원거리', '약화', '지원'], faction: '로도스 아일랜드',
+    partner: 'yeomyeong',
+    tile: 'high', groundOnly: true, dmgType: 'arts', splash: 0.9, zone: { dur: 3, dps: 0 },
+    image: 'img/yeongha.png',
+    profile: '26세. 회사원이자 오리지늄 아츠 사용자. 주변의 확률을 불리한 방향으로 왜곡하는 특이 아츠를 지녔다. 예전에는 능력이 무의식적으로 발현되어 자신이나 주변인에게 작은 사고가 잇따랐지만, 로도스의 관찰과 훈련을 통해 영향이 나타나는 범위를 제한하는 법을 배웠다.\n\n이를 위해 직접 제조한 향료를 사용한다. 향료 자체가 불행을 일으키는 것은 아니다. 특정 향에 집중하는 행위가 아츠의 발현 범위와 대상을 좁혀 주는 것이다. 작은 향수병 모양의 투척 시약을 쓰며, 전장에 남은 향으로 적에게 지속적인 약화 효과를 건다.',
+    quote: '……괜찮아요. 이런 일에는 익숙하니까요.',
+    cost: 14, redeploy: 70, block: 1,
+    hp: 1450, atk: 540, def: 120, res: 15, interval: 1.8,
+    range: area(0, 3, -1, 1),
+    talents: [
+      { name: '불행의 연쇄', desc: '시약에 맞은 적에게 8초간 「불운」 — 공격 속도 -15, 이동 속도 -20%, 공격 시 20% 확률로 실패(같은 적에게 8초마다 최대 1회). 다시 맞으면 지속 시간 초기화', effect: { unluck: { dur: 8, fail: 0.2, failCd: 8 } } },
+      { name: '기억하는 향', desc: '잔향 지대 안의 아군이 받는 물리·마법 피해 -12%. 불운 상태의 적이 잔향 지대 안에서 쓰러지면 그 지대 안에서 HP 비율이 가장 낮은 아군 1명의 HP를 최대 HP의 8% 회복 (지대마다 3초에 1회)', effect: { memory: { cut: 0.12, heal: 0.08, cd: 3 } } },
+    ],
+    skills: [
+      { name: '희석된 향', desc: '다음 시약 투척 시 공격력의 160% 마법 피해, 잔향 지대가 8초간 남고 지대 안의 적에게 매초 공격력의 35% 마법 피해', sp: 5, initSp: 0, duration: 0, trigger: 'auto', effect: { nextHit: 1.6, nextZone: { dur: 8, dps: 0.35 } } },
+      { name: '불길한 예감', desc: '25초간 공격 속도 +45, 시약의 폭발 범위 확대. 불운 상태의 적이 받는 마법 피해 +20%·공격력 추가 -15%. 잔향 지대 안 아군의 HP를 2초마다 공격력의 35%만큼 회복', sp: 32, initSp: 15, duration: 25, trigger: 'manual', effect: { aspd: 45, splash: 1.3, luckAmp: 0.2, luckAtk: 0.15, zoneHeal: { every: 2, mul: 0.35 } } },
+      { name: '불행을 밀봉하는 법', desc: '28초간 공격 범위 확대, 공격력 +70%. 발동 시 범위 안 모든 적에게 불운, 지속 중 불운이 줄어들지 않음. 불운 상태의 적은 방어력 -25%·마법 저항 -20%. 5초마다 불운 상태인 적 중 HP가 가장 높은 1명에게 「사고」 — 공격력의 300% 마법 피해, 1.5초 기절. 잔향 지대 안 아군이 받는 피해 추가 -10%. 스킬 종료 후 5초간 기절', sp: 48, initSp: 25, duration: 28, trigger: 'manual', effect: { range: area(0, 4, -2, 2), atk: 1.7, luckAll: true, sealLuck: true, luckDef: 0.25, luckRes: 0.2, accident: { every: 5, mul: 3, stun: 1.5 }, zoneCut: 0.1, endStun: 5 } },
+    ],
+    voice: {
+      obtain: '……안녕하세요. 주영하라고 합니다. 스페셜리스트 오퍼레이터로 배속되었어요. ……아, 저는 전투 경험이 그리 많지 않아서…… 혹시라도 실수한다면 말씀해 주세요. 최대한 주의하겠습니다.',
+      assistant: '……제가요? 아, 네. 알겠습니다. ……자료 정리라면 어느 정도 할 수 있어요. 회사에서 자주 하던 일이니까요. ……혹시 방해가 되지는 않을까요?',
+      talk: [
+        '향수를 직접 만드냐고요? ……네. 취미로 조금씩 만들고 있어요. 향료를 하나씩 조합하다 보면 마음이 편해지거든요. ……괜찮으시다면 박사님께 어울리는 향도 만들어 드릴까요?',
+        '……저는 운이 별로 좋은 편이 아니에요. 사소한 일이라도 꼭 한 번씩 어긋나곤 하거든요. ……아, 이제는 이유를 조금 알 것 같지만…… 그게 전부 제 탓이었다고 생각하면…… 조금 괴롭네요.',
+        '팀장님은…… 참 좋은 분이에요. 제가 곤란할 때마다 도움을 주셨거든요. ……그렇다고 늘 도움만 받고 있을 수는 없으니까…… 저도 언젠가는 도움이 될 수 있으면 좋겠어요.',
+      ],
+      promo: [
+        '……향료를 조금 바꿔 봤어요. 이전보다 아츠의 영향이 일정하게 나타나는 것 같아요. ……다행이에요. 이제는 적어도 제가 모르는 사이에 다른 분들이 다치는 일은…… 줄어들 테니까요.',
+        '예전에는 제가 가진 게 불행밖에 없다고 생각했어요. ……그런데 이렇게 누군가를 도울 수도 있네요. ……후후. 조금 이상한 기분이에요. 제게도 쓸모 있는 일이 있다는 게…….',
+      ],
+      trust40: '박사님은 좋아하는 향이 있으세요? ……아, 저는 비가 그친 뒤의 풀 냄새를 좋아해요. 조금 쓸쓸하지만…… 이상하게 마음이 편해지거든요. ……언젠가 그 향을 제대로 만들어 보고 싶어요.',
+      trust100: '……사람을 기억하는 방법은 여러 가지가 있겠죠. 얼굴이나 목소리, 이름 같은 것들…… 저는 향을 기억하는 편이에요. ……얼굴은 기억하지 않아도…… 향은 본능적으로 기억하니까요.',
+      trust200: '……팀장님과 함께 있으면 가끔 이상한 생각이 들어요. 제가 정말로 불행한 사람일까, 하고요. ……예전에는 좋은 일이 생겨도 금방 끝날 거라고 생각했는데…… 요즘은 그렇지만도 않아요. ……후후. 조금 욕심을 내 봐도 괜찮을까요.',
+      study: '……이렇게 하면 되는군요. 감사합니다. ……한 번 더 연습해 봐도 될까요? 실수하고 싶지 않아서요.',
+      elite1: '……승진인가요? ……아, 감사합니다. 제가 받아도 되는 건지 모르겠지만…… 기대에 어긋나지 않도록 할게요.',
+      elite2: '박사님. ……저는 아직도 제 능력이 조금 두려워요. 그렇지만 두렵다는 이유로 계속 피할 수는 없으니까요. ……이번에는 제가 직접 선택해 보고 싶어요. 어떻게 사용해야 할지.',
+      squad: '……네. 준비하겠습니다.',
+      leader: '제가 지휘를……? ……노력해 볼게요.',
+      depart: '……모두 무사하셨으면 좋겠어요.',
+      start: '시약의 농도를 확인하겠습니다.',
+      select: ['……네, 박사님.', '말씀해 주세요.'],
+      deploy: ['……여기라면 괜찮겠어요.', '조심해서 다뤄야겠네요.'],
+      combat: ['……불길한 예감이 들어요.', '조금만…… 더.', '……향이 퍼지고 있어요.', '이번에는…… 제가 결정할게요.'],
+      hard: '……이렇게까지 잘 풀릴 줄은 몰랐어요. ……박사님은 정말 대단하시네요.',
+      clear: '……다행이에요. 아무 일도 없어서…….',
+      clear2: '……조금 아쉽네요. 제가 좀 더 잘했더라면…….',
+      fail: '……죄송해요. 저 때문에…… 아, 아직…… 아직 할 수 있는 일이…….',
+      base: '……향이 너무 진하지 않은 곳이면 좋겠어요.',
+      touch: '……아. 놀랐어요…….',
+      trustTouch: '박사님……? ……아, 괜찮아요. 그냥…… 잠시 곁에 있어 주셔도 될까요?',
+      idle: '……주무시네요. ……조용히 나가는 게 좋겠어요.',
+      greet: '……안녕하세요, 박사님.',
+    },
+  },
+  {
+    id: 'yeomyeong', name: '여명', class: 'vanguard', archetype: 'bearer', race: '페린', color: '#2f3a5c',
+    en: 'Yeo Myeong', rarity: 6, tags: ['근거리', '코스트 회복', '지원'], faction: '로도스 아일랜드',
+    partner: 'yeongha',
+    image: 'img/yeomyeong.png',
+    profile: '31세. 회사원이자 불규칙 아츠 사용자. 하루마다 전혀 다른 아츠 능력이 발현되는 특이 체질이다. 전날 쓰던 아츠를 다음 날 쓸 수 없는 경우가 대부분이고, 새로 나타날 능력을 미리 알 수도 없다.\n\n그래서 특정 능력에 기대지 않고, 아츠가 어떤 형태로 나타나도 대응할 수 있는 전술을 익혔다. 그가 드는 기수의 깃발은 아츠 제어 장치로, 그날그날 발현되는 능력을 전장의 지원 효과로 바꿔 준다.',
+    quote: '너무 걱정하지 마. 내일 일은 내일 생각하면 되잖아.',
+    cost: 11, redeploy: 70, block: 1,
+    hp: 1950, atk: 430, def: 340, res: 0, interval: 1.0,
+    range: area(0, 1, 0, 0),
+    talents: [
+      { name: '오늘의 변수', get desc() { const d = DAILY_ARTS[todayArts()]; return `하루가 시작될 때(오전 4시) 세 가지 아츠 중 하나가 발현되고, 그날은 작전이 바뀌어도 유지됨 — 「순풍」 주변 8칸 아군 공격 속도 +12 / 「햇빛」 주변 8칸 아군 HP 초당 35 회복 / 「중력」 주변 8칸 적 이동 속도 -20%. 오늘의 아츠: 「${d.name}」`; }, effect: { daily: true } },
+      { name: '변하지 않는 약속', desc: '스킬 사용 중 주변 8칸 아군이 받는 피해 -12%. 그 범위의 아군 HP가 50% 이하가 되면 최대 HP 20%의 보호막 (아군마다 스킬 발동당 1회)', effect: { promise: { cut: 0.12, below: 0.5, shield: 0.2 } } },
+    ],
+    skills: [
+      { name: '아침 조회', desc: '8초 동안 배치 코스트 18을 서서히 획득', sp: 26, initSp: 13, duration: 8, trigger: 'auto', voice: '좋아, 오늘도 시작해 볼까?', effect: { dpRegen: 18 / 8 } },
+      { name: '오늘의 운세는?', desc: '12초 동안 배치 코스트 16 획득. 「오늘의 변수」 효과 2배, 범위가 주변 8칸에서 주변 12칸으로 확대. 종료 후 자신의 HP를 최대 HP의 25% 회복', sp: 32, initSp: 16, duration: 12, trigger: 'manual', effect: { dpRegen: 16 / 12, dailyMul: 2, dailyWide: true, endHeal: 0.25 } },
+      { name: '내일도 출근하자', desc: '15초 동안 배치 코스트 20 획득. 깃발을 펼쳐 주변 12칸에 오늘의 아츠에 따른 강화 — 「순풍」 아군 공격 속도 +30·공격력 +15% / 「햇빛」 아군 HP 매초 최대 HP의 3% 회복·받는 피해 -20% / 「중력」 적 이동 속도 -45%·공격 속도 -25, 발동 시 적 2초 정지. 종료 시 범위 안에서 HP 비율이 가장 낮은 아군 1명이 5초간 받는 피해 -35%', sp: 38, initSp: 20, duration: 15, trigger: 'manual', effect: { dpRegen: 20 / 15, dailyMax: true, dailyWide: true, endGuard: { cut: 0.35, dur: 5 } } },
+    ],
+    voice: {
+      obtain: '안녕, 박사! 여명이라고 해. 뱅가드로 배속됐어. 원래는 회사에서 일하고 있는데…… 뭐, 여기서도 잘할 수 있을 것 같네. 잘 부탁해! 아, 내 능력은 매일 바뀌니까 너무 놀라지는 말고.',
+      assistant: '오, 오늘은 내가 비서야? 좋지! 서류 정리라면 자신 있거든. ……어디 보자, 이거부터 처리하면 되겠네. 박사는 잠깐 쉬고 있어. 커피라도 마실래?',
+      talk: [
+        '내 아츠가 궁금해? 음, 어제는 빛을 다룰 수 있었고 오늘은 중력을 조금 건드릴 수 있네. 내일은…… 글쎄! 나도 모르지. 하하, 매일 아침 일어나면 새로운 기분이라니까?',
+        '영하? 아, 우리 회사 직원이야. 조용하고 성실한 친구지. 자기 일은 꼼꼼하게 잘하면서 꼭 자신 없어 한다니까. ……뭐, 천천히 나아지겠지. 너무 서두르게 하고 싶지는 않아.',
+        '세상에 항상 좋은 일만 있을 수는 없잖아. 나도 알아. ……그렇다고 매일 안 좋은 일부터 생각하면 좀 피곤하지 않겠어? 하하. 그러니까 적당히 웃고 살자고. ……물론 그게 항상 쉬운 일은 아니지만.',
+      ],
+      promo: [
+        '오늘은 이런 능력이 나왔네. ……음, 좋아. 그럼 이걸 어떻게 쓰면 좋을지 생각해 볼까? 능력이 매일 바뀌니까 오히려 재밌지 않아? ……하하, 가끔은 좀 귀찮긴 해.',
+        '내일 무슨 능력이 생길지는 몰라. 어쩌면 오늘보다 훨씬 약해질 수도 있고, 반대로 엄청 강해질 수도 있겠지. ……그래도 내가 해야 할 일은 똑같잖아. 그러니까 걱정하지 마, 박사. 내가 할 수 있는 건 다 해 볼 테니까.',
+      ],
+      trust40: '회사 다닐 때 이야기? 하하, 별거 없어. 매일 출근해서 일하고, 회의하고, 가끔 야근도 하고. ……영하가 야근할 때는 좀 신경 쓰이더라고. 걘 가만히 두면 퇴근할 생각을 안 하거든. 참 성실하지, 그치?',
+      trust100: '영하가 만드는 향수, 맡아 본 적 있어? 꽤 좋더라. 그 친구가 직접 만든 거라는데…… 신기하지. 평소에는 그렇게 조용하면서 향으로는 많은 이야기를 하는 것 같아. ……아, 이건 영하한테 비밀로 해 줘. 괜히 부끄러워할 테니까.',
+      trust200: '나도 가끔은 내일이 오는 게 싫을 때가 있어. ……하하, 의외야? 뭐, 나라고 항상 즐거울 수는 없잖아. (잠시 침묵) 그런데 요즘은 조금 달라. 내일도 만나고 싶은 사람이 생겼거든. ……그래서 그런가, 예전보다는 아침이 기다려지네.',
+      study: '오, 이런 방법이 있었구나! 좋아, 하나 배웠네. 내일 다른 능력이 나와도 응용할 수 있겠어.',
+      elite1: '승진? 오, 좋은데! 고마워, 박사. 이거 영하한테도 자랑해야겠다. 하하, 걔는 분명 진지하게 축하해 주겠지.',
+      elite2: '매일 다른 능력을 갖게 된다는 건, 매일 새로운 가능성을 얻는다는 뜻이기도 해. ……전에는 그렇게 생각하지 못했지만. 이제는 좀 알 것 같아. 중요한 건 오늘 뭘 할 수 있느냐보다, 그걸 누구를 위해 사용하느냐는 거겠지.',
+      squad: '좋아, 출근해 볼까?',
+      leader: '내가 지휘할게. 다들 잘 부탁해!',
+      depart: '자, 오늘도 무사히 돌아오자!',
+      start: '오늘의 능력은…… 좋아, 이거면 되겠네!',
+      select: ['응, 듣고 있어!', '뭐부터 하면 돼?'],
+      deploy: ['여긴 내가 맡을게!', '다들 뒤로 따라와!'],
+      combat: ['자, 힘내 보자!', '오늘은 운이 좋은데?', '걱정 마, 방법은 있어!', '……여기서 물러설 생각은 없어.'],
+      hard: '와, 이걸 해내네! 하하, 역시 박사야. 나도 좀 놀랐어.',
+      clear: '좋아, 오늘도 무사 퇴근! 다들 고생했어!',
+      clear2: '아쉽긴 하지만…… 괜찮아. 다음에는 더 잘하면 되지.',
+      fail: '……내가 좀 더 빨리 판단했어야 했는데. ……박사, 일단 모두 데리고 나가.',
+      base: '오, 여기 괜찮네! 회사 휴게실보다 훨씬 좋은데?',
+      touch: '응? 무슨 일이야, 박사?',
+      trustTouch: '하하, 심심해? 그럼 잠깐 이야기라도 하자. 오늘은 내가 들어 줄게.',
+      idle: '……잠들었네. 많이 피곤했나 봐. ……좀 더 자게 두자.',
+      greet: '왔어, 박사? 좋은 아침!',
     },
   },
   // ================= 지원 오퍼레이터 (임시 캐릭터 — 필요 없으면 지우세요) =================
@@ -1507,5 +1637,6 @@ const GACHA = {
     { id: 'court', name: '최종 논고', tag: '확률 UP', featured: ['sousuke', 'yuki'] },
     { id: 'irongate', name: '아이언 게이트', tag: '확률 UP', featured: ['felix', 'russell'] },
     { id: 'summer', name: '여름 바다의 신기루', tag: '확률 UP', featured: ['turner', 'clownfish'] },
+    { id: 'office', name: '오늘의 변수', tag: '확률 UP', featured: ['yeongha', 'yeomyeong'] },
   ],
 };
