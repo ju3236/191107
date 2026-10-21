@@ -20,7 +20,7 @@
   // =====================================================================
   //  구매센터
   // =====================================================================
-  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['exchange', '합성옥 교환'], ['history', '결제 내역']];
+  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['outfit', '의상'], ['exchange', '합성옥 교환'], ['history', '결제 내역']];
   let storeTab = 'recommend';
   RENDER.store = (arg, opts = {}) => {
     if (arg && !opts.back) storeTab = arg;
@@ -41,6 +41,13 @@
       main.innerHTML = `<div class="prod-grid">${SHOP.originite.map((p) => card(p, 'op')).join('')}</div>`;
     } else if (storeTab === 'packages') {
       main.innerHTML = `<div class="prod-grid">${SHOP.packages.map((p) => card(p, 'pkg')).join('')}</div>`;
+    } else if (storeTab === 'outfit') {
+      const list = typeof SKINS !== 'undefined' ? SKINS : [];
+      main.innerHTML = list.length ? `<div class="skin-grid shop">${list.map((k) => {
+        const o = OPS[k.op], have = UI.ownsSkin(k.id);
+        return `<button class="skin-card" data-outfit="${esc(k.id)}"><span class="skin-img" style="--c:${o ? o.color : '#888'}"><img src="${esc(k.image)}" alt=""></span>
+          <b>${esc(k.name)}</b><small>${esc(o ? o.name : '')} · ${esc(k.brand || '')}</small><em>${have ? '보유 중' : `${ico('originite')} ${k.price}`}</em></button>`;
+      }).join('')}</div>` : '<p class="empty-note">판매 중인 의상이 없습니다.</p>';
     } else if (storeTab === 'exchange') {
       const have = ACCOUNT.bal('originite');
       main.innerHTML = `<div class="exchange">
@@ -82,6 +89,13 @@
       toast(`합성옥 ${fmt(exN * ORIGINITE_TO_ORUNDUM)}개를 획득했습니다`);
       exN = 1;
       RENDER.store();
+      return;
+    }
+    const of = e.target.closest('[data-outfit]');
+    if (of) {
+      const k = SKINS.find((x) => x.id === of.dataset.outfit);
+      if (UI.ownsSkin(k.id)) { toast('이미 보유한 의상입니다. 오퍼레이터 상세 화면의 「의상」에서 갈아입을 수 있습니다'); return; }
+      UI.buySkin(k);
       return;
     }
     const b = e.target.closest('[data-buy]');

@@ -440,6 +440,58 @@
     ['combat', '전투 중'], ['hard', '고난이도 작전 완료'], ['clear', '작전 완료(별 3개)'], ['clear2', '작전 완료(별 3개 미만)'], ['fail', '작전 실패'],
     ['base', '시설 배치'], ['touch', '터치'], ['trustTouch', '신뢰 터치'], ['idle', '방치'], ['greet', '인사'],
     ['study', '작전기록 학습'], ['elite1', '1차 정예화'], ['elite2', '2차 정예화'], ['newyear', '새해'], ['birthday', '생일'], ['anniv', '애니버서리']];
+  // ---------- 의상 (스킨) ----------
+  const skinsOf = (id) => (typeof SKINS !== 'undefined' ? SKINS : []).filter((k) => k.op === id);
+  const skinSave = () => { save.skins = save.skins || { owned: [], wear: {} }; return save.skins; };
+  const ownsSkin = (sid) => skinSave().owned.includes(sid);
+  // 입고 있는 의상의 그림을 오퍼레이터 그림으로 씀 (전투·카드·대화 모두 같은 그림)
+  function applySkins() {
+    const sv = skinSave();
+    for (const o of OPERATORS) {
+      if (o.baseImage === undefined) o.baseImage = o.image || null;
+      const sk = skinsOf(o.id).find((k) => k.id === sv.wear[o.id] && sv.owned.includes(k.id));
+      o.image = sk ? sk.image : o.baseImage || undefined;
+      o.skin = sk ? sk.id : null;
+    }
+  }
+  function buySkin(sk, after) {
+    const o = OPS[sk.op];
+    openModal(`<div class="modal-title">의상 구매</div><div class="modal-sub">OUTFIT</div>
+      <div class="skin-buy"><img src="${esc(sk.image)}" alt=""><div><b>${esc(sk.name)}</b><small>${esc(sk.brand || '')} · ${esc(o ? o.name : '')}</small><p>${esc(sk.desc || '')}</p></div></div>
+      <p class="modal-text">오리지늄 ${sk.price}개로 구매합니다. 보유 오리지늄 ${ACCOUNT.bal('originite')}</p>
+      <div class="panel-btns"><button class="btn primary" id="skin-go">구매</button><button class="btn" id="skin-no">취소</button></div>`);
+    $('#skin-no').addEventListener('click', () => (after ? after() : closeModal()));
+    $('#skin-go').addEventListener('click', () => {
+      if (!ACCOUNT.spend({ originite: sk.price })) { toast('오리지늄이 부족합니다'); return; }
+      const sv = skinSave();
+      if (!sv.owned.includes(sk.id)) sv.owned.push(sk.id);
+      if (OPS[sk.op] && owned(sk.op)) sv.wear[sk.op] = sk.id;
+      writeSave(); applySkins();
+      sfx('select');
+      toast(`의상 「${sk.name}」을(를) 구매했습니다`);
+      if (after) after(); else closeModal();
+      if (current !== 'battle' && RENDER[current]) RENDER[current](undefined, { back: true, refresh: true });
+    });
+  }
+  function openSkins(id) {
+    const o = OPS[id], sv = skinSave(), list = skinsOf(id);
+    const cur = o.skin || 'base';
+    const row = (sid, img, name, sub, state) => `<button class="skin-card ${cur === sid ? 'on' : ''}" data-skin="${esc(sid)}">
+        <span class="skin-img" style="--c:${o.color}">${img ? `<img src="${esc(img)}" alt="">` : ''}</span><b>${esc(name)}</b><small>${esc(sub)}</small><em>${state}</em></button>`;
+    const cards = [row('base', o.baseImage, '기본 의상', '오퍼레이터 기본 복장', cur === 'base' ? '착용 중' : '착용')]
+      .concat(list.map((k) => row(k.id, k.image, k.name, k.brand || '', cur === k.id ? '착용 중' : ownsSkin(k.id) ? '착용' : `오리지늄 ${k.price}`)));
+    openModal(`<div class="modal-title">${esc(o.name)} — 의상</div><div class="modal-sub">${list.length ? '의상을 눌러 갈아입거나 구매하세요' : '아직 이 오퍼레이터의 의상이 없습니다'}</div><div class="skin-grid">${cards.join('')}</div>`);
+    document.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => {
+      const sid = b.dataset.skin, sk = list.find((k) => k.id === sid);
+      if (sid !== 'base' && !ownsSkin(sid)) { buySkin(sk, () => openSkins(id)); return; }
+      if (!owned(id)) { toast('보유한 오퍼레이터만 갈아입을 수 있습니다'); return; }
+      if (sid === 'base') delete sv.wear[id]; else sv.wear[id] = sid;
+      writeSave(); applySkins(); sfx('select');
+      openSkins(id);
+      RENDER.detail();
+    }));
+  }
+  $('#detail-skin').addEventListener('click', () => openSkins(detailId));
   $('#detail-voice').addEventListener('click', () => {
     const o = OPS[detailId];
     const v = o.voice || { talk: o.voices || [], deploy: [o.quote] };
@@ -806,11 +858,12 @@
   setInterval(() => { if (current !== 'battle') renderResources(); }, 30000);
 
   // 공용 데이터가 바뀌면 지금 화면을 다시 그림
-  const rerender = () => { if (current !== 'battle' && RENDER[current]) RENDER[current](undefined, { back: true, refresh: true }); };
+  const rerender = () => { applySkins(); if (current !== 'battle' && RENDER[current]) RENDER[current](undefined, { back: true, refresh: true }); };
   ACCOUNT.on('ops', rerender);
   ACCOUNT.on('player', rerender);
   ACCOUNT.on('mode', rerender);
   ACCOUNT.on('wallet', renderResources);
+  applySkins();
   ACCOUNT.on('granted', (g) => {
     const items = Object.entries(g.items || {}).map(([k, v]) => (k.startsWith('op:') ? (OPS[k.slice(3)] ? OPS[k.slice(3)].name : '오퍼레이터') : `${ITEMS[k] ? ITEMS[k].name : k} ×${v}`)).join(', ');
     toast(`지급 완료 — ${items}`);
@@ -818,6 +871,7 @@
   });
 
   window.UI = {
+    applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
     openModal, closeModal, cardHTML, enemyRowsHTML, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },

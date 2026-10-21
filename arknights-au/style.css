@@ -1130,3 +1130,21 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
   .rotate-hint { display: block; position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 3; pointer-events: none;
     background: rgba(0,0,0,.6); color: #ffd27a; font-size: 12px; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
 }
+
+/* ---------- 의상 ---------- */
+.skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 10px; }
+.skin-card { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 8px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.skin-card:hover { border-color: rgba(255,255,255,.4); }
+.skin-card.on { border-color: #ffcf3a; box-shadow: 0 0 0 1px #ffcf3a inset; }
+.skin-img { display: flex; align-items: flex-end; justify-content: center; height: 170px; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 45%, #1b1d22), #15171b); overflow: hidden; }
+.skin-img img { height: 100%; width: 100%; object-fit: contain; }
+.skin-card b { font-size: 14px; margin-top: 4px; }
+.skin-card small { font-size: 11px; opacity: .65; }
+.skin-card em { font-style: normal; font-size: 12px; color: #ffcf3a; display: flex; align-items: center; gap: 4px; }
+.skin-buy { display: flex; gap: 14px; align-items: flex-start; margin: 8px 0; }
+.skin-buy img { width: 110px; height: 140px; object-fit: contain; background: rgba(255,255,255,.06); }
+.skin-buy b { display: block; font-size: 16px; }
+.skin-buy small { display: block; opacity: .7; margin-bottom: 6px; }
+.skin-buy p { margin: 0; font-size: 13px; line-height: 1.5; opacity: .85; }
+@media (max-height: 500px) { .skin-img { height: 120px; } }
+.skin-grid.shop .skin-card em { color: #a8740a; }
