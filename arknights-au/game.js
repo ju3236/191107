@@ -429,6 +429,7 @@
     if (X.medicProtect) for (const o of S.ops) if (o.alive && o.def.class === 'medic' && o.range.has(key(op.x, op.y))) m = Math.min(m, 0.5);
     if (X.rangedProtect && !isGround(op.def)) m = Math.min(m, 1 - X.rangedProtect);
     if (op.protect) m = Math.min(m, 1 - op.protect);
+    if (eff(op).statusRes) m = Math.min(m, 1 - eff(op).statusRes);
     return m;
   }
   // 변호인의 소임: 스킬 지속 중 범위 안 아군이 받는 피해 감소
@@ -558,6 +559,9 @@
     }
     if (t.houseEdge && S.ops.some((o) => o.owner === op && o.blocked.length)) add('aspd', t.houseEdge.aspd);
     if (op.def.class === 'vanguard') for (const k of S.ops) if (k.alive && k !== op && k.tal.trustGuest && k.range.has(key(op.x, op.y))) { add('aspd', k.tal.trustGuest.aspd); break; }
+    if (t.easygoing && op.blocked.length) add('def', t.easygoing.def);
+    if (t.principle && op.prinStacks) { add('aspd', t.principle.aspd * op.prinStacks); }
+    if (t.strict && S.ops.some((o) => o.alive && o !== op && o.def.class === 'defender' && near8(o, op.x, op.y))) { add('atk', t.strict.atk); add('dodge', t.strict.dodge); }
     const mc = t.mercenary;
     if (mc) {
       const m = ef.talentMul || 1;
@@ -567,6 +571,10 @@
   }
   // 소환물이 적에게 거는 효과 (취약 · 공격력 감소)
   function summonAuras() {
+    for (const o of S.ops) {
+      const bv = eff(o).blockVuln;
+      if (bv) for (const e of o.blocked) { e.vulnAmp = Math.max(e.vulnT > 0 ? e.vulnAmp : 0, bv); e.vulnT = 0.3; }
+    }
     for (const g of S.ops) {
       if (!g.def.summoned || !g.owner || !g.owner.alive) continue;
       const ot = g.owner.tal, oe = eff(g.owner);
@@ -759,7 +767,9 @@
     if (ef.dp) S.dp = Math.min(S.maxDp, S.dp + ef.dp);
     if (ef.heal) healOp(op, op.maxHp * ef.heal);
     if (ef.shield) op.shield = op.maxHp * ef.shield;
-    if (ef.nextHit) op.charge = ef.nextHit;
+    if (ef.nextHit) { op.charge = ef.nextHit; op.chargeStun = ef.nextStun || 0; }
+    if (ef.hpMul && sk.duration) { op.maxHp *= ef.hpMul; op.hp *= ef.hpMul; }
+    op.rallyUsed = false; op.finN = 0;
     if (ef.hits && !sk.duration) op.burst = ef.hits;
     if (ef.allyHeal) {
       for (const a of alliesNear(op, ef.allyHeal.radius)) {
@@ -807,6 +817,7 @@
     if (ef.guardRetreat) for (const sm of S.ops.filter((o) => o.owner === op)) { addText(sm.x + 0.5, sm.y + 0.2, '퇴각', '#9aa1ab', 0.8, true); removeOp(sm, false); }
     if (ef.range) setRange(op, op.def.range);
     if (ef.shield) op.shield = 0;
+    if (ef.hpMul) { op.maxHp /= ef.hpMul; op.hp = Math.min(op.hp, op.maxHp); }
     if (ef.proofBlast) {
       const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
       const proven = S.enemies.filter((e) => e.alive && e.proof);
@@ -937,10 +948,25 @@
       else { op.focusTarget = targets[0]; op.focusStacks = 0; }
       ignore = op.focusStacks * fo.step;
     }
+    // 원칙에 따라: 같은 적 연속 공격 중첩
+    const pr = op.tal.principle;
+    if (pr) {
+      if (op.prinTarget === targets[0]) op.prinStacks = Math.min(pr.max, (op.prinStacks || 0) + 1);
+      else { op.prinTarget = targets[0]; op.prinStacks = 0; }
+      ignore = Math.min(1, ignore + op.prinStacks * pr.ignore);
+    }
     op.debuffedTarget = isDebuffed(targets[0]);
     let mul = 1;
+    if (pr && op.prinStacks >= pr.max) mul *= 1 + pr.amp;
+    if (eff(op).focusAmp && op.prinStacks) mul *= 1 + eff(op).focusAmp * op.prinStacks;
+    // 믿음직한 동료: 펠릭스가 저지한 적을 치는 가드
+    const rb = targets[0].blockedBy;
+    if (op.def.class === 'guard' && rb && rb !== op && rb.alive && rb.tal.reliable) mul *= 1 + rb.tal.reliable.atk;
+    let stunHit = eff(op).hitStun || 0;
     if (op.firstStrike) { mul *= op.tal.firstStrike; op.firstStrike = false; addText(cx, op.y + 0.1, '발도!', '#ffcf3a', 0.8, true); }
-    if (op.charge) { mul *= op.charge; op.charge = 0; }
+    if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } }
+    const fin = eff(op).finisher;
+    const finish = fin && ++op.finN % fin.every === 0;
     const hits = op.burst || eff(op).hits;
     op.burst = null;
     const count = hits ? hits.count : 1, hitMul = hits ? hits.mul : 1;
@@ -963,6 +989,8 @@
           hitEnemy(t, atk * xh.mul, type, false, op);
         }
         if (op.tal.argue && t.alive && t.proof) hitEnemy(t, opAtk(op) * op.tal.argue.mul, 'arts', false, op);
+        if (stunHit && t.alive) stunEnemy(t, stunHit);
+        if (finish && i === 0 && t.alive) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#ffcf3a', r: 0.5 }); hitEnemy(t, opAtk(op) * fin.mul, 'phys', true, op, ignore, true); }
         if (splash) {
           for (const o of S.enemies) {
             if (o !== t && o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= splash) hitEnemy(o, atk, type, false, op);
@@ -983,6 +1011,7 @@
   }
 
   function calcDamage(atk, type, def, res) {
+    if (type === 'true') return atk;
     if (type === 'arts') return Math.max(atk * (1 - res / 100), atk * 0.05);
     return Math.max(atk - def, atk * 0.05);
   }
@@ -1012,6 +1041,8 @@
     const X = S.mods;
     if (type === 'phys' && Math.random() < opDodge(op)) { onDodge(op); return; }
     if (type === 'arts' && Math.random() < opArtsDodge(op)) { onDodge(op); return; }
+    const eg = src && src.blockedBy === op && op.tal.easygoing;
+    if (eg && Math.random() < eg.nullify) { addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); return; }
     if (op.immune > 0) { op.immune--; addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); if (X.dodgeNext) op.charge = Math.max(op.charge || 0, 1 + X.dodgeNext); return; }
     let dmg = calcDamage(atk, type, opDef(op), opRes(op)) * guardMul(op);
     if (src && src.def) {
@@ -1020,7 +1051,15 @@
       if (X.outRangeCut && !op.range.has(key(Math.floor(src.x), Math.floor(src.y)))) dmg *= 1 - X.outRangeCut;
       if (X.seaFear && src.def.sea && !src.feared) { src.feared = true; stunEnemy(src, X.seaFear); addText(src.x, src.y - 0.4, '공포', '#c9a6ff', 0.8); }
     }
-    if (type === 'phys') dmg *= Math.max(0.1, 1 - perDep('physCut'));
+    if (type === 'phys') {
+      dmg *= Math.max(0.1, 1 - perDep('physCut'));
+      if (eff(op).physCut) dmg *= 1 - eff(op).physCut;
+      if (op.tal.strict && src && src.blockedBy === op) dmg *= 1 - op.tal.strict.cut;
+      if (op.def.class === 'guard') { const f = S.ops.find((o) => o.alive && o !== op && o.tal.reliable && near8(o, op.x, op.y)); if (f) dmg *= 1 - f.tal.reliable.cut; }
+      // 농담은 여기까지: 주변 아군의 물리 피해 일부를 대신 받음
+      const cv = S.ops.find((o) => o.alive && o !== op && eff(o).cover && near8(o, op.x, op.y));
+      if (cv && dmg > 0) { const part = dmg * eff(cv).cover; dmg -= part; hitOp(cv, part, 'true', null); }
+    }
     const g = op.tal.guard;
     if (g && op.hp / op.maxHp <= g.below) dmg *= g.taken;
     if (op.shield > 0) {
@@ -1044,6 +1083,15 @@
       op.feared = true;
       for (const e of S.enemies) if (e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y)))) stunEnemy(e, X.hpFear.dur);
       addText(op.x + 0.5, op.y - 0.2, '명적통', '#c9a6ff', 1, true);
+    }
+    const ra = eff(op).rally;
+    if (ra && !op.rallyUsed && op.hp > 0 && op.hp / op.maxHp <= ra.below) {
+      op.rallyUsed = true;
+      healOp(op, op.maxHp * ra.heal);
+      for (const e of enemiesNear(op, ra.radius)) stunEnemy(e, ra.stun);
+      addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.5, color: '#ffcf3a', r: ra.radius });
+      addText(op.x + 0.5, op.y - 0.1, '농담은 여기까지', '#ffcf3a', 1.2, true);
+      S.shake = 0.25;
     }
     const ls = op.tal.lastStand;
     if (ls && !op.lastStandUsed && op.hp > 0 && op.hp / op.maxHp <= ls.below) {
@@ -1275,7 +1323,7 @@
       }
     }
     hitOp(target, atk, type, e);
-    e.atkCd = e.def.interval * (e.slowT > 0 ? e.slowAtk : 1);
+    e.atkCd = e.def.interval * (e.slowT > 0 ? e.slowAtk : 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
   }
 
   // =====================================================================
