@@ -123,6 +123,21 @@
       </div>
     </div>`;
   }
+  // 오퍼레이터 목록 카드 (원작 목록 화면 모양)
+  function rosterCardHTML(def) {
+    const list = skillsOf(def), si = skillIndex(def), pot = ACCOUNT.potOf(def.id);
+    return `<div class="rcard" style="--c:${def.color}">
+      <div class="rc-art">${def.image ? `<img src="${esc(def.image)}" alt="">` : `<b>${esc(def.name[0])}</b>`}</div>
+      <div class="rc-top"><span class="rc-class">${icon(def.class)}</span><span class="rc-stars">${stars(def.rarity)}</span></div>
+      <div class="rc-band"></div>
+      <div class="rc-foot">
+        <div class="rc-lv"><small>COST</small><b>${def.cost}</b></div>
+        <span class="rc-pot" title="잠재">${pot > 1 ? 'P' + pot : ''}</span>
+        ${list.length ? `<span class="rc-sk" style="--c:${def.color}">S${si + 1}</span>` : ''}
+      </div>
+      <div class="rc-name">${esc(def.name)}</div>
+    </div>`;
+  }
   function rangeGridHTML(range, size = 18) {
     const pts = [[0, 0], ...range];
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
@@ -147,6 +162,7 @@
   }
 
   function openModal(html) {
+    $('#modal').dataset.kind = '';
     $('#modal-body').innerHTML = html;
     hydrateIcons($('#modal-body'));
     $('#modal').classList.remove('hidden');
@@ -335,26 +351,29 @@
   // =====================================================================
   //  2. 오퍼레이터 목록
   // =====================================================================
-  let filter = 'all', sortKey = 'class';
+  let filter = 'all', sortKey = 'rarity', railHidden = false;
   function sortedOps() {
     const list = OPERATORS.filter((o) => owned(o.id) && (filter === 'all' || o.class === filter));
     const byClass = (a, b) => CLASS_ORDER.indexOf(a.class) - CLASS_ORDER.indexOf(b.class);
     if (sortKey === 'class') list.sort(byClass);
     if (sortKey === 'rarity') list.sort((a, b) => (b.rarity || 3) - (a.rarity || 3) || byClass(a, b));
     if (sortKey === 'cost') list.sort((a, b) => b.cost - a.cost || byClass(a, b));
+    if (sortKey === 'trust') list.sort((a, b) => trustOf(b.id) - trustOf(a.id) || (b.rarity || 3) - (a.rarity || 3));
     return list;
   }
   RENDER.roster = () => {
     const nav = $('#class-filter');
-    nav.innerHTML = `<button data-f="all" class="${filter === 'all' ? 'on' : ''}"><b>ALL</b></button>` +
+    $('#roster-body').classList.toggle('rail-hidden', railHidden);
+    nav.innerHTML = `<button class="rail-toggle" data-rail="1">${railHidden ? '‹' : '숨기기 ›'}</button><button data-f="all" class="${filter === 'all' ? 'on' : ''}"><b>ALL</b></button>` +
       CLASS_ORDER.map((c) => `<button data-f="${c}" class="${filter === c ? 'on' : ''}" title="${CLASSES[c].name}">${icon(c)}</button>`).join('');
     document.querySelectorAll('#sort-bar button').forEach((b) => b.classList.toggle('on', b.dataset.sort === sortKey));
     const grid = $('#op-grid');
     const list = sortedOps();
-    grid.innerHTML = list.map((o) => `<button class="card-btn" data-op="${o.id}">${cardHTML(o)}</button>`).join('') ||
+    grid.innerHTML = list.map((o) => `<button class="card-btn" data-op="${o.id}">${rosterCardHTML(o)}</button>`).join('') ||
       '<div class="empty-note">보유한 오퍼레이터가 없습니다. 헤드헌팅에서 모집해 보세요.</div>';
   };
   $('#class-filter').addEventListener('click', (e) => {
+    if (e.target.closest('[data-rail]')) { railHidden = !railHidden; RENDER.roster(); return; }
     const b = e.target.closest('[data-f]');
     if (b) { filter = b.dataset.f; RENDER.roster(); }
   });

@@ -20,34 +20,52 @@
   // =====================================================================
   //  구매센터
   // =====================================================================
-  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['outfit', '의상'], ['exchange', '합성옥 교환'], ['history', '결제 내역']];
-  let storeTab = 'recommend';
+  // 상단 탭 (원작 구매센터처럼 아이콘 + 이름)
+  const TAB_ICO = {
+    recommend: '<path d="M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 3 2l-1 4h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 16.8 20H7"/>',
+    originite: '<path d="M12 2l8 5v10l-8 5-8-5V7z"/><path d="M12 2v20M4 7l8 5 8-5"/>',
+    packages: '<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>',
+    outfit: '<path d="M12 6a2 2 0 1 1 2-2"/><path d="M12 6v2L2 16h20L12 8"/>',
+    exchange: '<path d="M4 8h14l-4-4M20 16H6l4 4"/>',
+    history: '<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+  };
+  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['outfit', '컬렉션'], ['exchange', '합성옥 교환'], ['history', '결제 내역']];
+  let storeTab = 'recommend', pkgCat = 'all';
+  const tabIco = (k) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TAB_ICO[k] || ''}</svg>`;
+  const pkgArt = (p) => `<div class="pk-art ${esc(p.cat || '')}">${Object.keys(p.items).slice(0, 3).map((k, i) => `<span style="--i:${i}">${ico(k, true)}</span>`).join('')}</div>`;
+  const brandMark = (b) => `<span class="brand-mark"><i></i><b>${esc((b || '').toUpperCase())}</b></span>`;
   RENDER.store = (arg, opts = {}) => {
     if (arg && !opts.back) storeTab = arg;
     UI.renderResources();
-    $('#store-tabs').innerHTML = STORE_TABS.map(([k, n]) => `<button class="${k === storeTab ? 'on' : ''}" data-stab="${k}">${n}</button>`).join('');
+    $('#store-tabs').innerHTML = STORE_TABS.map(([k, n]) => `<button class="${k === storeTab ? 'on' : ''}" data-stab="${k}">${tabIco(k)}<span>${n}</span></button>`).join('');
     const main = $('#store-main');
-    const card = (p, kind) => `
-      <button class="prod ${kind}" data-buy="${esc(p.id)}">
-        <div class="prod-art">${Object.keys(p.items).slice(0, 2).map((k) => ico(k, true)).join('')}</div>
-        <div class="prod-name">${esc(p.name)}${kind === 'op' ? ` <b>×${p.items.originite}</b>` : ''}</div>
-        ${p.desc ? `<div class="prod-desc">${esc(p.desc)}</div>` : ''}
-        <div class="prod-price">${won(p.price)}</div>
+    main.className = 'store-main tab-' + storeTab;
+    const pkgCard = (p) => `
+      <button class="pk-card" data-pkg="${esc(p.id)}">
+        <span class="pk-tag">${esc(p.tag || '상시')}</span>
+        ${pkgArt(p)}
+        <span class="pk-name">${esc(p.name)}</span>
+        <span class="pk-price">${won(p.price)}</span>
+      </button>`;
+    const opCard = (p) => `
+      <button class="pk-card op" data-pkg="${esc(p.id)}">
+        <span class="pk-tag">오리지늄</span>
+        <div class="pk-art originite"><span>${ico('originite', true)}</span></div>
+        <span class="pk-name">오리지늄 <b>×${p.items.originite}</b></span>
+        <span class="pk-price">${won(p.price)}</span>
       </button>`;
     if (storeTab === 'recommend') {
       main.innerHTML = `<div class="store-banner"><b>헤드헌팅 진행 중</b><span>${esc(banners()[0].name)}</span><button class="btn primary" data-go="headhunt">헤드헌팅으로</button></div>
-        <div class="prod-grid">${SHOP.packages.slice(0, 2).map((p) => card(p, 'pkg')).join('')}${SHOP.originite.slice(1, 3).map((p) => card(p, 'op')).join('')}</div>`;
+        <div class="pk-row">${SHOP.packages.slice(0, 2).map(pkgCard).join('')}${SHOP.originite.slice(1, 3).map(opCard).join('')}${(typeof SKINS !== 'undefined' ? SKINS : []).slice(0, 2).map(skinCard).join('')}</div>`;
     } else if (storeTab === 'originite') {
-      main.innerHTML = `<div class="prod-grid">${SHOP.originite.map((p) => card(p, 'op')).join('')}</div>`;
+      main.innerHTML = `<div class="pk-row">${SHOP.originite.map(opCard).join('')}</div>`;
     } else if (storeTab === 'packages') {
-      main.innerHTML = `<div class="prod-grid">${SHOP.packages.map((p) => card(p, 'pkg')).join('')}</div>`;
+      const list = SHOP.packages.filter((p) => pkgCat === 'all' || p.cat === pkgCat);
+      main.innerHTML = `<div class="pk-layout"><nav class="pk-cats">${PACKAGE_CATS.map(([k, n]) => `<button class="${k === pkgCat ? 'on' : ''}" data-pcat="${k}">${esc(n)}</button>`).join('')}</nav>
+        <div class="pk-row">${list.map(pkgCard).join('') || '<p class="empty-note">이 분류의 패키지가 없습니다.</p>'}</div></div>`;
     } else if (storeTab === 'outfit') {
       const list = typeof SKINS !== 'undefined' ? SKINS : [];
-      main.innerHTML = list.length ? `<div class="skin-grid shop">${list.map((k) => {
-        const o = OPS[k.op], have = UI.ownsSkin(k.id);
-        return `<button class="skin-card" data-outfit="${esc(k.id)}"><span class="skin-img" style="--c:${o ? o.color : '#888'}"><img src="${esc(k.image)}" alt=""></span>
-          <b>${esc(k.name)}</b><small>${esc(o ? o.name : '')} · ${esc(k.brand || '')}</small><em>${have ? '보유 중' : `${ico('originite')} ${k.price}`}</em></button>`;
-      }).join('')}</div>` : '<p class="empty-note">판매 중인 의상이 없습니다.</p>';
+      main.innerHTML = list.length ? `<div class="pk-row">${list.map(skinCard).join('')}</div>` : '<p class="empty-note">판매 중인 의상이 없습니다.</p>';
     } else if (storeTab === 'exchange') {
       const have = ACCOUNT.bal('originite');
       main.innerHTML = `<div class="exchange">
@@ -91,25 +109,88 @@
       RENDER.store();
       return;
     }
+    const pc = e.target.closest('[data-pcat]');
+    if (pc) { pkgCat = pc.dataset.pcat; RENDER.store(); return; }
     const of = e.target.closest('[data-outfit]');
-    if (of) {
-      const k = SKINS.find((x) => x.id === of.dataset.outfit);
-      if (UI.ownsSkin(k.id)) { toast('이미 보유한 의상입니다. 오퍼레이터 상세 화면의 「의상」에서 갈아입을 수 있습니다'); return; }
-      UI.buySkin(k);
-      return;
-    }
-    const b = e.target.closest('[data-buy]');
+    if (of) { openOutfit(of.dataset.outfit); return; }
+    const b = e.target.closest('[data-pkg]');
     if (!b) return;
-    const p = [...SHOP.originite, ...SHOP.packages].find((x) => x.id === b.dataset.buy);
-    if (!p) return;
-    if (ACCOUNT.mode !== 'online') { onlineOnly(); return; }
-    const label = SHOP.originite.includes(p) ? `${p.name} ×${p.items.originite}` : p.name;
-    openModal(`<div class="modal-title">구매 확인</div><div class="modal-sub">PURCHASE</div>
-      <div class="buy-box"><b>${esc(label)}</b><span>${esc(itemsText(p.items))}</span><span class="buy-price">${won(p.price)}</span></div>
-      <p class="modal-text">실제 결제는 이뤄지지 않습니다. 결제 요청을 보내면 관리자가 확인한 뒤 승인했을 때 지급됩니다.</p>
-      <div class="panel-btns"><button class="btn primary" id="buy-go">결제 요청 보내기</button><button class="btn" id="buy-no">취소</button></div>`);
-    $('#buy-no').addEventListener('click', closeModal);
+    const p = [...SHOP.originite, ...SHOP.packages].find((x) => x.id === b.dataset.pkg);
+    if (p) openPackage(p);
+  });
+
+  // 의상 카드 (컬렉션 탭)
+  function skinCard(k) {
+    const o = OPS[k.op], have = UI.ownsSkin(k.id);
+    return `<button class="sk-card" data-outfit="${esc(k.id)}" style="--c:${o ? o.color : '#888'}">
+      <span class="pk-tag">${esc(k.brand || '컬렉션')}</span>
+      <span class="sk-art"><img src="${esc(k.image)}" alt="">${brandMark(k.brand)}</span>
+      <span class="sk-name">${esc(k.name)}</span><span class="sk-op">${esc(o ? o.name : '')}</span>
+      <span class="sk-price ${have ? 'owned' : ''}">${have ? '보유 중' : `${ico('originite')} ${k.price}`}</span>
+    </button>`;
+  }
+  // 의상을 누르면 나오는 화면 — 큰 그림 · 설명 · 오른쪽 의상 넘기기 · 구매
+  let outfitId = null;
+  function openOutfit(id) {
+    const list = SKINS, k = list.find((x) => x.id === id);
+    if (!k) return;
+    outfitId = id;
+    const o = OPS[k.op], have = UI.ownsSkin(k.id), worn = o && o.skin === k.id;
+    const idx = list.indexOf(k);
+    const strip = list.map((x, i) => `<button class="ov-slot ${x.id === id ? 'on' : ''}" data-ov="${esc(x.id)}" style="--c:${OPS[x.op] ? OPS[x.op].color : '#888'};--d:${Math.abs(i - idx)}"><img src="${esc(x.image)}" alt="">${x.id === id ? `<span class="ov-slot-name">${esc(x.name)}</span><span class="ov-slot-price">${have ? '보유 중' : `${ico('originite')} ${x.price}`}</span>` : ''}</button>`).join('');
+    const v = $('#outfit-view');
+    v.style.setProperty('--c', o ? o.color : '#2fb6a0');
+    v.innerHTML = `
+      <div class="ov-left">
+        <button class="nav-btn ov-back" data-ovclose aria-label="뒤로">${icon('back')}</button>
+        ${brandMark(k.brand)}
+        <img class="ov-art" src="${esc(k.image)}" alt="">
+        <div class="ov-thumbs"><span><img src="${esc(k.image)}" alt=""></span><span class="tall"><img src="${esc(k.image)}" alt=""></span></div>
+        <div class="ov-chibi"><img src="${esc(k.image)}" alt=""></div>
+        <div class="ov-card"><div class="ov-card-brand">${esc((k.brand || '').toUpperCase())}</div><div class="ov-card-who">${esc(o ? o.en || o.name : '')}</div><p>${esc(k.desc || '')}</p></div>
+      </div>
+      <div class="ov-right">
+        <div class="ov-ribbon"><small>#OUTFIT OF THE DAY</small><b>${esc(k.brand || '컬렉션')}</b></div>
+        <div class="ov-strip"><button class="ov-arrow" data-ovstep="-1" aria-label="이전">◀</button><div class="ov-slots">${strip}</div><button class="ov-arrow" data-ovstep="1" aria-label="다음">▶</button></div>
+        <p class="ov-ask"><b>${esc(o ? o.name : '')}</b>의 컬렉션<br>${have ? (worn ? '착용 중입니다' : '보유 중입니다') : '구매하시겠습니까?'}</p>
+        <button class="ov-buy" data-ovbuy ${worn ? 'disabled' : ''}>${have ? (worn ? '착용 중' : '착용하기') : '🛒 구매'}</button>
+      </div>`;
+    v.classList.remove('hidden');
+  }
+  $('#outfit-view').addEventListener('click', (e) => {
+    if (e.target.closest('[data-ovclose]')) { $('#outfit-view').classList.add('hidden'); RENDER.store(undefined, { back: true }); return; }
+    const sl = e.target.closest('[data-ov]');
+    if (sl) { openOutfit(sl.dataset.ov); return; }
+    const st = e.target.closest('[data-ovstep]');
+    if (st) { const i = SKINS.findIndex((x) => x.id === outfitId), n = SKINS.length; openOutfit(SKINS[(i + +st.dataset.ovstep + n) % n].id); return; }
+    if (e.target.closest('[data-ovbuy]')) {
+      const k = SKINS.find((x) => x.id === outfitId);
+      if (UI.ownsSkin(k.id)) {
+        if (!ACCOUNT.owns(k.op)) { toast('보유한 오퍼레이터만 갈아입을 수 있습니다'); return; }
+        UI.save.skins.wear[k.op] = k.id; UI.writeSave(); UI.applySkins(); sfx('select');
+        toast(`「${k.name}」으로 갈아입었습니다`);
+        openOutfit(k.id);
+        return;
+      }
+      UI.buySkin(k, () => { closeModal(); openOutfit(k.id); });
+    }
+  });
+  // 패키지를 누르면 나오는 창 — 왼쪽 그림, 오른쪽 가격 · 상품 내용 · 구매
+  function openPackage(p) {
+    const isOp = SHOP.originite.includes(p);
+    const label = isOp ? `${p.name} ×${p.items.originite}` : p.name;
+    const rows = Object.entries(p.items).map(([k, v]) => `<li><div><b>· ${esc(itemName(k))}</b><span>x${fmt(v)}</span></div>${ITEMS[k] ? `<p>${esc(ITEMS[k].desc)}</p>` : ''}</li>`).join('');
+    openModal(`<div class="pkm">
+      <div class="pkm-left"><div class="pkm-title"><b>${esc(label)}</b><span class="pkm-tag">${esc(isOp ? '오리지늄' : p.tag || '상시')}</span></div>
+        ${isOp ? `<div class="pk-art originite big"><span>${ico('originite', true)}</span></div>` : pkgArt(p).replace('pk-art', 'pk-art big')}</div>
+      <div class="pkm-right"><div class="pkm-price">가격 <b>${won(p.price)}</b></div>
+        <div class="pkm-sub">상품 내용</div><ul class="pkm-list">${rows}</ul>
+        <button class="pkm-buy" id="buy-go">🛒 패키지 구매</button>
+        <p class="pkm-note">실제 결제는 이뤄지지 않습니다. 결제 요청을 보내면 관리자가 승인했을 때 지급됩니다.</p></div>
+    </div>`);
+    $('#modal').dataset.kind = 'pkg';
     $('#buy-go').addEventListener('click', async (ev) => {
+      if (ACCOUNT.mode !== 'online') { onlineOnly(); return; }
       ev.target.disabled = true;
       try {
         await ACCOUNT.requestPurchase({ ...p, label });
@@ -122,7 +203,7 @@
         toast('요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요');
       }
     });
-  });
+  }
 
   // =====================================================================
   //  헤드헌팅

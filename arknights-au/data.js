@@ -475,11 +475,11 @@ const OPERATORS = [
   },
   // ================= 시라쿠사의 카지노 =================
   {
-    id: 'keith', name: '키스 엔라이튼', class: 'vanguard', archetype: 'tactician', race: '불포', color: '#2b3f8f',
-    en: 'Keith Enlighten', rarity: 6, tags: ['근거리', '코스트 회복', '소환'], faction: '시라쿠사 · 카지노',
+    id: 'keith', name: '사카린', class: 'vanguard', archetype: 'tactician', race: '불포', color: '#2b3f8f',
+    en: 'Saccharin', rarity: 6, tags: ['근거리', '코스트 회복', '소환'], faction: '시라쿠사 · 카지노',
     partner: 'lucia',
     image: 'img/keith.png',
-    profile: '시라쿠사의 작은 카지노에서 딜러로 일한다고 소개하는 불포. 언제나 정중한 말투와 미소를 잃지 않지만, 그 미소 뒤에서 무엇을 계산하고 있는지는 아무도 모른다. 전장에서는 카지노의 경비 「하우스 가드」를 불러내 판을 짜고, 아군 뱅가드에게 판돈을 몰아준다.\n\n「딜러」라는 직업이 그가 하는 일의 전부는 아니라는 사실은, 그를 오래 알아 온 사람이라면 모두 알고 있다. 용병 루시아를 고용한 것도 그다.',
+    profile: '코드네임 사카린, 본명 키스 엔라이튼. 시라쿠사의 작은 카지노에서 딜러로 일한다고 소개하는 불포. 언제나 정중한 말투와 미소를 잃지 않지만, 그 미소 뒤에서 무엇을 계산하고 있는지는 아무도 모른다. 전장에서는 카지노의 경비 「하우스 가드」를 불러내 판을 짜고, 아군 뱅가드에게 판돈을 몰아준다.\n\n「딜러」라는 직업이 그가 하는 일의 전부는 아니라는 사실은, 그를 오래 알아 온 사람이라면 모두 알고 있다. 용병 루시아를 고용한 것도 그다.',
     quote: '자, 게임을 시작할 시간입니다.',
     cost: 11, redeploy: 60, block: 1,
     hp: 1600, atk: 470, def: 240, res: 10, interval: 1.3,
@@ -1626,12 +1626,14 @@ const SHOP = {
     { id: 'op130', name: '오리지늄',  items: { originite: 130 }, price: 119000 },
   ],
   packages: [
-    { id: 'monthly',  name: '월간 보급 카드',       desc: '오리지늄 6 + 합성옥 6000', items: { originite: 6, orundum: 6000 }, price: 5900 },
-    { id: 'newbie',   name: '신규 박사 헤드헌팅 패키지', desc: '10회 헤드헌팅 허가증 1 + 오리지늄 10', items: { permit10: 1, originite: 10 }, price: 19000 },
-    { id: 'hh_pack',  name: '헤드헌팅 패키지',       desc: '헤드헌팅 허가증 10 + 합성옥 6000', items: { permit: 10, orundum: 6000 }, price: 32000 },
-    { id: 'big_pack', name: '정예 박사 패키지',      desc: '10회 헤드헌팅 허가증 3 + 오리지늄 40', items: { permit10: 3, originite: 40 }, price: 99000 },
+    { id: 'monthly',  cat: 'monthly', tag: '상시', name: '월간 보급 카드',       desc: '오리지늄 6 + 합성옥 6000', items: { originite: 6, orundum: 6000 }, price: 5900 },
+    { id: 'newbie',   cat: 'hh', tag: '1회 한정', name: '신규 박사 헤드헌팅 패키지', desc: '10회 헤드헌팅 허가증 1 + 오리지늄 10', items: { permit10: 1, originite: 10 }, price: 19000 },
+    { id: 'hh_pack',  cat: 'hh', tag: '상시', name: '헤드헌팅 패키지',       desc: '헤드헌팅 허가증 10 + 합성옥 6000', items: { permit: 10, orundum: 6000 }, price: 32000 },
+    { id: 'big_pack', cat: 'hh', tag: '상시', name: '정예 박사 패키지',      desc: '10회 헤드헌팅 허가증 3 + 오리지늄 40', items: { permit10: 3, originite: 40 }, price: 99000 },
   ],
 };
+// 패키지 분류 (구매센터 패키지 탭 왼쪽 목록)
+const PACKAGE_CATS = [['all', '전체 패키지'], ['hh', '헤드헌팅 패키지'], ['monthly', '먼슬리카드']];
 const ORIGINITE_TO_ORUNDUM = 180;
 
 // 헤드헌팅 확률 (원작 기준). 50회 연속 6성이 없으면 이후 1회마다 6성 확률 +2%

@@ -77,13 +77,15 @@
         <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
       </div>
       <div class="sort-bar" id="sort-bar">
-        <button data-sort="class" class="on">직군</button>
-        <button data-sort="rarity">레어도</button>
+        <span class="sort-ico" aria-hidden="true">♜</span>
+        <button data-sort="rarity" class="on">레어도</button>
+        <button data-sort="trust">신뢰도</button>
         <button data-sort="cost">코스트</button>
+        <button data-sort="class">직군</button>
       </div>
     </header>
-    <div class="roster-body">
-      <div class="op-grid" id="op-grid"></div>
+    <div class="roster-body" id="roster-body">
+      <div class="op-grid rgrid" id="op-grid"></div>
       <nav class="class-filter" id="class-filter"></nav>
     </div>
   </section>
@@ -190,6 +192,7 @@
       <nav class="store-tabs" id="store-tabs"></nav>
       <div class="store-main" id="store-main"></div>
     </div>
+    <div class="outfit-view hidden" id="outfit-view"></div>
   </section>
 
   <!-- ===================== 헤드헌팅 ===================== -->
