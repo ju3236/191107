@@ -382,7 +382,7 @@ button:focus-visible { outline: 2px solid var(--beacon); outline-offset: 2px; }
 /* 적 정보 / 맵 */
 .enemy-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; text-align: left; }
 .enemy-row { display: flex; gap: 12px; align-items: center; background: var(--panel2); padding: 8px 10px; border-left: 3px solid var(--danger); }
-.enemy-ico img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+.enemy-ico img { width: 100%; height: 100%; object-fit: contain; }
 .enemy-ico { overflow: hidden; width: 56px; height: 56px; border-radius: 6px !important; border-radius: 50%; background: #22090c; border: 3px solid var(--c); color: var(--c); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; flex: none; }
 .enemy-info { min-width: 0; }
 .enemy-info small { color: var(--muted); font-weight: 400; }
@@ -1943,3 +1943,9 @@ img.dp-ico { width: 34px; height: 34px; object-fit: contain; }
 .art-ico img.ico.pro { width: 1em; height: 1em; filter: brightness(0); opacity: .22; }
 /* 통합전략 소장품 아이콘: 스프라이트 시트 (칸 112px → 58px로 줄여 표시) */
 i.relic-img.relic-sp { border-radius: 0; background: url(img/relics.webp) 0 0 / 928px auto no-repeat; }
+/* 메인 화면 배경: 원작 기본 배경 (로도스 아일랜드 갑판) */
+.home-bg { background: linear-gradient(90deg, rgba(10,11,14,.55), rgba(10,11,14,.25) 45%, rgba(10,11,14,.7)), url(img/ui/home_bg.webp) center / cover no-repeat, #15171b !important; }
+/* 기반시설: 원작 방 그림 · 방 아이콘 */
+.bs-room header { position: relative; margin: -14px -14px 0; padding: 14px 14px 22px; background: linear-gradient(180deg, rgba(10,12,16,.15), rgba(10,12,16,.85)), var(--bg) center / cover no-repeat; justify-content: flex-start; gap: 10px; }
+.bs-room header .bs-lv { margin-left: auto; }
+.bs-ico { width: 32px; height: 36px; object-fit: contain; filter: drop-shadow(0 1px 3px #000); }

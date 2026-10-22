@@ -92,8 +92,8 @@
         : `<div class="bs-rate">${ops.length ? `시간당 <b>${outText(f, rateOf(f, b))}</b> · 효율 ${Math.round(eff * 100)}%` : '<span class="bad">오퍼레이터를 배치해야 가동합니다</span>'}</div>
            <div class="bs-store"><i class="ri ${f.out === 'lmd' ? 'lmd' : 'exp_4'}"></i><div class="bs-bar"><i style="width:${(acc / cap) * 100}%"></i></div><small>${fmt(acc)} / ${fmt(cap)}</small>
            <button class="bs-get" data-get="${f.id}" ${acc >= (f.out === 'exp' ? 200 : 1) ? '' : 'disabled'}>수령</button></div>`;
-      return `<section class="bs-room" style="--c:${f.color}">
-        <header><div><small>${esc(f.en)}</small><b>${esc(f.name)}</b></div><span class="bs-lv">Lv.${lv}</span></header>
+      return `<section class="bs-room" style="--c:${f.color};--bg:url(img/ui/base_${f.id}_bg.webp)">
+        <header><img class="bs-ico" src="img/ui/base_${f.id}.png" alt=""><div><small>${esc(f.en)}</small><b>${esc(f.name)}</b></div><span class="bs-lv">Lv.${lv}</span></header>
         <p class="bs-desc">${esc(f.desc)}</p>
         ${store}
         <div class="bs-slots">${Array.from({ length: slots }, (_, i) => ops[i]

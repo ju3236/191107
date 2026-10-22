@@ -1127,9 +1127,9 @@ Object.assign(ENEMIES, {
   warden:      { code: 'IGX', name: '그레이브스 소장', hp: 28000, atk: 900, def: 600, res: 40, speed: 0.25, interval: 3.0, range: 0, aoe: 1.0, weight: 3, enrage: { below: 0.5, atk: 1.4 }, lifeCost: 3, boss: true, color: '#3a4a5a', image: 'img/enemy/avenger.png', desc: '아이언 게이트 소장. 감염자 수감자를 기업에 팔아넘겼다. HP가 절반 아래로 떨어지면 공격력이 오른다.' },
   omega:       { code: 'EXΩ', name: '실험체 Ω', hp: 30000, atk: 1000, def: 450, res: 45, speed: 0.3, interval: 3.0, range: 0, aoe: 1.2, weight: 3, revive: { atk: 1.4 }, summon: { enemy: 'subject', every: 14, count: 2 }, lifeCost: 5, boss: true, color: '#3f6fd8', image: 'img/enemy/dssalr.png', desc: '터너를 대신하려고 만들어진 실험체. 쓰러져도 한 번 일어서고, 주기적으로 실험체를 불러낸다.' },
   // 훈련장 표적 (공격하지 않음)
-  dummy:       { code: 'TR1', name: '훈련용 표적', hp: 20000, atk: 0, def: 0, res: 0, speed: 0.25, interval: 3.0, range: 0, color: '#c9a96a', image: '', desc: '방어력과 마법 저항이 없는 표적. 공격하지 않는다.' },
-  dummy_h:     { code: 'TR2', name: '중장갑 표적', hp: 20000, atk: 0, def: 800, res: 50, speed: 0.25, interval: 3.0, range: 0, weight: 3, color: '#8a8f96', image: '', desc: '방어력 800 · 마법 저항 50. 공격하지 않는다.' },
-  dummy_f:     { code: 'TR3', name: '비행 표적', hp: 8000, atk: 0, def: 100, res: 0, speed: 0.3, interval: 3.0, range: 0, fly: true, color: '#9fd6ff', image: '', desc: '날아다니는 표적. 공격하지 않는다.' },
+  dummy:       { code: 'TR1', name: '훈련용 표적', hp: 20000, atk: 0, def: 0, res: 0, speed: 0.25, interval: 3.0, range: 0, color: '#c9a96a', image: 'img/enemy/dummy.png', desc: '방어력과 마법 저항이 없는 표적. 공격하지 않는다.' },
+  dummy_h:     { code: 'TR2', name: '중장갑 표적', hp: 20000, atk: 0, def: 800, res: 50, speed: 0.25, interval: 3.0, range: 0, weight: 3, color: '#8a8f96', image: 'img/enemy/dummy_h.png', desc: '방어력 800 · 마법 저항 50. 공격하지 않는다.' },
+  dummy_f:     { code: 'TR3', name: '비행 표적', hp: 8000, atk: 0, def: 100, res: 0, speed: 0.3, interval: 3.0, range: 0, fly: true, color: '#9fd6ff', image: 'img/enemy/dummy_f.png', desc: '날아다니는 표적. 공격하지 않는다.' },
 });
 
 // 적 그림: img/enemy/<적 id>.png (원작 적 도감 아이콘). 다른 그림을 쓰려면 적마다 image: '경로'를 넣으세요.

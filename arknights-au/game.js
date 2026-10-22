@@ -89,7 +89,12 @@
   function beginBattle(idx, squadIds, opts = {}) {
     const st = typeof idx === 'object' ? idx : STAGES[idx];
     // BGM: 보스가 나오는 작전은 보스 전투곡
-    if (window.SFX && SFX.bgm) SFX.bgm(st.waves.some((w) => { const e = (opts.enemies && opts.enemies[w.enemy]) || ENEMIES[w.enemy]; return e && e.boss; }) ? 'boss' : 'battle');
+    if (window.SFX && SFX.bgm) {
+      const boss = st.waves.some((w) => { const e = (opts.enemies && opts.enemies[w.enemy]) || ENEMIES[w.enemy]; return e && e.boss; });
+      const ch = typeof st.chapter === 'number' ? st.chapter : 1, isRun = typeof idx === 'object' && !opts.practice;
+      // 장마다 다른 전투곡 (1장 기본 · 2장 체르노보그 · 3장 용문 · 4장 일반 전투), 보스는 1~2장 프로스트노바 · 3장~ 용문 보스, 통합전략은 따로
+      SFX.bgm(boss ? (ch <= 2 && !isRun ? 'boss2' : 'boss') : isRun ? 'isbattle' : ({ 2: 'battle2', 3: 'battle3', 4: 'battle4' }[ch] || 'battle'));
+    }
     if (typeof idx === 'object') idx = -1;
     const map = st.map.map((r) => r.split(''));
     const spawns = [];
@@ -112,6 +117,7 @@
 
     UI.go('battle');
     S = {
+      flySpawns: new Set(st.waves.filter((w) => { const d = (opts.enemies && opts.enemies[w.enemy]) || ENEMIES[w.enemy]; return d && d.fly; }).map((w) => (paths[w.spawn] ? w.spawn : 0))),
       idx, st, squadIds, map, rows: map.length, cols: map[0].length, paths, flyPaths, queue,
       total: queue.length, killed: 0, leaked: 0, time: 0,
       dp: (st.startDp ?? 10) + (mods.startDp || 0), life, maxLife: opts.maxLife ?? life, deployLimit: (st.deployLimit ?? 8) + (mods.deployLimit || 0),
@@ -2168,27 +2174,28 @@
     const cy = Y - r - lift;
     const im = eImg(e.def);
     const ring = e.def.boss ? '#ff3b47' : isFly(e.def) ? '#5dade2' : e.def.elite ? '#ffb627' : 'rgba(255,90,90,.9)';
-    ctx.beginPath();
-    ctx.arc(X, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#22090c'; ctx.fill();
     if (im) {
-      // 원작 도감 아이콘을 동그랗게 잘라서 표시 (테두리 여백은 잘라냄)
+      // 원작 도감 아이콘(투명 배경)을 그대로 세워서 그림. 발밑에 진영 색 고리
+      ellipse(X, Y, r * 1.1, r * 0.42);
+      ctx.lineWidth = Math.max(1.5, r * 0.09); ctx.strokeStyle = ring; ctx.stroke();
+      const sz = r * 2.5;
       ctx.save();
-      ctx.clip();
-      const sw = im.naturalWidth * 0.8, sx = im.naturalWidth * 0.1;
-      ctx.drawImage(im, sx, im.naturalHeight * 0.06, sw, sw, X - r, cy - r, r * 2, r * 2);
-      if (e.flash > 0) { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(X - r, cy - r, r * 2, r * 2); }
+      if (e.flash > 0) ctx.filter = 'brightness(2.2)';
+      ctx.drawImage(im, X - sz / 2, cy + r - sz * 0.92, sz, sz);
       ctx.restore();
     } else {
+      ctx.beginPath();
+      ctx.arc(X, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#22090c'; ctx.fill();
       ctx.fillStyle = e.def.color;
       ctx.font = `900 ${r * 0.9}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(e.def.boss ? '王' : e.def.name.replace(/[「」]/g, '')[0], X, cy + r * 0.05);
+      ctx.beginPath();
+      ctx.arc(X, cy, r, 0, Math.PI * 2);
+      ctx.lineWidth = Math.max(2, r * 0.16);
+      ctx.strokeStyle = ring; ctx.stroke();
     }
-    ctx.beginPath();
-    ctx.arc(X, cy, r, 0, Math.PI * 2);
-    ctx.lineWidth = Math.max(2, r * 0.16);
-    ctx.strokeStyle = ring; ctx.stroke();
     const bw = T * (e.def.boss ? 0.8 : 0.5);
     bar(X - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
     if (e.analysis > 0 && e.ana) {
@@ -2521,6 +2528,25 @@
       ctx.beginPath();
       path.forEach((p, i) => { const [X, Y] = proj(p.x, p.y, 0.01); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
       ctx.stroke();
+    }
+    // 비행 적 경로 (그 침입 지점에서 비행 적이 나오는 작전만). 원거리 오퍼레이터를 배치할 때 더 진하게
+    if (S.flySpawns.size) {
+      const hi = (S.mode === 'placing' || S.mode === 'direction') && S.sel && !isGround(S.sel.def);
+      ctx.strokeStyle = hi ? 'rgba(93,173,226,.95)' : 'rgba(93,173,226,.5)';
+      ctx.lineWidth = Math.max(2, P.T * (hi ? 0.055 : 0.035));
+      ctx.setLineDash([P.T * 0.06, P.T * 0.1]);
+      S.flyPaths.forEach((path, i) => {
+        if (!S.flySpawns.has(i) || !path) return;
+        ctx.beginPath();
+        path.forEach((p, k) => { const [X, Y] = proj(p.x, p.y, 0.02); k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+        ctx.stroke();
+        // 진행 방향 화살표
+        const a0 = path[path.length - 2] || path[0], a1 = path[path.length - 1];
+        const [x0, y0] = proj(a0.x, a0.y, 0.02), [x1, y1] = proj(a1.x, a1.y, 0.02), ang = Math.atan2(y1 - y0, x1 - x0), L = P.T * 0.22;
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - L * Math.cos(ang - 0.5), y1 - L * Math.sin(ang - 0.5)); ctx.moveTo(x1, y1); ctx.lineTo(x1 - L * Math.cos(ang + 0.5), y1 - L * Math.sin(ang + 0.5)); ctx.stroke();
+        ctx.setLineDash([P.T * 0.06, P.T * 0.1]);
+      });
     }
     ctx.setLineDash([]);
     drawGates();
