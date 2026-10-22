@@ -1941,3 +1941,5 @@ img.dp-ico { width: 34px; height: 34px; object-fit: contain; }
 .card-cost { background: url(img/ui/card_cost.png) right center / auto 100% no-repeat, linear-gradient(90deg, transparent, rgba(0,0,0,.7) 35%); }
 .card-cost::before { content: ''; display: inline-block; width: 12px; height: 12px; background: url(img/ui/hud_cost.png) center / contain no-repeat; vertical-align: 2px; margin-right: 2px; }
 .art-ico img.ico.pro { width: 1em; height: 1em; filter: brightness(0); opacity: .22; }
+/* 통합전략 소장품 아이콘: 스프라이트 시트 (칸 112px → 58px로 줄여 표시) */
+i.relic-img.relic-sp { border-radius: 0; background: url(img/relics.webp) 0 0 / 928px auto no-repeat; }

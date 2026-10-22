@@ -387,11 +387,18 @@
       </div>`);
   }
   // 소장품 카드 (그림 · 번호 · 희귀도 · 효과 원문 · 이 게임에서 다르게 적용되는 점)
+  // 소장품 아이콘: img/relics.webp 한 장(112px 칸, 16칸씩)에서 잘라 씀. image의 번호(img/relic/NNN.webp)로 위치를 찾음
+  function relicIco(x) {
+    const m = x.image && String(x.image).match(/(\d+)\.webp$/);
+    if (!m) return '<i class="relic-img"></i>';
+    const k = +m[1] - 1;
+    return `<i class="relic-img relic-sp" style="background-position:${-(k % 16) * 58}px ${-Math.floor(k / 16) * 58}px"></i>`;
+  }
   function relicHTML(x, extra = '', lore = false, hide = false) {
     if (!x) return '';
-    if (hide) return `<div class="relic unknown">${x.image ? `<img class="relic-img" src="${esc(x.image)}" alt="">` : '<i class="relic-img"></i>'}<div class="relic-no">No.${String(x.no).padStart(3, '0')}</div><b>???</b><span>아직 얻지 못한 소장품</span></div>`;
+    if (hide) return `<div class="relic unknown">${relicIco(x)}<div class="relic-no">No.${String(x.no).padStart(3, '0')}</div><b>???</b><span>아직 얻지 못한 소장품</span></div>`;
     return `<div class="relic r-${x.na ? 'na' : x.rarity}">
-      ${x.image ? `<img class="relic-img" src="${esc(x.image)}" alt="" loading="lazy">` : '<i class="relic-img"></i>'}
+      ${relicIco(x)}
       <div class="relic-no">No.${String(x.no).padStart(3, '0')} · ${x.na ? '등장하지 않음' : esc(RARITY[x.rarity])}</div>
       <b>${esc(x.name)}</b><span>${esc(x.desc)}</span>
       ${x.note ? `<em class="relic-note">이 게임에서는: ${esc(x.note)}</em>` : ''}${x.na ? `<em class="relic-note">${esc(x.na)}</em>` : ''}
