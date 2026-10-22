@@ -480,7 +480,7 @@ const OPERATORS = [
     hp: 1600, atk: 470, def: 240, res: 10, interval: 1.3,
     range: area(0, 3, -1, 1),  // 원작 범위 3-3
     summon: {
-      id: 'house_guard', name: '하우스 가드', class: 'defender', color: '#4a5a9a', summoned: true,
+      id: 'house_guard', name: '하우스 가드', class: 'defender', color: '#4a5a9a', summoned: true, image: 'img/house_guard.png',
       cost: 4, redeploy: 25, block: 2, hp: 2600, atk: 430, def: 380, res: 10, interval: 1.25, range: area(0, 0, 0, 0),
       profile: '키스가 불러내는 카지노의 경비원.',
     },
