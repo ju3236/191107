@@ -212,7 +212,16 @@
   // =====================================================================
   const totalStars = () => STAGES.reduce((s, st) => s + (save.stars[st.code] || 0), 0);
   const cleared = (st) => (save.stars[st.code] || 0) > 0;
-  const unlocked = (i) => i === 0 || cleared(STAGES[i - 1]);
+  // 물자 조달: 1-4를 깨면 열리고, 같은 시리즈의 이전 단계를 깨야 다음 단계가 열림
+  const unlocked = (i) => {
+    const st = STAGES[i];
+    if (st.supply) {
+      if (!cleared(STAGES[3])) return false;
+      const prev = STAGES.find((x) => x.supply === st.supply && x.tier === st.tier - 1);
+      return !prev || cleared(prev);
+    }
+    return i === 0 || cleared(STAGES[i - 1]);
+  };
   let voiceIdx = 0, assistantLine = null, greeted = false, lastInput = Date.now(), idleShown = false;
   // 방치 대사: 메인 화면에서 1분 동안 아무 입력이 없으면
   ['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { lastInput = Date.now(); idleShown = false; }, true));
@@ -421,12 +430,13 @@
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
     $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
     $('#detail-cost').textContent = o.cost;
-    const list = skillsOf(base), cur = skillIndex(base);
-    $('#detail-skill').innerHTML = list.map((sk, i) => `
-      <button class="skill-row ${i === cur ? 'on' : ''} ${i > pg.elite ? 'locked' : ''}" data-skill="${i}">${i > pg.elite ? `<span class="lock-tag">${eliteIcon(i)} ${i}차 정예화 해금</span>` : ''}
+    const list = skillsOf(base), cur = skillIndex(base), tlist = skillsOf(o);
+    const lvTag = (i) => (i > pg.elite ? '' : `<span class="sk-lv ${pg.mst[i] ? 'm' : ''}">${pg.mst[i] ? `특화 ${pg.mst[i]}` : `Lv.${pg.slv}`}</span>`);
+    $('#detail-skill').innerHTML = (owned(base.id) ? `<button class="sk-train" id="sk-train">스킬 육성 · 레벨 ${pg.slv}/${TRAIN_RULE.skillMax[pg.elite]}</button>` : '') + list.map((sk0, i) => { const sk = tlist[i] || sk0; return `
+      <button class="skill-row ${i === cur ? 'on' : ''} ${i > pg.elite ? 'locked' : ''}" data-skill="${i}">${i > pg.elite ? `<span class="lock-tag">${eliteIcon(i)} ${i}차 정예화 해금</span>` : ''}${lvTag(i)}
         <div class="sk-ico" style="--c:${o.color}"><b>S${i + 1}</b><small>${sk.spType === 'deploy' ? '배치' : 'SP ' + sk.sp}</small></div>
-        <div><b>${esc(sk.name)}</b><em>${SP_TYPE[sk.spType || 'time']} · ${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'}${durText(sk)}</em><p>${esc(sk.desc)}</p></div>
-      </button>`).join('') + (list.length > 1 ? '<div class="skill-hint">눌러서 전투에 쓸 스킬을 고르세요</div>' : '');
+        <div><b>${esc(sk.name)}</b><em>${SP_TYPE[sk.spType || 'time']} · ${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'}${durText(sk)}</em><p>${esc(sk0.desc)}</p>${sk.power && sk.power < 1 && i <= pg.elite ? `<p class="sk-pow">현재 위력 ${Math.round(sk.power * 100)}% (설명은 특화 3 기준)</p>` : ''}</div>
+      </button>`; }).join('') + (list.length > 1 ? '<div class="skill-hint">눌러서 전투에 쓸 스킬을 고르세요</div>' : '');
     $('#detail-talents').innerHTML = `<div class="trait"><span class="chip">특성</span>${esc(arch ? arch.trait : cls.trait)}</div>` +
       (base.talents || []).map((t, i) => `<div class="talent ${i >= pg.elite ? 'locked' : ''}"><b>${esc(t.name)}${i >= pg.elite ? ` <small>${i + 1}차 정예화 해금</small>` : ''}</b><p>${esc(t.desc)}</p></div>`).join('');
     $('#detail-race').textContent = `${o.race} · ${o.faction || cls.name}`;
@@ -562,7 +572,32 @@
     i = (i + d + list.length) % list.length;
     RENDER.detail(list[i].id);
   }
+  // 스킬 육성 창: 스킬 레벨(공통) · 스킬별 특화
+  function costHTML(c) {
+    if (!c) return '';
+    const items = { lmd: c.lmd, ...c.items };
+    return `<div class="st-cost">${Object.entries(items).map(([k, n]) => { const have = ACCOUNT.bal(k); return `<span class="${have >= n ? '' : 'bad'}" title="${esc(ITEMS[k].name)}"><i class="ri ${k}"></i>${k === 'lmd' ? n.toLocaleString('ko-KR') : `${have}/${n}`}</span>`; }).join('')}</div>`;
+  }
+  function openSkillTrain() {
+    const def = OPS[detailId], p = TRAIN.prog(def.id), max = TRAIN_RULE.skillMax[p.elite];
+    const up = TRAIN.skillUpCost(def, p), list = skillsOf(def);
+    const rows = list.map((sk, i) => {
+      if (i > p.elite) return `<div class="st-row dim"><b>S${i + 1} ${esc(sk.name)}</b><span>${i}차 정예화 후 열림</span></div>`;
+      const mc = TRAIN.masteryCost(def, i, p);
+      return `<div class="st-row"><b>S${i + 1} ${esc(sk.name)}</b><span class="st-m">${[1, 2, 3].map((m) => `<i class="${p.mst[i] >= m ? 'on' : ''}"></i>`).join('')} 특화 ${p.mst[i]}/3 · 위력 ${Math.round(TRAIN.skillPower(p.slv, p.mst[i]) * 100)}%</span>
+        ${mc ? `${costHTML(mc)}<button class="btn small primary" data-master="${i}">특화 ${p.mst[i] + 1}</button>` : `<small>${p.mst[i] >= 3 ? '최고 단계' : '2차 정예화 · 스킬 레벨 7이 필요'}</small>`}</div>`;
+    }).join('');
+    openModal(`<div class="modal-title">${esc(def.name)} — 스킬 육성</div><div class="modal-sub">스킬 레벨은 모든 스킬에 함께 적용되고, 특화는 스킬마다 따로 올립니다</div>
+      <div class="st-rank"><div class="st-lv"><small>스킬 레벨</small><b>${p.slv}</b><span>/${max}</span></div>
+        <div class="st-bars">${[1, 2, 3, 4, 5, 6, 7].map((l) => `<i class="${l <= p.slv ? 'on' : l > max ? 'lock' : ''}"></i>`).join('')}</div>
+        ${up ? `${costHTML(up)}<button class="btn primary" id="st-up">레벨 ${p.slv + 1}로</button>` : `<small>${p.slv >= 7 ? '최고 레벨' : '1차 정예화를 하면 레벨 7까지 올릴 수 있습니다'}</small>`}</div>
+      <div class="st-list">${rows}</div>`);
+    const go2 = (r) => { if (!r.ok) { toast(r.why); return; } sfx('select'); openSkillTrain(); RENDER.detail(); };
+    const u = $('#st-up'); if (u) u.addEventListener('click', () => go2(TRAIN.skillUp(def)));
+    document.querySelectorAll('[data-master]').forEach((b) => b.addEventListener('click', () => go2(TRAIN.master(def, +b.dataset.master))));
+  }
   $('#detail-skill').addEventListener('click', (e) => {
+    if (e.target.closest('#sk-train')) { openSkillTrain(); return; }
     const b = e.target.closest('[data-skill]');
     if (!b) return;
     if (b.classList.contains('locked')) { toast(`${b.dataset.skill}차 정예화를 하면 쓸 수 있습니다`); return; }
@@ -837,8 +872,7 @@
     save.trust = save.trust || {};
     for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
     const first = !(save.stars[st.code] > 0);
-    const reward = TRAIN.stageDrops({ ...st, sanity: cost }, idx, starCount, first);
-    if (first) reward.originite = 1;
+    const reward = rewardFor(st, idx, starCount, first);
     ACCOUNT.earn(reward);
     return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}`).join(' · ') + ` · 신뢰도 +${cost}%`;
   }
@@ -852,6 +886,12 @@
       defs: squad.map((id) => TRAIN.trained(OPS[id])), practice: true,
       onEnd: (r) => ({ text: `훈련 종료 · 처치 ${r.killed}`, buttons: [{ label: '다시 훈련', cls: 'primary', fn: startPractice }, { label: '편성', fn: () => go('formation') }, { label: '작전 목록', fn: () => go('operations') }] }),
     });
+  }
+  function rewardFor(st, idx, starCount, first) {
+    if (st.supply) return TRAIN.supplyDrops(st, starCount);
+    const reward = TRAIN.stageDrops({ ...st, sanity: sanityCost(st) }, idx, starCount, first);
+    if (first) reward.originite = 1;
+    return reward;
   }
   function onBattleQuit(idx) { ACCOUNT.addSanity(sanityCost(STAGES[idx]) - 1); }
   const sfx = (n) => window.SFX && SFX.play(n);
@@ -869,7 +909,7 @@
     if (!unlocked(opSel)) opSel = 0;
     if (!opts.back) {
       let last = 0;
-      STAGES.forEach((_, i) => { if (unlocked(i)) last = i; });
+      STAGES.forEach((st, i) => { if (!st.supply && unlocked(i)) last = i; });
       opSel = last;
       chapterSel = STAGES[last].chapter;
     }
@@ -909,10 +949,11 @@
     const b = e.target.closest('[data-ep]');
     if (!b) return;
     if (b.classList.contains('locked')) { toast('이전 에피소드를 완료하면 해금됩니다'); return; }
-    chapterSel = isNaN(+b.dataset.ep) ? undefined : +b.dataset.ep;
+    const chf = chapters().find((c) => String(c.id) === b.dataset.ep);
+    chapterSel = chf ? chf.id : undefined;
     const first = stagesOf(chapters().find((c) => c.id === chapterSel))[0];
     let last = first.i;
-    STAGES.forEach((st, i) => { if (st.chapter === chapterSel && unlocked(i)) last = i; });
+    STAGES.forEach((st, i) => { if (st.chapter === chapterSel && unlocked(i) && !st.supply) last = i; });
     opSel = last;
     RENDER.operations(undefined, { back: true });
   });
@@ -928,7 +969,8 @@
       <div class="op-story">
         ${st.before && st.before.length ? `<button class="story-btn" id="op-story">${icon('play')}<span>스토리</span></button>` : ''}
         <div class="op-desc">
-          <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명 · 첫 클리어 보상 오리지늄 1</div>
+          <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명${st.supply ? '' : ' · 첫 클리어 보상 오리지늄 1'}</div>
+          ${st.supply ? `<div class="op-drops">${Object.entries(st.drops).map(([k, n]) => `<span title="${esc(ITEMS[k].name)}"><i class="ri ${k}"></i>${esc(ITEMS[k].short)} ×${n}</span>`).join('')}${(st.chance || []).map(([k, p2]) => `<span class="maybe"><i class="ri ${k}"></i>${esc(ITEMS[k].short)} ${Math.round(p2 * 100)}%</span>`).join('')}</div>` : ''}
           <p>${esc(st.desc)}</p>
           <p class="op-warn">출현 적: ${enemyIds.map((id) => ENEMIES[id] ? esc(ENEMIES[id].name) : id).join(', ')}</p>
         </div>
@@ -939,14 +981,40 @@
       </div>
       <div class="op-actions">
         <button class="act-formation" id="op-formation">${icon('users')}<span>편성</span></button>
-        <button class="act-start" id="op-start"><b>작전개시</b><small>이성 -${sanityCost(st)}</small></button>
+        <button class="act-start" id="op-start"><b>${proxyOn && s >= 3 ? '대리 작전' : '작전개시'}</b><small>이성 -${sanityCost(st) * (proxyOn && s >= 3 ? proxyN : 1)}</small></button>
+      </div>
+      <div class="op-proxy ${s >= 3 ? '' : 'off'}">
+        <button class="px-toggle ${proxyOn && s >= 3 ? 'on' : ''}" id="op-proxy" ${s >= 3 ? '' : 'disabled'}><span class="px-box"></span>대리 지휘 ${s >= 3 ? '' : '<small>(별 3개 클리어 후)</small>'}</button>
+        ${s >= 3 && proxyOn ? `<div class="px-times">${[1, 2, 3, 4, 5, 6].map((n) => `<button class="${n === proxyN ? 'on' : ''}" data-px="${n}">×${n}</button>`).join('')}</div>` : ''}
       </div>`;
     const story = $('#op-story');
     if (story) story.addEventListener('click', () => playDialog(st.before, () => {}));
     $('#op-enemy').addEventListener('click', () => openEnemies(st));
     $('#op-mapview').addEventListener('click', () => openMap(st));
     $('#op-formation').addEventListener('click', () => go('formation', { stage: opSel }));
-    $('#op-start').addEventListener('click', () => go('formation', { stage: opSel }));
+    $('#op-start').addEventListener('click', () => (proxyOn && s >= 3 ? runProxy(opSel, proxyN) : go('formation', { stage: opSel })));
+    $('#op-proxy').addEventListener('click', () => { proxyOn = !proxyOn; renderOpsPanel(); });
+    document.querySelectorAll('[data-px]').forEach((b) => b.addEventListener('click', () => { proxyN = +b.dataset.px; renderOpsPanel(); }));
+  }
+  // 대리 작전: 별 3개로 깬 작전을 N번 바로 완료 (이성 N배, 보상 N번)
+  let proxyOn = false, proxyN = 1;
+  function runProxy(idx, n) {
+    const st = STAGES[idx], cost = sanityCost(st) * n;
+    if (!ACCOUNT.useSanity(cost)) { openSanity(() => runProxy(idx, n)); return; }
+    fixPlayer();
+    const total = {};
+    for (let k = 0; k < n; k++) for (const [id, v] of Object.entries(rewardFor(st, idx, 3, false))) total[id] = (total[id] || 0) + v;
+    ACCOUNT.earn(total);
+    save.trust = save.trust || {};
+    for (const id of save.squad) save.trust[id] = Math.min(200, (save.trust[id] || 0) + sanityCost(st) * n);
+    writeSave();
+    sfx('win');
+    const rows = Object.entries(total).map(([k, v]) => `<div class="px-item"><i class="ri ${k} big"></i><b>${v.toLocaleString('ko-KR')}</b><span>${esc(ITEMS[k] ? ITEMS[k].name : k)}</span></div>`).join('');
+    openModal(`<div class="modal-title">대리 작전 완료 ×${n}</div><div class="modal-sub">${esc(st.code)} ${esc(st.name)} · 이성 -${cost} · 편성 오퍼레이터 신뢰도 +${sanityCost(st) * n}%</div><div class="px-grid">${rows}</div>
+      <div class="panel-btns"><button class="btn primary" id="px-again">한 번 더 (×${n})</button><button class="btn" id="px-close">확인</button></div>`);
+    $('#px-close').addEventListener('click', closeModal);
+    $('#px-again').addEventListener('click', () => { closeModal(); runProxy(idx, n); });
+    renderResources();
   }
 
   $('#btn-practice').addEventListener('click', startPractice);
@@ -1081,8 +1149,8 @@
   ACCOUNT.on('mode', rerender);
   ACCOUNT.on('wallet', renderResources);
   applySkins();
-  TRAIN.migrate(); TRAIN.giveGift();
-  ACCOUNT.on('player', () => { if (!ACCOUNT.player.trainMigrated) { TRAIN.migrate(); rerender(); } TRAIN.giveGift(); });
+  TRAIN.migrate(); TRAIN.migrateSkills(); TRAIN.giveGift();
+  ACCOUNT.on('player', () => { if (!ACCOUNT.player.trainMigrated || !ACCOUNT.player.skillMigrated) { TRAIN.migrate(); TRAIN.migrateSkills(); rerender(); } TRAIN.giveGift(); });
   ACCOUNT.on('granted', (g) => {
     const items = Object.entries(g.items || {}).map(([k, v]) => (k.startsWith('op:') ? (OPS[k.slice(3)] ? OPS[k.slice(3)].name : '오퍼레이터') : `${ITEMS[k] ? ITEMS[k].name : k} ×${v}`)).join(', ');
     toast(`지급 완료 — ${items}`);

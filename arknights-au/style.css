@@ -1520,3 +1520,52 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
 .practice-btn small { font-family: var(--f-en); font-size: 10px; color: #9ad8ea; letter-spacing: .05em; }
 .practice-btn:hover { border-left-color: #ffcf3a; }
 @media (max-height: 500px) { .practice-btn { bottom: 8px; padding: 6px 14px 6px 10px; } .practice-btn b { font-size: 14px; } }
+
+/* ---------- 스킬개론 아이콘 ---------- */
+.ri.skill_1::before, .ri.skill_2::before, .ri.skill_3::before { clip-path: polygon(10% 8%, 88% 8%, 88% 92%, 10% 92%); box-shadow: inset 6px 0 0 rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.5); }
+.ri.skill_1::before { background: linear-gradient(135deg, #d6f0ff, #5aa8e0); }
+.ri.skill_2::before { background: linear-gradient(135deg, #fff3b0, #e0b02a); }
+.ri.skill_3::before { background: linear-gradient(135deg, #ffd0b0, #e0602a); }
+
+/* ---------- 물자 조달 · 대리 작전 ---------- */
+.op-drops { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.op-drops span { display: inline-flex; align-items: center; gap: 4px; background: rgba(0,0,0,.4); padding: 3px 8px; font-size: 12px; }
+.op-drops span.maybe { opacity: .75; }
+.op-proxy { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; justify-content: flex-end; }
+.op-proxy.off { opacity: .55; }
+.px-toggle { display: flex; align-items: center; gap: 8px; color: #fff; font-weight: 700; font-size: 14px; background: rgba(0,0,0,.45); padding: 6px 12px; }
+.px-toggle small { font-weight: 400; color: #aaa; }
+.px-box { width: 16px; height: 16px; border: 2px solid #ddd; display: inline-block; }
+.px-toggle.on .px-box { background: #2fc3e6; border-color: #2fc3e6; box-shadow: inset 0 0 0 2px #000; }
+.px-times { display: flex; gap: 2px; }
+.px-times button { background: rgba(0,0,0,.5); color: #ccc; padding: 6px 10px; font-family: var(--f-en); font-size: 15px; }
+.px-times button.on { background: #2fc3e6; color: #0b1a20; font-weight: 700; }
+.px-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 14px 0; }
+.px-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: rgba(255,255,255,.05); padding: 10px 4px; text-align: center; }
+.px-item b { font-family: var(--f-en); font-size: 18px; }
+.px-item span { font-size: 11px; color: #bbb; }
+/* ---------- 스킬 레벨 · 특화 ---------- */
+.sk-train { width: 100%; padding: 8px; margin-bottom: 8px; background: linear-gradient(90deg, #2b2d31, #3a3420); color: #ffcf3a; font-weight: 900; font-size: 13px; border-left: 3px solid #ffcf3a; text-align: left; }
+.skill-row { position: relative; }
+.sk-lv { position: absolute; right: 8px; top: 8px; font-family: var(--f-en); font-size: 12px; background: #111; color: #fff; padding: 1px 8px; border: 1px solid #555; }
+.sk-lv.m { color: #ffcf3a; border-color: #ffcf3a; }
+.sk-pow { color: #ffb45a !important; font-size: 11px !important; margin-top: 2px !important; }
+.st-rank { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: rgba(255,255,255,.05); padding: 12px; margin: 10px 0; }
+.st-lv { display: flex; align-items: baseline; gap: 4px; }
+.st-lv small { font-size: 12px; color: #aaa; margin-right: 6px; }
+.st-lv b { font-family: var(--f-en); font-size: 40px; font-weight: 500; }
+.st-lv span { font-family: var(--f-en); color: #aaa; }
+.st-bars { display: flex; gap: 3px; }
+.st-bars i { width: 18px; height: 8px; background: #3a3c41; }
+.st-bars i.on { background: #ffcf3a; }
+.st-bars i.lock { background: repeating-linear-gradient(45deg, #2a2a2a 0 3px, #444 3px 6px); }
+.st-cost { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+.st-cost span { display: inline-flex; align-items: center; gap: 4px; font-family: var(--f-en); font-size: 13px; background: rgba(0,0,0,.35); padding: 2px 8px; }
+.st-cost span.bad { color: #ff6b6e; }
+.st-list { display: flex; flex-direction: column; gap: 8px; }
+.st-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: rgba(255,255,255,.04); padding: 10px 12px; }
+.st-row.dim { opacity: .5; }
+.st-row > b { min-width: 180px; }
+.st-m { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #ccc; }
+.st-m i { width: 14px; height: 14px; transform: rotate(45deg); border: 2px solid #777; margin-right: 2px; }
+.st-m i.on { background: #ffcf3a; border-color: #ffcf3a; }
