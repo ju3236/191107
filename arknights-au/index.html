@@ -61,6 +61,7 @@
         <button class="tile tile-accent" data-go="headhunt"><span class="tile-ico" data-ico="headhunt"></span><span><span class="tile-en">HEADHUNT</span><span class="tile-ko">헤드헌팅</span></span></button>
       </div>
       <div class="tile-row">
+        <button class="tile tile-base" data-go="base"><span class="tile-ico" data-ico="base"></span><span><span class="tile-en">BASE</span><span class="tile-ko">기반시설</span></span><span class="tile-badge hidden" id="base-badge">!</span></button>
         <button class="tile" data-go="depot"><span class="tile-ico" data-ico="depot"></span><span><span class="tile-en">DEPOT</span><span class="tile-ko">창고</span></span></button>
         <button class="tile tile-mission" data-go="missions"><span class="tile-ico" data-ico="mission"></span><span><span class="tile-en">MISSION</span><span class="tile-ko">임무</span></span><span class="tile-badge hidden" id="mission-badge"></span></button>
         <button class="tile tile-admin hidden" id="tile-admin" data-go="admin"><span class="tile-ico" data-ico="admin"></span><span><span class="tile-en">ADMIN</span><span class="tile-ko">관리자</span></span></button>
@@ -136,7 +137,7 @@
         <p class="profile" id="detail-profile"></p>
         <p class="quote" id="detail-quote"></p>
       </div>
-      <div class="detail-btns"><button class="btn" id="detail-skin">의상</button><button class="btn" id="detail-voice">음성 기록</button><button class="btn primary" id="detail-assist">비서로 지정</button></div>
+      <div class="detail-btns"><button class="btn" id="detail-skin">의상</button><button class="btn" id="detail-file">파일</button><button class="btn" id="detail-voice">음성 기록</button><button class="btn primary" id="detail-assist">비서로 지정</button></div>
     </div>
   </section>
 
@@ -247,6 +248,19 @@
       <div class="ws-grid" id="ws-grid"></div>
       <aside class="ws-panel" id="ws-panel"></aside>
     </div>
+  </section>
+
+  <!-- ===================== 기반시설 ===================== -->
+  <section id="screen-base" class="screen">
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+        <span class="topbar-title light-title">기반시설</span>
+      </div>
+      <button class="bs-collect" id="bs-collect">모두 수령</button>
+    </header>
+    <div class="bs-body" id="bs-body"></div>
   </section>
 
   <!-- ===================== 임무 ===================== -->
@@ -407,6 +421,7 @@
 <script src="ui.js"></script>
 <script src="shop.js"></script>
 <script src="tasks.js"></script>
+<script src="base.js"></script>
 <script src="roguelike.js"></script>
 <script src="game.js"></script>
 </body>

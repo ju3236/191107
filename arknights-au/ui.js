@@ -21,6 +21,7 @@
 
   // ---------- 아이콘 ----------
   const ICON = {
+    base: '<path d="M3 21V10l9-6 9 6v11"/><path d="M9 21v-6h6v6M3 21h18"/>',
     mission: '<path d="M9 4h6v3H9z"/><path d="M9 5H6v16h12V5h-3"/><path d="M9 12l2 2 4-4M9 17h6"/>',
     craft: '<path d="M14 4l6 6-3 3-6-6z"/><path d="M11 7L3 15l3 3 8-8M4 21h7"/>',
     vanguard: '<path d="M6 21V3.5"/><path d="M6 4h12l-3 4.5L18 13H6"/>',
@@ -92,7 +93,7 @@
     if (key === 'deploy' || key === 'select' || key === 'obtain') return def.quote || '';
     return '';
   }
-  const trustOf = (id) => Math.min(200, (save.trust && save.trust[id]) || 0);
+  const trustOf = (id) => Math.floor(Math.min(200, (save.trust && save.trust[id]) || 0));
   // 신뢰도로 해금되는 대사 (정예화가 없으므로 승진 후 대화는 신뢰도 120%에서 해금)
   const VOICE_UNLOCK = { trust40: 40, trust100: 100, promo: 120, trust150: 150, trust200: 200 };
   function homeLines(def) {
@@ -705,6 +706,31 @@
         <p class="pt-note">프로필 기록: ${String(o.profile || '').split('\n\n').slice(1).map((_, i, a) => `기록 ${i + 1} ${recordNeed(i + 1, a.length + 1)}%`).join(' · ') || '없음'}</p></div>`);
   }
   $('#detail-pot').addEventListener('click', () => openPotTrust(detailId));
+  // 오퍼레이터 파일: 기본 정보 · 체검 보고서(medical) · 기록 1~N(프로필 문단, 신뢰도) · 승진 기록(2차 정예화)
+  function openFile(id, tab = 0) {
+    const o = OPS[id], t = trustOf(id), pg = TRAIN.prog(id), own = owned(id);
+    const paras = String(o.profile || '').split('\n\n');
+    const real = (paras[0].match(/본명 ([^.,]+)/) || [])[1];
+    const cls = CLASSES[o.class], arch = o.archetype && ARCHETYPES[o.archetype];
+    const at = own && save.owned && save.owned[id] && save.owned[id].at;
+    const tabs = [{ name: '기본 정보', html: `<table class="fl-tbl">${[['코드네임', o.name], real && ['본명', real], ['영문', o.en], ['종족', o.race], ['소속', o.faction],
+      ['직군', `${cls.name}${arch ? ' · ' + arch.name : ''}`], ['레어도', '★'.repeat(o.rarity || 3)], ['태그', (o.tags || []).join(' · ')], at && ['합류일', new Date(at).toLocaleDateString('ko-KR')]]
+      .filter((r) => r && r[1]).map(([k, v]) => `<tr><th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</table><p class="fl-txt">${esc(paras[0])}</p>` }];
+    if (o.medical) tabs.push({ name: '체검 보고서', need: 10, html: `<p class="fl-txt">${esc(o.medical)}</p>` });
+    paras.slice(1).forEach((txt, i) => tabs.push({ name: `기록 ${i + 1}`, need: recordNeed(i + 1, paras.length), html: `<p class="fl-txt">${esc(txt)}</p>` }));
+    const promo = o.promoRecord || (o.voice && o.voice.promo && [].concat(o.voice.promo).join('\n\n'));
+    if (promo) tabs.push({ name: '승진 기록', elite: 2, html: `<p class="fl-txt">${esc(promo)}</p>` });
+    const lockOf = (tb) => (!own ? '보유하지 않은 오퍼레이터입니다' : tb.need && t < tb.need ? `신뢰도 ${tb.need}% 달성 시 열람 가능` : tb.elite && pg.elite < tb.elite ? `${tb.elite}차 정예화 후 열람 가능` : '');
+    tab = Math.min(tab, tabs.length - 1);
+    const lk = tab ? lockOf(tabs[tab]) : '';
+    openModal(`<div class="fl-wrap" style="--c:${o.color}">
+      <div class="fl-head"><small>OPERATOR FILE · ${esc(o.en || '')}</small><b>${esc(o.name)}</b><span>신뢰도 ${t}%</span></div>
+      <div class="fl-body"><nav class="fl-tabs">${tabs.map((tb, i) => `<button class="${i === tab ? 'on' : ''} ${i && lockOf(tb) ? 'locked' : ''}" data-ftab="${i}">${i && lockOf(tb) ? icon('lock') : ''}${tb.name}</button>`).join('')}</nav>
+        <div class="fl-main">${lk ? `<div class="fl-lock">${icon('lock')}<b>${esc(tabs[tab].name)}</b><span>${lk}</span></div>` : tabs[tab].html}</div></div></div>`);
+    $('#modal').dataset.kind = 'file';
+    $('#modal-body').querySelectorAll('[data-ftab]').forEach((b) => b.addEventListener('click', () => openFile(id, +b.dataset.ftab)));
+  }
+  $('#detail-file').addEventListener('click', () => openFile(detailId));
   $('#detail-skin').addEventListener('click', () => openSkins(detailId));
   $('#detail-voice').addEventListener('click', () => {
     const o = OPS[detailId];

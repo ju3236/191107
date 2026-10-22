@@ -1795,9 +1795,34 @@ const WORKSHOP = [
 ];
 
 // ---------------------------------------------------------------------
+//  기반시설 — 시간이 지나면 생산물이 쌓이고(보관 한도까지), 「수령」으로 받습니다.
+//  오퍼레이터를 배치해야 가동하며, 배치한 오퍼레이터마다 효율이 오릅니다.
+//  효율 = 배치 오퍼레이터마다 (기본 opEff + 맞는 직군 classEff + 정예화 단계 × eliteEff)
+//  rate: 레벨별 시간당 기본 생산량(효율 100% 기준) · cap: 레벨별 보관 한도(시간) · slots: 레벨별 배치 인원
+//  응접실은 생산물 대신 배치한 오퍼레이터의 신뢰도가 시간당 rate%씩 오릅니다.
+// ---------------------------------------------------------------------
+const BASE = {
+  opEff: 0.35, classEff: 0.2, eliteEff: 0.05,
+  facilities: [
+    { id: 'trade', name: '무역소', en: 'TRADING POST', out: 'lmd', color: '#4fa0d9', classes: ['vanguard', 'supporter'],
+      desc: '용문폐를 벌어 온다. 뱅가드 · 서포터가 잘한다.',
+      rate: [900, 1400, 2100], cap: [8, 12, 16], slots: [1, 2, 3],
+      upgrade: [{ lmd: 20000, items: { m_iron: 6, m_device: 4 } }, { lmd: 60000, items: { m_iron3: 4, m_device3: 3 } }] },
+    { id: 'factory', name: '제조소', en: 'FACTORY', out: 'exp', color: '#e0a020', classes: ['guard', 'caster'],
+      desc: '작전기록을 만든다 (경험치 단위로 쌓이고, 받을 때 작전기록으로 바뀐다). 가드 · 캐스터가 잘한다.',
+      rate: [1000, 1600, 2400], cap: [8, 12, 16], slots: [1, 2, 3],
+      upgrade: [{ lmd: 20000, items: { m_rock: 6, m_poly: 4 } }, { lmd: 60000, items: { m_rock3: 4, m_poly3: 3 } }] },
+    { id: 'recept', name: '응접실', en: 'RECEPTION ROOM', out: 'trust', color: '#d0603a', classes: [],
+      desc: '배치한 오퍼레이터와 박사가 이야기를 나눈다. 배치한 오퍼레이터의 신뢰도가 오른다.',
+      rate: [2, 3, 4], cap: [12, 16, 24], slots: [2, 3, 4],
+      upgrade: [{ lmd: 20000, items: { m_sugar: 6, m_keton: 4 } }, { lmd: 60000, items: { m_sugar3: 4, m_keton3: 3 } }] },
+  ],
+};
+
+// ---------------------------------------------------------------------
 //  임무 — 일일(매일 오전 4시) · 주간(월요일 오전 4시) 초기화
 //  kind: battle(작전 완료, 대리 작전 포함) · supply(물자 비축 작전) · chip(칩 탐색 작전) · sanity(소모 이성)
-//        train(레벨업·정예화·스킬 육성) · promote(정예화) · craft(가공소 합성) · pull(헤드헌팅 횟수)
+//        train(레벨업·정예화·스킬 육성) · promote(정예화) · craft(가공소 합성) · pull(헤드헌팅 횟수) · base(기반시설 수령)
 // ---------------------------------------------------------------------
 const MISSIONS = {
   daily: [
@@ -1806,6 +1831,7 @@ const MISSIONS = {
     { id: 'd_supply', kind: 'supply', n: 1, text: '물자 비축 작전을 1회 완료', reward: { exp_3: 2 } },
     { id: 'd_train', kind: 'train', n: 1, text: '오퍼레이터를 1회 육성 (레벨업 · 정예화 · 스킬)', reward: { lmd: 3000 } },
     { id: 'd_craft', kind: 'craft', n: 1, text: '가공소에서 1회 합성', reward: { skill_1: 2, lmd: 1000 } },
+    { id: 'd_base', kind: 'base', n: 1, text: '기반시설에서 생산물을 1회 수령', reward: { lmd: 1500 } },
     { id: 'd_pull', kind: 'pull', n: 1, text: '헤드헌팅을 1회 진행', reward: { orundum: 100 } },
   ],
   dailyBonus: { orundum: 200, lmd: 5000 },
@@ -1814,6 +1840,7 @@ const MISSIONS = {
     { id: 'w_sanity', kind: 'sanity', n: 800, text: '이성을 800 소모', reward: { orundum: 500, exp_4: 5 } },
     { id: 'w_chip', kind: 'chip', n: 5, text: '칩 탐색 작전을 5회 완료', reward: { lmd: 10000, skill_3: 3 } },
     { id: 'w_promote', kind: 'promote', n: 1, text: '오퍼레이터를 1회 정예화', reward: { orundum: 300, lmd: 10000 } },
+    { id: 'w_base', kind: 'base', n: 5, text: '기반시설에서 5회 수령', reward: { lmd: 8000, exp_3: 4 } },
     { id: 'w_craft', kind: 'craft', n: 10, text: '가공소에서 10회 합성', reward: { lmd: 15000 } },
   ],
   weeklyBonus: { originite: 1, orundum: 500 },

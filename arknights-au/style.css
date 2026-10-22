@@ -1831,3 +1831,70 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
 .pt-bar em { position: absolute; top: 10px; transform: translateX(-50%); font-style: normal; font-size: 10px; color: #aaa; }
 .pt-bar::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: #fff; }
 .pt-note { font-size: 13px; color: #ccc; line-height: 1.6; margin: 4px 0; }
+
+/* =====================================================================
+   기반시설 · 오퍼레이터 파일
+   ===================================================================== */
+.tile-base { background: linear-gradient(135deg, rgba(30,70,60,.92), rgba(12,26,24,.94)); }
+.tile-base .tile-ico { color: #6fe0b8; }
+#screen-base { background: linear-gradient(180deg, #1b2027, #0b0d10); color: #fff; }
+.bs-collect { padding: 8px 20px; background: linear-gradient(100deg, #ffcf3a, #e0a020); color: #1a1205; font-weight: 900; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.bs-body { position: absolute; top: 64px; left: 0; right: 0; bottom: 0; display: flex; gap: 14px; padding: 4px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); overflow-x: auto; }
+.bs-room { flex: 1 0 300px; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); border-top: 4px solid var(--c); overflow-y: auto; }
+.bs-room header { display: flex; justify-content: space-between; align-items: flex-start; }
+.bs-room header small { font-family: var(--f-en); font-size: 11px; letter-spacing: .15em; color: var(--c); }
+.bs-room header b { display: block; font-size: 24px; font-weight: 900; }
+.bs-lv { font-family: var(--f-en); font-size: 18px; background: var(--c); color: #111; padding: 2px 10px; }
+.bs-desc { margin: 0; font-size: 12px; color: #aaa; line-height: 1.5; }
+.bs-rate { font-size: 13px; color: #ddd; }
+.bs-rate b { color: #ffcf3a; }
+.bs-rate .bad, .bs-cost .bad { color: #ff7a7f; }
+.bs-store { display: flex; align-items: center; gap: 8px; }
+.bs-store .ri { width: 28px; height: 28px; }
+.bs-bar { flex: 1; height: 8px; background: rgba(255,255,255,.12); }
+.bs-bar i { display: block; height: 100%; background: var(--c); }
+.bs-store small { font-family: var(--f-en); font-size: 12px; color: #ccc; white-space: nowrap; }
+.bs-get { padding: 5px 12px; background: #ffcf3a; color: #1a1205; font-weight: 900; }
+.bs-get:disabled { background: #3a3c41; color: #888; }
+.bs-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.bs-slot { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: rgba(0,0,0,.35); border: 1px dashed rgba(255,255,255,.25); color: #ccc; font-size: 12px; }
+.bs-slot.on { border-style: solid; border-color: var(--c); color: #fff; }
+.bs-slot em { position: absolute; top: 2px; right: 4px; font-style: normal; font-size: 10px; color: #6fe0b8; }
+.bs-plus { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #888; }
+.bs-av { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--c); font-weight: 900; font-size: 22px; flex: none; }
+.bs-av img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.bs-up { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.1); font-size: 12px; color: #aaa; }
+.bs-cost { display: flex; flex-wrap: wrap; gap: 6px; }
+.bs-cost span { display: inline-flex; align-items: center; gap: 3px; background: rgba(0,0,0,.35); padding: 2px 6px; color: #fff; cursor: pointer; }
+.bs-up .btn { align-self: flex-end; }
+.bs-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; max-height: 56vh; overflow-y: auto; }
+.bs-pk { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; background: rgba(255,255,255,.06); color: #fff; }
+.bs-pk.on { box-shadow: inset 0 0 0 2px #ffcf3a; background: rgba(255,207,58,.12); }
+.bs-pk b { font-size: 12px; }
+.bs-pk small { font-size: 11px; color: #6fe0b8; }
+.bs-pk em { position: absolute; top: 2px; left: 2px; font-style: normal; font-size: 10px; background: #3a3c41; padding: 0 4px; color: #ccc; }
+@media (max-width: 760px) { .bs-body { flex-direction: column; overflow-y: auto; } .bs-room { flex: none; } }
+@media (max-height: 500px) { .bs-body { top: 50px; } }
+
+#modal[data-kind="file"] .modal-panel { width: min(860px, 100%); padding: 0; overflow: hidden; }
+.fl-wrap { display: flex; flex-direction: column; max-height: 82vh; }
+.fl-head { padding: 16px 20px 12px; background: linear-gradient(100deg, var(--c), transparent 80%); display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.fl-head small { flex-basis: 100%; font-family: var(--f-en); font-size: 11px; letter-spacing: .2em; color: rgba(255,255,255,.8); }
+.fl-head b { font-size: 26px; font-weight: 900; }
+.fl-head span { font-size: 13px; color: #ffcf3a; }
+.fl-body { display: flex; min-height: 0; flex: 1; }
+.fl-tabs { display: flex; flex-direction: column; width: 130px; flex: none; background: rgba(0,0,0,.35); overflow-y: auto; }
+.fl-tabs button { text-align: left; padding: 12px 14px; color: #ccc; border-left: 3px solid transparent; font-size: 14px; display: flex; align-items: center; gap: 4px; }
+.fl-tabs button.on { background: rgba(255,255,255,.1); color: #fff; border-left-color: #ffcf3a; }
+.fl-tabs button.locked { color: #777; }
+.fl-tabs .ico { width: 13px; height: 13px; }
+.fl-main { flex: 1; padding: 16px 20px 20px; overflow-y: auto; }
+.fl-tbl { border-collapse: collapse; width: 100%; font-size: 14px; margin-bottom: 12px; }
+.fl-tbl th { text-align: left; width: 90px; color: #aaa; font-weight: 400; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.fl-tbl td { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.fl-txt { margin: 0; white-space: pre-line; line-height: 1.8; font-size: 14px; color: #e3e4e6; }
+.fl-lock { height: 100%; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #999; }
+.fl-lock .ico { width: 34px; height: 34px; }
+.fl-lock b { color: #fff; font-size: 18px; }
+@media (max-width: 560px) { .fl-body { flex-direction: column; } .fl-tabs { flex-direction: row; width: auto; overflow-x: auto; } .fl-tabs button { white-space: nowrap; } }
+.detail-btns .btn { white-space: nowrap; padding-left: 12px; padding-right: 12px; }
