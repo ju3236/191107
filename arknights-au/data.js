@@ -474,24 +474,24 @@ const OPERATORS = [
     en: 'Saccharin', rarity: 6, tags: ['근거리', '코스트 회복', '소환'], faction: '시라쿠사 · 카지노',
     partner: 'lucia',
     image: 'img/keith.png',
-    profile: '코드네임 사카린, 본명 키스 엔라이튼. 시라쿠사의 작은 카지노에서 딜러로 일한다고 소개하는 불포. 언제나 정중한 말투와 미소를 잃지 않지만, 그 미소 뒤에서 무엇을 계산하고 있는지는 아무도 모른다. 전장에서는 카지노의 경비 「하우스 가드」를 불러내 판을 짜고, 아군 뱅가드에게 판돈을 몰아준다.\n\n「딜러」라는 직업이 그가 하는 일의 전부는 아니라는 사실은, 그를 오래 알아 온 사람이라면 모두 알고 있다. 용병 루시아를 고용한 것도 그다.',
+    profile: '코드네임 사카린, 본명 키스 엔라이튼. 시라쿠사의 작은 카지노에서 딜러로 일한다고 소개하는 불포. 언제나 정중한 말투와 미소를 잃지 않지만, 그 미소 뒤에서 무엇을 계산하고 있는지는 아무도 모른다. 전장에서는 카지노의 경비 「카르멘」을 불러내 판을 짜고, 아군 뱅가드에게 판돈을 몰아준다.\n\n「딜러」라는 직업이 그가 하는 일의 전부는 아니라는 사실은, 그를 오래 알아 온 사람이라면 모두 알고 있다. 용병 루시아를 고용한 것도 그다.',
     quote: '자, 게임을 시작할 시간입니다.',
     cost: 11, redeploy: 60, block: 1,
     hp: 1600, atk: 470, def: 240, res: 10, interval: 1.3,
     range: area(0, 3, -1, 1),  // 원작 범위 3-3
     summon: {
-      id: 'house_guard', name: '하우스 가드', class: 'defender', color: '#4a5a9a', summoned: true,
+      id: 'house_guard', name: '카르멘', class: 'defender', color: '#4a5a9a', summoned: true,
       cost: 4, redeploy: 25, block: 2, hp: 2600, atk: 430, def: 380, res: 10, interval: 1.25, range: area(0, 0, 0, 0),
       profile: '키스가 불러내는 카지노의 경비원.',
     },
     talents: [
-      { name: '하우스 엣지', desc: '하우스 가드가 저지 중인 적은 받는 대미지 +15% (취약). 하우스 가드가 적을 저지하는 동안 키스의 공격 속도 +25', effect: { houseEdge: { vuln: 0.15, aspd: 25 } } },
+      { name: '하우스 엣지', desc: '카르멘이 저지 중인 적은 받는 대미지 +15% (취약). 카르멘이 적을 저지하는 동안 키스의 공격 속도 +25', effect: { houseEdge: { vuln: 0.15, aspd: 25 } } },
       { name: '믿을 만한 손님', desc: '편성된 아군 뱅가드가 처음 스킬을 발동하면 배치 코스트 +3. 자신의 공격 범위 안의 아군 뱅가드 공격 속도 +15', effect: { trustGuest: { dp: 3, aspd: 15 } } },
     ],
     skills: [
-      { name: '첫 번째 베팅', desc: '즉시 배치 코스트 +6, 15초간 하우스 가드의 공격력 +60%', sp: 20, initSp: 10, duration: 15, trigger: 'auto', effect: { dp: 6, guardAtk: 1.6 } },
-      { name: '판돈을 올리시겠습니까?', desc: '20초간 매초 배치 코스트 +0.6, 하우스 가드의 저지 수 +1·방어력 +60%, 하우스 가드가 저지 중인 적의 공격력 -30%', sp: 30, initSp: 15, duration: 20, trigger: 'manual', effect: { dpRegen: 0.6, guardBlock: 1, guardDef: 1.6, guardAtkDown: 0.3 } },
-      { name: 'HOUSE ALWAYS WINS', desc: '즉시 배치 코스트 +10, 20초간 하우스 가드의 공격력 +120%·공격 속도 +60·저지 수 +2, 저지 중인 모든 적을 동시 공격, 주변 적에게 취약(받는 대미지 +25%). 스킬 종료 후 하우스 가드 강제 퇴각', sp: 40, initSp: 20, duration: 20, trigger: 'manual', effect: { dp: 10, guardAtk: 2.2, guardAspd: 60, guardBlock: 2, guardAll: true, guardVuln: { amp: 0.25, radius: 1.5 }, guardRetreat: true } },
+      { name: '첫 번째 베팅', desc: '즉시 배치 코스트 +6, 15초간 카르멘의 공격력 +60%', sp: 20, initSp: 10, duration: 15, trigger: 'auto', effect: { dp: 6, guardAtk: 1.6 } },
+      { name: '판돈을 올리시겠습니까?', desc: '20초간 매초 배치 코스트 +0.6, 카르멘의 저지 수 +1·방어력 +60%, 카르멘이 저지 중인 적의 공격력 -30%', sp: 30, initSp: 15, duration: 20, trigger: 'manual', effect: { dpRegen: 0.6, guardBlock: 1, guardDef: 1.6, guardAtkDown: 0.3 } },
+      { name: 'HOUSE ALWAYS WINS', desc: '즉시 배치 코스트 +10, 20초간 카르멘의 공격력 +120%·공격 속도 +60·저지 수 +2, 저지 중인 모든 적을 동시 공격, 주변 적에게 취약(받는 대미지 +25%). 스킬 종료 후 카르멘 강제 퇴각', sp: 40, initSp: 20, duration: 20, trigger: 'manual', effect: { dp: 10, guardAtk: 2.2, guardAspd: 60, guardBlock: 2, guardAll: true, guardVuln: { amp: 0.25, radius: 1.5 }, guardRetreat: true } },
     ],
     voice: {
       obtain: '처음 뵙겠습니다, 박사님. 키스 엔라이튼이라고 합니다. 시라쿠사에서 작은 카지노에 근무하고 있지요. 후후, 아무래도 전투와는 거리가 있어 보이는 직업인가요? ……그렇다면 앞으로 천천히 보여 드리도록 하겠습니다.',
