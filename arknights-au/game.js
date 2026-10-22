@@ -1107,6 +1107,8 @@
     return p ? Math.hypot(p.x - e.x, p.y - e.y) + p.rem : 0;
   }
 
+  // 같은 학교 친구들 (김가을 「패턴 학습」 공통 시너지)
+  const SCHOOL = ['gaeul', 'iai', 'simhae', 'byeol'];
   function pickTargets(op, n) {
     const ground = isGround(op.def);
     const antiAir = op.def.class === 'sniper';
@@ -1276,18 +1278,23 @@
         const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
         // 로드: 저지하지 않은 적(원거리 공격)에게는 공격력 80%
         const lordMul = op.def.archetype === 'lord' && t.blockedBy !== op ? 0.8 : 1;
-        // 패턴 학습: 공략 완료된 적에게 방어력 무시 · 추가 피해 (NO CONTINUE: 피해 +20%)
-        const pt = op.tal.pattern, anal = pt && t.analyzedT > 0;
-        const ptIgn = anal ? pt.ignore + (op.def.trained && op.def.trained.elite >= 2 ? pt.ignore2 || 0 : 0) : 0;
-        const anaMul = anal ? 1 + (eff(op).analyzedAmp || 0) : 1;
+        // 패턴 학습: 「공략」된 적에게 방어력 무시 · 추가 피해 (NO CONTINUE: 피해 +20%)
+        // 공통 시너지 (같은 학교 · 김가을 판도라 헤이비스 천사별): 김가을이 배치되어 있으면 넷의 공격이 모두 「공략」을 쌓고,
+        // 「공략」된 적을 공격할 때 김가을 외의 셋도 방어력 무시 · 피해 증가 (school)
+        const own = op.tal.pattern ? op : null;
+        const lead = own || (SCHOOL.includes(op.def.id) && S.ops.find((o) => o.alive && o.tal.pattern)) || null;
+        const pt = lead && lead.tal.pattern, anal = pt && t.analyzedT > 0;
+        const e2 = own && op.def.trained && op.def.trained.elite >= 2;
+        const ptIgn = !anal ? 0 : own ? pt.ignore + (e2 ? pt.ignore2 || 0 : 0) : pt.schoolIgnore;
+        const anaMul = !anal ? 1 : own ? 1 + (eff(op).analyzedAmp || 0) : 1 + pt.schoolAmp;
         hitEnemy(t, atk * crit * lordMul * anaMul * (t === targets[0] ? bsMul : 1), type, crit > 1, op, Math.min(1, ignOf(t) + ptIgn));
         if (pt && t.alive) {
           if (anal) {
             t.analyzedT = pt.dur;
-            hitEnemy(t, opAtk(op) * (pt.extra + (op.def.trained && op.def.trained.elite >= 2 ? pt.extra2 || 0 : 0)) * anaMul, 'phys', false, op, ptIgn, true);
-          } else if (t.blockedBy !== op || eff(op).patternBlocked) {
+            if (own) hitEnemy(t, opAtk(op) * (pt.extra + (e2 ? pt.extra2 || 0 : 0)) * anaMul, 'phys', false, op, ptIgn, true);
+          } else if (!own || t.blockedBy !== op || eff(op).patternBlocked) {
             t.ptHits = (t.ptHits || 0) + 1;
-            if (t.ptHits >= pt.hits) { t.analyzedT = pt.dur; t.ptHits = 0; addText(t.x, t.y - 0.45, '공략 완료', '#7fe0ff', 0.9, true); }
+            if (t.ptHits >= pt.hits) { t.analyzedT = pt.dur; t.ptHits = 0; addText(t.x, t.y - 0.45, '공략', '#7fe0ff', 0.9, true); }
           }
         }
         // NO CONTINUE: 같은 적을 N회 공격할 때마다 추가 피해 + 기절
