@@ -62,7 +62,7 @@
       </div>
       <div class="tile-row">
         <button class="tile" data-go="depot"><span class="tile-ico" data-ico="depot"></span><span><span class="tile-en">DEPOT</span><span class="tile-ko">창고</span></span></button>
-        <button class="tile" id="tile-archive"><span class="tile-ico" data-ico="book"></span><span><span class="tile-en">ARCHIVES</span><span class="tile-ko">기록</span></span></button>
+        <button class="tile tile-mission" data-go="missions"><span class="tile-ico" data-ico="mission"></span><span><span class="tile-en">MISSION</span><span class="tile-ko">임무</span></span><span class="tile-badge hidden" id="mission-badge"></span></button>
         <button class="tile tile-admin hidden" id="tile-admin" data-go="admin"><span class="tile-ico" data-ico="admin"></span><span><span class="tile-en">ADMIN</span><span class="tile-ko">관리자</span></span></button>
       </div>
     </div>
@@ -227,8 +227,41 @@
         <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
         <span class="topbar-title">창고</span>
       </div>
+      <button class="ws-link" data-go="workshop"><span data-ico="craft"></span>가공소</button>
     </header>
     <div class="depot-grid" id="depot-grid"></div>
+  </section>
+
+  <!-- ===================== 가공소 ===================== -->
+  <section id="screen-workshop" class="screen light">
+    <header class="topbar">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+        <span class="topbar-title">가공소</span>
+      </div>
+      <div class="resbar dark-res" data-resbar></div>
+    </header>
+    <div class="ws-body">
+      <nav class="ws-tabs" id="ws-tabs"></nav>
+      <div class="ws-grid" id="ws-grid"></div>
+      <aside class="ws-panel" id="ws-panel"></aside>
+    </div>
+  </section>
+
+  <!-- ===================== 임무 ===================== -->
+  <section id="screen-missions" class="screen">
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+        <span class="topbar-title light-title">임무</span>
+      </div>
+    </header>
+    <div class="ms-body">
+      <nav class="ms-tabs" id="ms-tabs"></nav>
+      <div class="ms-main" id="ms-main"></div>
+    </div>
   </section>
 
   <!-- ===================== 관리자 ===================== -->
@@ -373,6 +406,7 @@
 <script src="train.js"></script>
 <script src="ui.js"></script>
 <script src="shop.js"></script>
+<script src="tasks.js"></script>
 <script src="roguelike.js"></script>
 <script src="game.js"></script>
 </body>

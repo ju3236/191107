@@ -21,6 +21,8 @@
 
   // ---------- 아이콘 ----------
   const ICON = {
+    mission: '<path d="M9 4h6v3H9z"/><path d="M9 5H6v16h12V5h-3"/><path d="M9 12l2 2 4-4M9 17h6"/>',
+    craft: '<path d="M14 4l6 6-3 3-6-6z"/><path d="M11 7L3 15l3 3 8-8M4 21h7"/>',
     vanguard: '<path d="M6 21V3.5"/><path d="M6 4h12l-3 4.5L18 13H6"/>',
     guard: '<path d="M20 4 9.5 14.5"/><path d="M20 4h-5M20 4v5"/><path d="m6.5 12.5 5 5"/><path d="m4 20 4-4"/>',
     defender: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/>',
@@ -204,8 +206,11 @@
   document.addEventListener('click', (e) => {
     const g = e.target.closest('[data-go]');
     if (g) { go(g.dataset.go); return; }
-    if (e.target.closest('[data-back]')) back();
+    if (e.target.closest('[data-back]')) { back(); return; }
+    const src = e.target.closest('[data-src]');
+    if (src && ITEMS[src.dataset.src]) openSource(src.dataset.src);
   });
+  const track = (kind, n = 1) => window.MISSION && MISSION.track(kind, n);
 
   // =====================================================================
   //  1. 메인 화면
@@ -361,7 +366,7 @@
     document.addEventListener('webkitfullscreenchange', fsLabel);
     fsLabel();
   }
-  $('#tile-archive').addEventListener('click', openArchive);
+  if ($('#tile-archive')) $('#tile-archive').addEventListener('click', openArchive);
 
   // =====================================================================
   //  2. 오퍼레이터 목록
@@ -512,8 +517,8 @@
     const lvOk = pg.level >= max, lmdOk = ACCOUNT.bal('lmd') >= cost.lmd;
     const fmtN = (n) => Number(n).toLocaleString('ko-KR');
     const req = [`<div class="tv-item ${lvOk ? '' : 'short'}"><span class="tv-ring lvr"><b>${max}</b><small>레벨</small></span><small class="${lvOk ? '' : 'bad'}"><em>${pg.level}</em>/${max}</small></div>`,
-      `<div class="tv-item"><span class="tv-ring"><i class="ri lmd big"></i></span><small class="tag ${lmdOk ? '' : 'bad'}">${fmtN(cost.lmd)}</small></div>`]
-      .concat(Object.entries(cost.items).map(([k, n]) => { const have = ACCOUNT.bal(k); return `<div class="tv-item" title="${esc(ITEMS[k].name)}"><span class="tv-ring"><i class="ri ${esc(k)} big"></i></span><small class="tag ${have >= n ? '' : 'bad'}"><em>${have}</em>/${n}</small><span class="tv-iname">${esc(ITEMS[k].name)}</span></div>`; }));
+      `<div class="tv-item" data-src="lmd"><span class="tv-ring"><i class="ri lmd big"></i></span><small class="tag ${lmdOk ? '' : 'bad'}">${fmtN(cost.lmd)}</small></div>`]
+      .concat(Object.entries(cost.items).map(([k, n]) => { const have = ACCOUNT.bal(k); return `<div class="tv-item ${have >= n ? '' : 'lack'}" data-src="${esc(k)}" title="${esc(ITEMS[k].name)} — 눌러서 획득처 보기"><span class="tv-ring"><i class="ri ${esc(k)} big"></i></span><small class="tag ${have >= n ? '' : 'bad'}"><em>${have}</em>/${n}</small><span class="tv-iname">${esc(ITEMS[k].name)}</span></div>`; }));
     const chk = TRAIN.canPromote(def);
     v.innerHTML = `
       <button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
@@ -543,6 +548,7 @@
       const r = TRAIN.levelUp(OPS[detailId], JSON.parse($('#train-view').dataset.use || '{}'));
       if (!r.ok) { toast(r.why); return; }
       sfx('select');
+      track('train');
       toast(`레벨 ${r.from} → ${r.to}`);
       closeTrain();
       return;
@@ -551,6 +557,7 @@
       const def = OPS[detailId], r = TRAIN.promote(def);
       if (!r.ok) { toast(r.why); return; }
       sfx('skill');
+      track('train'); track('promote');
       const p2 = TRAIN.prog(def.id);
       toast(`${def.name} — ${p2.elite}차 정예화 완료!`);
       if (def.voice && def.voice['elite' + p2.elite]) say(def, 'elite' + p2.elite);
@@ -576,7 +583,7 @@
   function costHTML(c) {
     if (!c) return '';
     const items = { lmd: c.lmd, ...c.items };
-    return `<div class="st-cost">${Object.entries(items).map(([k, n]) => { const have = ACCOUNT.bal(k); return `<span class="${have >= n ? '' : 'bad'}" title="${esc(ITEMS[k].name)}"><i class="ri ${k}"></i>${k === 'lmd' ? n.toLocaleString('ko-KR') : `${have}/${n}`}</span>`; }).join('')}</div>`;
+    return `<div class="st-cost">${Object.entries(items).map(([k, n]) => { const have = ACCOUNT.bal(k); return `<span class="${have >= n ? '' : 'bad'}" data-src="${k}" title="${esc(ITEMS[k].name)} — 눌러서 획득처 보기"><i class="ri ${k}"></i>${k === 'lmd' ? n.toLocaleString('ko-KR') : `${have}/${n}`}</span>`; }).join('')}</div>`;
   }
   function openSkillTrain() {
     const def = OPS[detailId], p = TRAIN.prog(def.id), max = TRAIN_RULE.skillMax[p.elite];
@@ -592,7 +599,7 @@
         <div class="st-bars">${[1, 2, 3, 4, 5, 6, 7].map((l) => `<i class="${l <= p.slv ? 'on' : l > max ? 'lock' : ''}"></i>`).join('')}</div>
         ${up ? `${costHTML(up)}<button class="btn primary" id="st-up">레벨 ${p.slv + 1}로</button>` : `<small>${p.slv >= 7 ? '최고 레벨' : '1차 정예화를 하면 레벨 7까지 올릴 수 있습니다'}</small>`}</div>
       <div class="st-list">${rows}</div>`);
-    const go2 = (r) => { if (!r.ok) { toast(r.why); return; } sfx('select'); openSkillTrain(); RENDER.detail(); };
+    const go2 = (r) => { if (!r.ok) { toast(r.why); return; } sfx('select'); track('train'); openSkillTrain(); RENDER.detail(); };
     const u = $('#st-up'); if (u) u.addEventListener('click', () => go2(TRAIN.skillUp(def)));
     document.querySelectorAll('[data-master]').forEach((b) => b.addEventListener('click', () => go2(TRAIN.master(def, +b.dataset.master))));
   }
@@ -867,7 +874,8 @@
   // 전투 결과 → 보상 (game.js에서 호출)
   function onBattleEnd(idx, win, starCount, squadIds = []) {
     const st = STAGES[idx], cost = sanityCost(st);
-    if (!win) { ACCOUNT.addSanity(cost - 1); return `이성 ${cost - 1} 반환`; }
+    if (!win) { ACCOUNT.addSanity(cost - 1); track('sanity', 1); return `이성 ${cost - 1} 반환`; }
+    trackBattle(st, 1);
     // 원작처럼 소모한 이성만큼 편성 오퍼레이터의 신뢰도 상승 (최대 200%)
     save.trust = save.trust || {};
     for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
@@ -893,7 +901,13 @@
     if (first) reward.originite = 1;
     return reward;
   }
-  function onBattleQuit(idx) { ACCOUNT.addSanity(sanityCost(STAGES[idx]) - 1); }
+  function onBattleQuit(idx) { ACCOUNT.addSanity(sanityCost(STAGES[idx]) - 1); track('sanity', 1); }
+  function trackBattle(st, n) {
+    track('battle', n);
+    track('sanity', sanityCost(st) * n);
+    const sr = seriesOf(st);
+    if (sr) track(sr.tab, n);
+  }
   const sfx = (n) => window.SFX && SFX.play(n);
 
   // =====================================================================
@@ -1083,6 +1097,41 @@
     return `<div class="op-drops"><small class="od-t">${st.supply ? '고정 드롭' : '드롭'}</small>${t.fixed.map(([k, n]) => item(k, `×${n.toLocaleString('ko-KR')}`)).join('')}${t.chance.map(([k, p, n, tag]) =>
       tag === '주요' ? item(k, '<em>주요 · ★3 확정</em>', 'main') : item(k, `${tag === '추가' ? '+1 ' : n > 1 ? `×${n} ` : ''}${Math.round(p * 100)}%`, 'maybe')).join('')}</div>`;
   }
+  // 획득처: 재료를 누르면 그 재료가 나오는 작전 · 가공소로 바로 이동
+  function openSource(k) {
+    const it = ITEMS[k], src = TRAIN.sourcesOf(k);
+    const rows = src.stages.slice(0, 10).map(({ i, label }) => {
+      const st = STAGES[i], sr = seriesOf(st), ul = unlocked(i), open = seriesOpen(sr);
+      const where = sr ? `${sr.tab === 'chip' ? '칩 탐색' : '물자 비축'} · ${sr.name}` : `메인 스토리 · ${(CHAPTERS.find((c) => c.id === st.chapter) || {}).code || ''}`;
+      const state = !ul ? `<small class="bad">${icon('lock')}미해금</small>` : !open ? `<small class="bad">${daysText(sr)}</small>` : `<small>이성 ${sanityCost(st)}</small>`;
+      return `<button class="src-row ${ul && open ? '' : 'off'}" data-jump="${i}"><span class="src-code">${esc(st.code)}</span><span class="src-name"><small>${esc(where)}</small>${esc(st.name)}</span><em class="${label === '주요 드롭' ? 'main' : ''}">${esc(label)}</em>${state}<i class="src-go">${ul && open ? '이동 ▶' : ''}</i></button>`;
+    });
+    if (src.craft) {
+      const c = src.craft, need = Object.entries(c.items).map(([id, n]) => `${esc(ITEMS[id].short)} ×${n}`).join(' + ') + (c.lmd ? ` + 용문폐 ${c.lmd.toLocaleString('ko-KR')}` : '');
+      rows.unshift(`<button class="src-row craft" data-craft="${esc(k)}"><span class="src-code">${icon('craft')}</span><span class="src-name"><small>가공소</small>합성</span><em>${need}</em><small></small><i class="src-go">이동 ▶</i></button>`);
+    }
+    if (['lmd', 'exp_1', 'exp_2', 'exp_3', 'exp_4', 'orundum', 'skill_1'].includes(k)) rows.push(`<button class="src-row craft" data-mission><span class="src-code">${icon('mission')}</span><span class="src-name"><small>임무</small>일일 · 주간 임무</span><em>보상</em><small></small><i class="src-go">이동 ▶</i></button>`);
+    openModal(`<div class="item-detail"><i class="ri ${esc(k)} big"></i><div><div class="modal-title">${esc(it.name)}</div><div class="modal-sub">보유 ${ACCOUNT.bal(k).toLocaleString('ko-KR')}</div><p class="modal-text">${esc(it.desc || '')}</p></div></div>
+      <div class="src-title">획득처</div><div class="src-list">${rows.join('') || '<p class="modal-text">작전에서는 얻을 수 없습니다.</p>'}</div>`);
+  }
+  // 작전 목록의 해당 작전으로 바로 이동 (메인 스토리 · 시리즈 자동 선택)
+  function jumpStage(i) {
+    const st = STAGES[i], sr = seriesOf(st);
+    if (!unlocked(i)) { toast('아직 해금되지 않은 작전입니다'); return; }
+    if (!seriesOpen(sr)) { toast(`${sr.name}: ${daysText(sr)} · 오늘은 진입할 수 없습니다`); return; }
+    if (sr) { opsMode = sr.tab; seriesSel = sr.id; } else { opsMode = 'main'; seriesSel = null; chapterSel = st.chapter; }
+    opSel = i;
+    closeModal();
+    $('#train-view').classList.add('hidden');
+    go('operations', 'after');
+  }
+  $('#modal-body').addEventListener('click', (e) => {
+    const j = e.target.closest('[data-jump]');
+    if (j) { jumpStage(+j.dataset.jump); return; }
+    const c = e.target.closest('[data-craft]');
+    if (c) { closeModal(); $('#train-view').classList.add('hidden'); go('workshop', c.dataset.craft); return; }
+    if (e.target.closest('[data-mission]')) { closeModal(); $('#train-view').classList.add('hidden'); go('missions'); }
+  });
   // 대리 작전: 별 3개로 깬 작전을 N번 바로 완료 (이성 N배, 보상 N번)
   let proxyOn = false, proxyN = 1;
   function runProxy(idx, n) {
@@ -1093,6 +1142,7 @@
     const total = {};
     for (let k = 0; k < n; k++) for (const [id, v] of Object.entries(rewardFor(st, idx, 3, false))) total[id] = (total[id] || 0) + v;
     ACCOUNT.earn(total);
+    trackBattle(st, n);
     save.trust = save.trust || {};
     for (const id of save.squad) save.trust[id] = Math.min(200, (save.trust[id] || 0) + sanityCost(st) * n);
     writeSave();
@@ -1256,7 +1306,7 @@
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    openModal, closeModal, cardHTML, enemyRowsHTML, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
   };
   RENDER.home();

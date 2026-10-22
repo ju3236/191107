@@ -342,6 +342,7 @@
       out.push({ def, ...got });
     }
     p.pulls = p.pulls.slice(-60);
+    if (window.MISSION) MISSION.track('pull', n);
     ACCOUNT.save();
     ACCOUNT.emit('wallet');
     return out;
@@ -415,6 +416,7 @@
     const b = e.target.closest('[data-item]');
     if (!b) return;
     const k = b.dataset.item;
+    if (k !== 'sanity') { UI.openSource(k); return; }
     const it = k === 'sanity' ? { name: '이성', desc: `작전에 필요한 체력. 6분마다 1씩 회복되며 최대 ${ACCOUNT.SANITY_MAX}. 오리지늄 1개로 전부 회복할 수 있다.` } : ITEMS[k];
     openModal(`<div class="item-detail">${ico(k, true)}<div><div class="modal-title">${esc(it.name)}</div><div class="modal-sub">보유 ${k === 'sanity' ? ACCOUNT.sanity() : fmt(ACCOUNT.bal(k))}</div><p class="modal-text">${esc(it.desc)}</p></div></div>`);
   });

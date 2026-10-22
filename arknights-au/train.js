@@ -177,6 +177,21 @@
     const sub = st.subDrop || pool[(n + ch * 2 + 3) % pool.length];
     return { fixed: [['lmd', (st.sanity || 6) * R.lmdPerSanity]], main, chance: [[main, 1, 1, '주요'], [main, 0.5, 1, '추가'], [sub, 0.25, 1]] };
   }
+  // 획득처: 이 아이템이 나오는 작전(주요 드롭 → 물자 비축 고정 → 일반 → 확률 순)과 가공소 레시피
+  function sourcesOf(k) {
+    const rows = [];
+    STAGES.forEach((st, i) => {
+      const t = dropTable(st, i);
+      if (t.main === k) { rows.push({ i, rank: 0, label: '주요 드롭' }); return; }
+      const f = t.fixed.find(([id]) => id === k);
+      if (f) { rows.push({ i, rank: st.supply ? 1 : 2, label: st.supply ? `고정 ×${f[1].toLocaleString('ko-KR')}` : '일반 드롭' }); return; }
+      const c = t.chance.find(([id, , , tag]) => id === k && !tag);
+      if (c) rows.push({ i, rank: 3, label: `확률 ${Math.round(c[1] * 100)}%` });
+    });
+    rows.sort((a, b) => a.rank - b.rank || (STAGES[b.i].tier || 0) - (STAGES[a.i].tier || 0));
+    const craft = (typeof WORKSHOP !== 'undefined' ? WORKSHOP : []).find((r) => r.out === k) || null;
+    return { stages: rows, craft };
+  }
   function stageDrops(st, idx, stars) {
     const t = dropTable(st, idx), out = {};
     const add = (k, n) => { if (n > 0) out[k] = (out[k] || 0) + n; };
@@ -220,5 +235,5 @@
     }
     ACCOUNT.save();
   }
-  window.TRAIN = { prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
+  window.TRAIN = { prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
 })();

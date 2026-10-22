@@ -1759,20 +1759,56 @@ const TRAIN_RULE = {
   add('exp_1', { name: '기초작전기록', short: '기초작전기록', color: '#9fd6ff', exp: 200, desc: '오퍼레이터 경험치 200. 레벨업에 사용한다.' });
   add('exp_2', { name: '초급작전기록', short: '초급작전기록', color: '#f5e45a', exp: 400, desc: '오퍼레이터 경험치 400. 레벨업에 사용한다.' });
   add('exp_3', { name: '중급작전기록', short: '중급작전기록', color: '#5ab5f5', exp: 1000, desc: '오퍼레이터 경험치 1000. 레벨업에 사용한다.' });
-  add('skill_1', { name: '스킬개론 제1권', short: '스킬개론 1권', color: '#9fd6ff', desc: '스킬 레벨 2~3에 쓰이는 교재. 물자 조달 「공중 위협」에서 얻을 수 있다.' });
-  add('skill_2', { name: '스킬개론 제2권', short: '스킬개론 2권', color: '#ffd86b', desc: '스킬 레벨 4~5에 쓰이는 교재.' });
-  add('skill_3', { name: '스킬개론 제3권', short: '스킬개론 3권', color: '#ff9a5c', desc: '스킬 레벨 6~7과 스킬 특화에 쓰이는 교재.' });
+  add('skill_1', { name: '스킬개론 제1권', short: '스킬개론 1권', color: '#9fd6ff', desc: '스킬 레벨 2~3에 쓰이는 교재. 물자 비축 「공중 위협」에서 얻을 수 있다.' });
+  add('skill_2', { name: '스킬개론 제2권', short: '스킬개론 2권', color: '#ffd86b', desc: '스킬 레벨 4~5에 쓰이는 교재. 「공중 위협」에서 얻거나 가공소에서 만든다.' });
+  add('skill_3', { name: '스킬개론 제3권', short: '스킬개론 3권', color: '#ff9a5c', desc: '스킬 레벨 6~7과 스킬 특화에 쓰이는 교재. 「공중 위협」에서 얻거나 가공소에서 만든다.' });
   add('exp_4', { name: '고급작전기록', short: '고급작전기록', color: '#ffb84a', exp: 2000, desc: '오퍼레이터 경험치 2000. 레벨업에 사용한다.' });
   const T2 = { m_rock: ['원암 큐브', '#b9c4cc'], m_sugar: ['포도당', '#f2f2f2'], m_poly: ['폴리에스테르', '#e8c27a'], m_iron: ['이철 조각', '#a7b7c9'], m_keton: ['아케톤 응집체', '#d97a6a'], m_device: ['장치', '#7aa0d9'] };
   const T3 = { m_rock3: ['원암 큐브 묶음', '#8fa2b0'], m_sugar3: ['포도당 팩', '#ffffff'], m_poly3: ['폴리에스테르 팩', '#e8a84a'], m_iron3: ['이철 큐브', '#7f97b5'], m_keton3: ['아케톤 결정', '#c94f3c'], m_device3: ['개량 장치', '#4f7fd9'] };
-  for (const [k, [n, c]] of Object.entries(T2)) add(k, { name: n, short: n, color: c, tier: 2, desc: `1차 정예화에 쓰이는 재료. 작전에서 얻을 수 있다.` });
-  for (const [k, [n, c]] of Object.entries(T3)) add(k, { name: n, short: n, color: c, tier: 3, desc: `2차 정예화에 쓰이는 고급 재료. 2장 이후 작전에서 가끔 얻을 수 있다.` });
+  for (const [k, [n, c]] of Object.entries(T2)) add(k, { name: n, short: n, color: c, tier: 2, desc: `1차 정예화에 쓰이는 재료. 메인 스토리 1~2장에서 얻을 수 있다.` });
+  for (const [k, [n, c]] of Object.entries(T3)) add(k, { name: n, short: n, color: c, tier: 3, desc: `2차 정예화와 스킬 특화에 쓰이는 고급 재료. 메인 스토리 3~4장에서 얻거나 가공소에서 만든다.` });
   for (const [cls, v] of Object.entries(CLASSES)) {
     if (cls === 'device') continue;
-    add('chip_' + cls, { name: `${v.name} 칩`, short: `${v.name} 칩`, color: '#5fd3b0', chip: cls, desc: `${v.name} 오퍼레이터의 1차 정예화에 쓰이는 칩. 작전에서 얻을 수 있다.` });
-    add('dual_' + cls, { name: `${v.name} 듀얼칩`, short: `${v.name} 듀얼칩`, color: '#ffcf3a', chip: cls, desc: `${v.name} 오퍼레이터의 2차 정예화에 쓰이는 듀얼칩. 2장 이후 작전에서 드물게 얻을 수 있다.` });
+    add('chip_' + cls, { name: `${v.name} 칩`, short: `${v.name} 칩`, color: '#5fd3b0', chip: cls, desc: `${v.name} 오퍼레이터의 1차 정예화에 쓰이는 칩. 칩 탐색에서 얻을 수 있다.` });
+    add('dual_' + cls, { name: `${v.name} 듀얼칩`, short: `${v.name} 듀얼칩`, color: '#ffcf3a', chip: cls, desc: `${v.name} 오퍼레이터의 2차 정예화와 3단계 특화에 쓰이는 듀얼칩. 칩 탐색에서 얻거나 가공소에서 만든다.` });
   }
 })();
+// ---------------------------------------------------------------------
+//  가공소 — 재료 합성. { out: 만들 아이템, items: 재료, lmd: 용문폐 } (한 번에 1개)
+//  고급 재료 = 같은 계열 중급 재료 4 + 용문폐 300 · 듀얼칩 = 같은 직군 칩 3 + 용문폐 2000 · 스킬개론 = 아래 권 3 (원작처럼)
+// ---------------------------------------------------------------------
+const WORKSHOP = [
+  ...['rock', 'sugar', 'poly', 'iron', 'keton', 'device'].map((m) => ({ cat: 'mat', out: `m_${m}3`, items: { [`m_${m}`]: 4 }, lmd: 300 })),
+  ...['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist'].map((c) => ({ cat: 'chip', out: `dual_${c}`, items: { [`chip_${c}`]: 3 }, lmd: 2000 })),
+  { cat: 'skill', out: 'skill_2', items: { skill_1: 3 }, lmd: 0 },
+  { cat: 'skill', out: 'skill_3', items: { skill_2: 3 }, lmd: 0 },
+];
+
+// ---------------------------------------------------------------------
+//  임무 — 일일(매일 오전 4시) · 주간(월요일 오전 4시) 초기화
+//  kind: battle(작전 완료, 대리 작전 포함) · supply(물자 비축 작전) · chip(칩 탐색 작전) · sanity(소모 이성)
+//        train(레벨업·정예화·스킬 육성) · promote(정예화) · craft(가공소 합성) · pull(헤드헌팅 횟수)
+// ---------------------------------------------------------------------
+const MISSIONS = {
+  daily: [
+    { id: 'd_battle', kind: 'battle', n: 3, text: '작전을 3회 완료', reward: { lmd: 3000, exp_2: 4 } },
+    { id: 'd_sanity', kind: 'sanity', n: 100, text: '이성을 100 소모', reward: { orundum: 100, lmd: 2000 } },
+    { id: 'd_supply', kind: 'supply', n: 1, text: '물자 비축 작전을 1회 완료', reward: { exp_3: 2 } },
+    { id: 'd_train', kind: 'train', n: 1, text: '오퍼레이터를 1회 육성 (레벨업 · 정예화 · 스킬)', reward: { lmd: 3000 } },
+    { id: 'd_craft', kind: 'craft', n: 1, text: '가공소에서 1회 합성', reward: { skill_1: 2, lmd: 1000 } },
+    { id: 'd_pull', kind: 'pull', n: 1, text: '헤드헌팅을 1회 진행', reward: { orundum: 100 } },
+  ],
+  dailyBonus: { orundum: 200, lmd: 5000 },
+  weekly: [
+    { id: 'w_battle', kind: 'battle', n: 20, text: '작전을 20회 완료', reward: { lmd: 20000, exp_4: 3 } },
+    { id: 'w_sanity', kind: 'sanity', n: 800, text: '이성을 800 소모', reward: { orundum: 500, exp_4: 5 } },
+    { id: 'w_chip', kind: 'chip', n: 5, text: '칩 탐색 작전을 5회 완료', reward: { lmd: 10000, skill_3: 3 } },
+    { id: 'w_promote', kind: 'promote', n: 1, text: '오퍼레이터를 1회 정예화', reward: { orundum: 300, lmd: 10000 } },
+    { id: 'w_craft', kind: 'craft', n: 10, text: '가공소에서 10회 합성', reward: { lmd: 15000 } },
+  ],
+  weeklyBonus: { originite: 1, orundum: 500 },
+};
+
 // 육성 기능이 생기기 전부터 플레이하던 계정에 한 번 주는 지원 물자
 const TRAIN_GIFT = { exp_4: 40, exp_3: 30, lmd: 150000, m_rock: 10, m_sugar: 10, m_poly: 10, m_iron: 10, m_keton: 10, m_device: 10 };
 
