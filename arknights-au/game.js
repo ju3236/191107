@@ -1276,7 +1276,7 @@
         const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
         // 로드: 저지하지 않은 적(원거리 공격)에게는 공격력 80%
         const lordMul = op.def.archetype === 'lord' && t.blockedBy !== op ? 0.8 : 1;
-        // 패턴 학습: 분석 완료된 적에게 방어력 무시 · 추가 피해 (NO CONTINUE: 피해 +20%)
+        // 패턴 학습: 공략 완료된 적에게 방어력 무시 · 추가 피해 (NO CONTINUE: 피해 +20%)
         const pt = op.tal.pattern, anal = pt && t.analyzedT > 0;
         const ptIgn = anal ? pt.ignore + (op.def.trained && op.def.trained.elite >= 2 ? pt.ignore2 || 0 : 0) : 0;
         const anaMul = anal ? 1 + (eff(op).analyzedAmp || 0) : 1;
@@ -1287,7 +1287,7 @@
             hitEnemy(t, opAtk(op) * (pt.extra + (op.def.trained && op.def.trained.elite >= 2 ? pt.extra2 || 0 : 0)) * anaMul, 'phys', false, op, ptIgn, true);
           } else if (t.blockedBy !== op || eff(op).patternBlocked) {
             t.ptHits = (t.ptHits || 0) + 1;
-            if (t.ptHits >= pt.hits) { t.analyzedT = pt.dur; t.ptHits = 0; addText(t.x, t.y - 0.45, '분석 완료', '#7fe0ff', 0.9, true); }
+            if (t.ptHits >= pt.hits) { t.analyzedT = pt.dur; t.ptHits = 0; addText(t.x, t.y - 0.45, '공략 완료', '#7fe0ff', 0.9, true); }
           }
         }
         // NO CONTINUE: 같은 적을 N회 공격할 때마다 추가 피해 + 기절
