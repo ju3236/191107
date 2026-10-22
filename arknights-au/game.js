@@ -426,7 +426,10 @@
       const sp = op ? op.sp : sk.initSp || 0;
       fill.style.width = (sk.sp ? Math.min(1, sp / sk.sp) : 0) * 100 + '%';
       fill.classList.remove('active');
-      spText = sk.spType === 'deploy' ? '배치 시 발동' : `SP ${Math.floor(sp)}/${sk.sp}${op ? '' : ' (초기)'}`;
+      spText = sk.spType === 'deploy' ? '배치 시 발동' : sk.stock ? `SP ${Math.floor(sp >= spCap(sk) ? sk.sp : sp % sk.sp)}/${sk.sp} · 충전 ${Math.floor(sp / sk.sp)}/${sk.stock}` : `SP ${Math.floor(sp)}/${sk.sp}${op ? '' : ' (초기)'}`;
+      if (op && op.def.archetype === 'librator') spText += ` · 공격력 +${Math.round((2 * Math.min(40, op.libT || 0)) / 40 * 100)}%`;
+      if (op && op.tal.patience) spText += ` · 인내 ${Math.floor(op.patience || 0)}`;
+      if (op && op.tal.wrath) spText += ` · 의분 ${op.wrath || 0}`;
     }
     $('#ins-sp-text').textContent = spText;
     if (!op) return;
@@ -480,15 +483,18 @@
     return t;
   }
   const eff = (op) => (op.skillT > 0 ? op.skill.effect || {} : {});
+  // 충전형 스킬(stock): SP가 stock번 분량까지 쌓임
+  const spCap = (sk) => sk.sp * (sk.stock || 1);
   const B = (op, k) => (op.buff && op.buff[k]) || 0;
   // 장치·소환물에 걸리는 주인의 스킬 효과
   const oeff = (op) => (op.def.summoned && op.owner && op.owner.alive ? eff(op.owner) : {});
   // 적의 무게 (값이 없으면 보스 4 · 정예 3 · 중장갑 2 · 그 외 1로 봄)
   const wOf = (e) => e.def.weight || (e.def.boss ? 4 : e.def.elite ? 3 : e.def.def >= 400 ? 2 : 1);
   const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1) * (1 + B(op, 'atk'));
-  const opDef = (op) => op.def.def * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0)) * (op.brand ? 0.7 : 1) * (1 + B(op, 'def')) + B(op, 'defFlat');
+  const phalanxIdle = (op) => op.def.archetype === 'phalanx' && !(op.skillT > 0);
+  const opDef = (op) => op.def.def * (phalanxIdle(op) ? 3 : 1) * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0)) * (op.brand ? 0.7 : 1) * (1 + B(op, 'def')) + B(op, 'defFlat');
   const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op) / Math.max(0.1, 1 + B(op, 'aspd') / 100);
-  const opRes = (op) => (op.def.res || 0) + (op.resT > 0 ? op.resBuff : 0) + B(op, 'res');
+  const opRes = (op) => (op.def.res || 0) + (phalanxIdle(op) ? 20 : 0) + (op.resT > 0 ? op.resBuff : 0) + B(op, 'res');
   const inSquad = (id) => S.squadIds.includes(id);
   const isDebuffed = (e) => e.analysis > 0 || e.slowT > 0 || e.stun > 0;
   // 최고의 파트너: 약화된 적을 공격 중이면 공격 속도 상승 (파트너 편성 시 더 크게)
@@ -498,7 +504,8 @@
     return inSquad(ps.partner) ? ps.partnerSpeed : ps.speed;
   }
   // 기수: 스킬 지속 시간 동안 저지 가능 수 0
-  const opBlock = (op) => (op.def.archetype === 'bearer' && op.skillT > 0 ? 0 : op.def.block + (eff(op).block || 0) + B(op, 'block'));
+  // 해방자: 스킬 미발동 시 저지 0
+  const opBlock = (op) => ((op.def.archetype === 'bearer' && op.skillT > 0) || (op.def.archetype === 'librator' && !(op.skillT > 0)) ? 0 : op.def.block + (eff(op).block || 0) + B(op, 'block'));
   const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0) + (op.def.dodge || 0) + B(op, 'dodge');
   const opArtsDodge = (op) => (op.def.artsDodge || 0) + (eff(op).artsDodge || 0) + B(op, 'artsDodge');
   const tileOf = (def) => def.tile || CLASSES[def.class].tile;
@@ -541,7 +548,7 @@
   }
   function gainSp(op, n) {
     if (!op.alive || op.skillT > 0 || op.skill.spType === 'deploy') return;
-    op.sp = Math.min(op.skill.sp, op.sp + n);
+    op.sp = Math.min(spCap(op.skill), op.sp + n);
   }
   // 매 프레임: 오퍼레이터 버프 계산과 전장 전체 효과
   function relicTick(dt) {
@@ -605,7 +612,7 @@
         let r = (X.spRate || 0) + ((X.classSp && X.classSp[cls]) || 0) + perDep('sp');
         if (X.skillStackSp) r += X.skillStackSp.per * Math.min(X.skillStackSp.max, op.skillN || 0);
         if (X.snack && !op.usedManual) r += 1;
-        if (r) op.sp = Math.min(op.skill.sp, op.sp + r * dt);
+        if (r) op.sp = Math.min(spCap(op.skill), op.sp + r * dt);
       }
       if (X.spTick && (st === 'attack' || st === 'hit')) { op.spTickT = (op.spTickT || 0) + dt; if (op.spTickT >= X.spTick) { op.spTickT -= X.spTick; gainSp(op, 1); } }
     }
@@ -651,6 +658,10 @@
     if (op.def.class === 'vanguard') for (const k of S.ops) if (k.alive && k !== op && k.tal.trustGuest && k.range.has(key(op.x, op.y))) { add('aspd', k.tal.trustGuest.aspd); break; }
     if (t.easygoing && op.blocked.length) add('def', t.easygoing.def);
     if (ef.aspd) add('aspd', ef.aspd);
+    // 해방자: 40초간 공격력 최대 +200% (스킬의 공격력 증가와 합연산)
+    if (op.def.archetype === 'librator' && op.libT > 0) add('atk', (2 * Math.min(40, op.libT)) / 40 / (ef.atk || 1));
+    if (t.patience && op.skillT > 0 && op.patSnap >= 20) add('aspd', t.patience.aspd);
+    if (op.wrathT > 0) { op.wrathT -= dt; add('atk', op.wrathAtk); }
     // 받는 피해 배율 (여명 · 주영하 · 보호 효과)
     let cut = 1;
     if (op.guardT > 0) { op.guardT -= dt; cut *= 1 - op.guardCut; }
@@ -689,7 +700,7 @@
     if (op.fatigueT > 0) { op.fatigueT -= dt; add('aspd', op.fatigueAspd); }
     if (t.choice && S.ops.some((o) => o.alive && o !== op && !o.def.summoned && o.hp / o.maxHp <= t.choice.below && op.range.has(key(o.x, o.y)))) {
       add('aspd', t.choice.aspd);
-      if (!op.choiceUsed) { op.choiceUsed = true; if (op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + t.choice.sp); addText(op.x + 0.5, op.y - 0.1, '정해지지 않은 선택', op.def.color, 1, true); }
+      if (!op.choiceUsed) { op.choiceUsed = true; if (op.skillT <= 0) op.sp = Math.min(spCap(op.skill), op.sp + t.choice.sp); addText(op.x + 0.5, op.y - 0.1, '정해지지 않은 선택', op.def.color, 1, true); }
     }
     if (t.principle && op.prinStacks) { add('aspd', t.principle.aspd * op.prinStacks); }
     if (t.strict && S.ops.some((o) => o.alive && o !== op && o.def.class === 'defender' && near8(o, op.x, op.y))) { add('atk', t.strict.atk); add('dodge', t.strict.dodge); }
@@ -713,6 +724,7 @@
   const luckOps = () => S.ops.filter((o) => o.alive && o.tal.unluck);
   // 매 프레임: 적에게 걸리는 이동·공격 속도 배율 (불운 · 중력), 잔향 지대
   function fieldTick(dt) {
+    charmTick(dt);
     const seal = luckOps().some((o) => eff(o).sealLuck);
     const bearers = S.ops.filter((o) => o.alive && o.tal.daily);
     for (const e of S.enemies) {
@@ -725,7 +737,7 @@
         if (b.arts !== 'gravity' || !inBearer(b, tx, ty)) continue;
         if (eff(b).dailyMax) { mv *= 0.55; ai *= 1.25; } else mv *= 1 - 0.2 * (eff(b).dailyMul || 1);
       }
-      e.auraMove = mv; e.auraAtkI = ai;
+      e.auraMove = mv * (e.fieldMul || 1); e.auraAtkI = ai;
     }
     if (!S.zones) return;
     for (const z of S.zones) {
@@ -743,6 +755,90 @@
       }
     }
     S.zones = S.zones.filter((z) => z.t > 0);
+  }
+  // ---------- 비나리 「사방에 복을 빌어」: 축원 부적 · 진법 영역 (타일 단위, 최대 16타일) ----------
+  const groundTile = (x, y) => !!(S.map[y] && walkable(S.map[y][x]));
+  function slowEnemy(e, move, dur) {
+    if (!(e.slowT > 0)) { e.slowMove = move; e.slowAtk = 1; } else if (e.slowMove > move) e.slowMove = move;
+    e.slowT = Math.max(e.slowT || 0, dur);
+  }
+  function bindEnemy(e, dur) {
+    if (!e.alive || dur <= 0) return;
+    e.bindT = Math.max(e.bindT || 0, dur);
+  }
+  const charmAt = (x, y) => S.charms && S.charms.get(key(x, y));
+  const inField = (e) => { const c = !isFly(e.def) && charmAt(Math.floor(e.x), Math.floor(e.y)); return !!(c && c.field); };
+  function addCharm(op, x, y, n = 1) {
+    const ch = op.tal.charm;
+    if (!ch || !groundTile(x, y)) return;
+    S.charms = S.charms || new Map();
+    let c = S.charms.get(key(x, y));
+    if (!c) {
+      if (S.charms.size >= ch.max) return;
+      c = { x, y, n: 0, owner: op, field: false };
+      S.charms.set(key(x, y), c);
+    }
+    if (c.field) return;
+    c.n = Math.min(ch.stack, c.n + n);
+    c.at = S.time;
+    if (c.n < ch.stack) return;
+    c.field = true;
+    addText(x + 0.5, y + 0.2, '진법 영역', '#ff6a4a', 1, true);
+    addFx({ type: 'ring', x: x + 0.5, y: y + 0.5, life: 0.5, color: '#ffcf3a', r: 0.6 });
+    // 만복을 비나이다: 완성된 진법 영역이 상하좌우로 번짐
+    if (eff(op).fieldSpread) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) addCharm(op, x + dx, y + dy, 1);
+  }
+  // 부적을 붙일 타일: 적이 있는 타일 > 적 이동 경로 > 이미 부적이 있는 타일 우선
+  function placeCharm(op) {
+    if (!S.pathTiles) { S.pathTiles = new Set(); for (const path of S.paths) for (const p of path) S.pathTiles.add(key(Math.floor(p.x), Math.floor(p.y))); }
+    const busy = new Set(S.enemies.filter((e) => e.alive && !isFly(e.def)).map((e) => key(Math.floor(e.x), Math.floor(e.y))));
+    let best = null, bs = -1;
+    for (const [x, y] of op.rangeList) {
+      if (!groundTile(x, y)) continue;
+      const c = charmAt(x, y), k = key(x, y);
+      if (c && c.field) continue;
+      if (!c && S.charms && S.charms.size >= op.tal.charm.max) continue;
+      const sc = (busy.has(k) ? 4 : 0) + (S.pathTiles.has(k) ? 2 : 0) + (c ? c.n : 0) + Math.random() * 0.8;
+      if (sc > bs) { bs = sc; best = [x, y]; }
+    }
+    if (!best) return;
+    addCharm(op, best[0], best[1], 1);
+    const [X, Y] = best;
+    rise(X + 0.5, Y + 0.55, '#ffe9a0', 2, 0.3, 'card');
+  }
+  function charmTick(dt) {
+    for (const op of S.ops) {
+      if (!op.alive || !op.tal.charm) continue;
+      op.charmT = (op.charmT || 0) + dt;
+      const every = eff(op).charmEvery || op.tal.charm.every;
+      if (op.charmT >= every) { op.charmT = 0; placeCharm(op); }
+    }
+    if (!S.charms || !S.charms.size) { for (const e of S.enemies) e.fieldMul = 1; return; }
+    for (const [k, c] of S.charms) if (!c.owner.alive) S.charms.delete(k);
+    for (const e of S.enemies) {
+      e.fieldMul = 1;
+      if (!e.alive || isFly(e.def)) continue;
+      const tk = key(Math.floor(e.x), Math.floor(e.y)), c = S.charms.get(tk);
+      const o = c && c.owner, ch = o && o.tal.charm;
+      if (tk !== e.charmTile) {
+        e.charmTile = tk;
+        // 부적이 있는 타일에 들어오면 피해 + 감속
+        if (c) { hitEnemy(e, opAtk(o) * ch.mul, 'arts', false, o, 0, true); slowEnemy(e, 1 - ch.slow, ch.dur); if (!e.alive) continue; }
+      }
+      if (!c || !c.field) { e.fieldT = 0; continue; }
+      const oe = eff(o);
+      e.fieldMul = oe.fieldMove || ch.fieldMove;
+      if (oe.fieldRes) { e.resDown = Math.max(e.resDownT > 0 ? e.resDown : 0, oe.fieldRes); e.resDownT = 0.3; }
+      if ((e.fieldT = (e.fieldT || 0) + dt) >= 1) { e.fieldT -= 1; hitEnemy(e, opAtk(o) * ch.dps, 'arts', false, o, 0, true); }
+    }
+  }
+  // 끌어당기기: 지상 적을 오퍼레이터 쪽으로 (걸을 수 있는 타일 안에서만)
+  function pullEnemy(e, op, dist) {
+    if (!e.alive || isFly(e.def) || e.def.boss) return;
+    const cx = op.x + 0.5, cy = op.y + 0.5, dx = cx - e.x, dy = cy - e.y, d = Math.hypot(dx, dy);
+    if (d < 0.75) return;
+    const st = Math.min(dist, d - 0.7), nx = e.x + (dx / d) * st, ny = e.y + (dy / d) * st;
+    if (groundTile(Math.floor(nx), Math.floor(ny))) { e.x = nx; e.y = ny; }
   }
   function addZone(op, x, y, r, zn) {
     S.zones = S.zones || [];
@@ -793,6 +889,7 @@
   function charSkill(op) {
     const t = op.tal;
     op.skillKills = 0; op.extended = 0;
+    if (t.patience) op.patSnap = Math.floor(op.patience || 0);
     if (t.dailyPay) healOp(op, op.maxHp * t.dailyPay.heal);
     if (op.def.class === 'vanguard') {
       S.vgFirst = S.vgFirst || {};
@@ -815,7 +912,7 @@
     if (X.firstGround && melee && !S.firstGroundUsed) { S.firstGroundUsed = true; op.firstGround = true; op.protect = X.firstGround.debuff; }
     if (X.spawnZoneAtk && nearTile(op.x, op.y, 'R')) op.zoneAtk = X.spawnZoneAtk;
     if (X.baseZone && nearTile(op.x, op.y, 'B')) { add('block', X.baseZone.block); op.maxHp *= 1 + X.baseZone.hp; op.hp = op.maxHp; }
-    if (X.dancer && idx === 0) { op.sp = Math.min(op.skill.sp, op.sp + X.dancer.sp); add('aspd', X.dancer.aspd); add('atk', X.dancer.atk); }
+    if (X.dancer && idx === 0) { op.sp = Math.min(spCap(op.skill), op.sp + X.dancer.sp); add('aspd', X.dancer.aspd); add('atk', X.dancer.atk); }
     if (X.merchant && idx === last) { add('block', X.merchant.block); add('def', X.merchant.def); op.maxHp *= 1 + X.merchant.hp; op.hp = op.maxHp; }
     if (X.boldBlade && def.id === S.boldId) { add('atk', X.boldBlade.atk); add('def', X.boldBlade.def); }
     S.deployCount = (S.deployCount || 0) + 1;
@@ -1044,12 +1141,23 @@
       }
       addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.4, color: '#ffcf3a', r: ef.strike.radius });
     }
-    op.sp = 0;
+    // 잡귀는 물렀거라: 범위 안 모든 적에게 즉시 마법 피해 · 기절, 맞은 자리에 축원 부적
+    if (ef.blast) {
+      for (const t of S.enemies.filter((e) => e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y))))) {
+        attackFx(op, t, 0, 'arts', true, op.x + 0.5, op.y + 0.5);
+        hitEnemy(t, opAtk(op) * ef.blast.mul, 'arts', false, op);
+        stunEnemy(t, ef.blast.stun);
+        if (ef.blast.charm && !isFly(t.def)) addCharm(op, Math.floor(t.x), Math.floor(t.y), 1);
+      }
+      for (const [kx, ky] of op.rangeList) if (Math.random() < 0.35) rise(kx + 0.5, ky + 0.55, '#ffe9a0', 1, 0.3, 'card');
+    }
+    op.sp = sk.stock ? Math.max(0, op.sp - sk.sp) : 0;
     relicSkill(op);
     charSkill(op);
     op.skillT = sk.duration === -1 ? Infinity : sk.duration || 0;
     op.charges = ef.charges || 0;
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
+    afterActivate(op, ef);
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.6, color: op.def.color, r: 0.9 });
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.45, color: '#ffcf3a', r: 0.6 });
     castFx(op);
@@ -1059,6 +1167,28 @@
     return true;
   }
 
+  // 스킬 범위가 정해진 뒤의 발동 효과 (안드레아 · 비나리)
+  function afterActivate(op, ef) {
+    const inR = () => S.enemies.filter((e) => e.alive && (e.blockedBy === op || op.range.has(key(Math.floor(e.x), Math.floor(e.y)))));
+    const wr = op.tal.wrath, n = op.wrath || 0;
+    if (wr && n > 0) {
+      op.wrathAtk = n * wr.atk; op.wrathT = n * wr.dur; op.wrath = 0;
+      if (n >= wr.max) {
+        for (const t of inR()) { hitEnemy(t, opAtk(op) * wr.mul, 'phys', true, op); stunEnemy(t, wr.stun); }
+        addText(op.x + 0.5, op.y - 0.3, '정의로운 분노', '#ffd86b', 1.2, true);
+      }
+    }
+    if (ef.rangeStrike) {
+      for (const t of inR()) {
+        addFx({ type: 'hit', style: 'bash', x: t.x, y: t.y, life: 0.35, color: '#ffd86b', color2: '#fff', big: true });
+        hitEnemy(t, opAtk(op) * ef.rangeStrike.mul, 'phys', true, op, ef.ignoreDef || 0);
+        stunEnemy(t, ef.rangeStrike.stun);
+      }
+      for (const [kx, ky] of op.rangeList) addFx({ type: 'ring', x: kx + 0.5, y: ky + 0.5, life: 0.5, color: '#ffd86b', r: 0.45 });
+      S.shake = 0.3;
+    }
+    if (ef.pulse) op.pulseT = ef.pulse.every + ((ef.pull && ef.pull.dur) || 0);
+  }
   // 지속형 스킬이 끝날 때
   function endSkill(op) {
     const ef = op.skill.effect || {};
@@ -1068,6 +1198,11 @@
     if (ef.guardRetreat) for (const sm of S.ops.filter((o) => o.owner === op)) { addText(sm.x + 0.5, sm.y + 0.2, '퇴각', '#9aa1ab', 0.8, true); removeOp(sm, false); }
     if (ef.range) setRange(op, op.def.range);
     if (ef.shield) op.shield = 0;
+    // 해방자: 스킬이 끝나면 공격력 충전 초기화 / 인내의 기도 초기화
+    if (op.def.archetype === 'librator') op.libT = 0;
+    if (op.tal.patience) { op.patience = 0; op.patSnap = 0; }
+    // 만복을 비나이다를 끄면 설치된 부적 · 진법이 모두 사라짐
+    if (ef.clearCharms && S.charms) { for (const [k, c] of S.charms) if (c.owner === op) S.charms.delete(k); addText(op.x + 0.5, op.y - 0.2, '진법 해제', '#9aa1ab', 1, true); }
     if (ef.hpMul) { op.maxHp /= ef.hpMul; op.hp = Math.min(op.hp, op.maxHp); }
     if (ef.endHeal) healOp(op, op.maxHp * ef.endHeal);
     if (ef.endStun) { op.stun = ef.endStun; addText(op.x + 0.5, op.y - 0.1, '기절', '#9aa1ab', 1, true); }
@@ -1167,8 +1302,16 @@
         sfx('arts');
       }
       if (ef.allyRegen) for (const a of alliesNear(op, ef.allyRegen.radius)) healOp(a, opAtk(op) * ef.allyRegen.mul * dt, true);
+      // 만복을 비나이다: 발동 직후 끌어당김, 이후 주기적으로 약한 끌어당김 + 광역 마법 피해
+      if (ef.pull && op.skillAge < ef.pull.dur) for (const e of S.enemies) if (e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y)))) pullEnemy(e, op, ef.pull.speed * dt);
+      if (ef.pulse && (op.pulseT -= dt) <= 0) {
+        op.pulseT = ef.pulse.every;
+        for (const e of S.enemies.filter((e) => e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y))))) { pullEnemy(e, op, ef.pulse.pull); hitEnemy(e, opAtk(op) * ef.pulse.mul, 'arts', false, op); }
+        for (const [kx, ky] of op.rangeList) addFx({ type: 'ring', x: kx + 0.5, y: ky + 0.5, life: 0.5, color: '#ff6a4a', r: 0.45 });
+        sfx('strike');
+      }
     } else if (sk.spType !== 'deploy') {
-      if (!sk.spType || sk.spType === 'time') op.sp = Math.min(sk.sp, op.sp + dt * (S.ext.practice ? 3 : 1));
+      if (!sk.spType || sk.spType === 'time') op.sp = Math.min(spCap(sk), op.sp + dt * (S.ext.practice ? 3 : 1));
       if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && (op.def.archetype === 'bearer' || hasWork(op))) activateSkill(op);
     }
 
@@ -1184,8 +1327,14 @@
       }
     }
 
-    // 기수: 스킬 중에는 공격하지 않음
+    // 해방자: 스킬 미발동 시 공격력 충전 · 인내 누적
+    if (!(op.skillT > 0)) {
+      if (op.def.archetype === 'librator') op.libT = Math.min(40, (op.libT || 0) + dt);
+      if (op.tal.patience) op.patience = Math.min(op.tal.patience.max, (op.patience || 0) + dt);
+    }
+    // 기수: 스킬 중에는 공격하지 않음 / 진법 캐스터 · 해방자: 스킬 미발동 시 공격하지 않음
     if (op.def.archetype === 'bearer' && op.skillT > 0) return;
+    if ((op.def.archetype === 'phalanx' || op.def.archetype === 'librator') && !(op.skillT > 0)) return;
     // 불행을 밀봉하는 법: 5초마다 「사고」
     const acc = ef.accident;
     if (acc && op.skillT > 0 && (op.accT = (op.accT ?? acc.every) - dt) <= 0) {
@@ -1195,7 +1344,8 @@
     }
     op.atkCd -= dt;
     if (op.atkCd > 0) return;
-    const n = eff(op).targets || oeff(op).devTargets || op.def.targets || 1;
+    // 진법 캐스터: 스킬 지속 중 범위 안 모든 적 공격
+    const n = op.def.archetype === 'phalanx' ? 99 : eff(op).targets || oeff(op).devTargets || op.def.targets || 1;
     const cx = op.x + 0.5, cy = op.y + 0.5;
 
     if (op.def.class === 'medic') {
@@ -1244,7 +1394,17 @@
       ignore = Math.min(1, ignore + op.prinStacks * pr.ignore);
     }
     op.debuffedTarget = isDebuffed(targets[0]);
+    // 인내의 기도(30중첩 이상) · 주여, 용서하소서!: 방어력 무시
+    if (op.patSnap >= 30) ignore = Math.min(1, ignore + op.tal.patience.ignore);
+    if (eff(op).ignoreDef) ignore = Math.min(1, ignore + eff(op).ignoreDef);
     let mul = 1;
+    // 인내에도 한계가 있습니다: 같은 적 연속 공격 시 물리 피해 증가
+    const chn = eff(op).chain;
+    if (chn) {
+      if (op.chainTarget === targets[0]) op.chainN = Math.min(chn.max, (op.chainN || 0) + 1);
+      else { op.chainTarget = targets[0]; op.chainN = 0; }
+      mul *= 1 + chn.step * op.chainN;
+    }
     if (pr && op.prinStacks >= pr.max) mul *= 1 + pr.amp;
     if (eff(op).focusAmp && op.prinStacks) mul *= 1 + eff(op).focusAmp * op.prinStacks;
     // 믿음직한 동료: 펠릭스가 저지한 적을 치는 가드
@@ -1326,6 +1486,14 @@
         }
         if (op.tal.argue && t.alive && t.proof) hitEnemy(t, opAtk(op) * op.tal.argue.mul, 'arts', false, op);
         if (stunHit && t.alive) stunEnemy(t, stunHit);
+        // 삼재를 막고: 추가 마법 피해, 진법 영역 위의 적 확률 속박
+        if (eff(op).extraArts && i === 0 && t.alive) hitEnemy(t, opAtk(op) * eff(op).extraArts, 'arts', false, op, 0, true);
+        const fb = eff(op).fieldBind;
+        if (fb && i === 0 && t.alive && inField(t) && Math.random() < fb.rate) { bindEnemy(t, fb.dur); addText(t.x, t.y - 0.45, '속박', '#ff8a6a', 0.7); }
+        // 인내의 기도 40중첩: 추가 물리 피해
+        if (op.patSnap >= 40 && t.alive) hitEnemy(t, opAtk(op) * op.tal.patience.extra, 'phys', false, op, ignore, true);
+        // 부디 자비를: 처음 공격하는 적 기절
+        if (eff(op).firstStun && i === 0 && t.alive && !(t.mercyBy === op && t.mercyN === op.skillN)) { t.mercyBy = op; t.mercyN = op.skillN; stunEnemy(t, eff(op).firstStun); }
         if (op.tal.relay && i === 0) markEnemy(op, t);
         if (finish && i === 0 && t.alive) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#ffcf3a', r: 0.5 }); hitEnemy(t, opAtk(op) * fin.mul, 'phys', true, op, ignore, true); }
         if (splash) {
@@ -1378,7 +1546,7 @@
 
   function afterAttack(op) {
     const sk = op.skill;
-    if (sk.spType === 'attack' && op.skillT <= 0) op.sp = Math.min(sk.sp, op.sp + 1);
+    if (sk.spType === 'attack' && op.skillT <= 0) op.sp = Math.min(spCap(sk), op.sp + 1);
     if (op.charges > 0 && --op.charges === 0 && op.skillT > 0) endSkill(op);
     op.atkCd = opInterval(op);
   }
@@ -1451,6 +1619,20 @@
     }
     const g = op.tal.guard;
     if (g && op.hp / op.maxHp <= g.below) dmg *= g.taken;
+    if (eff(op).blockedCut && src && src.blockedBy === op) dmg *= 1 - eff(op).blockedCut;
+    // 액막이: 최대 HP의 20%(스킬 중 30%) 이하 피해 무효화 (5초마다 1회) → 주변 적에게 마법 피해 · 속박
+    const am = op.tal.amulet;
+    if (am && dmg > 0 && S.time - (op.amuletAt ?? -99) >= am.cd && dmg <= op.maxHp * (op.skillT > 0 ? am.skillBelow : am.below)) {
+      op.amuletAt = S.time;
+      addText(op.x + 0.5, op.y - 0.1, '액막이', '#ff6a4a', 0.9, true);
+      addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.45, color: '#ff6a4a', r: am.radius });
+      rise(op.x + 0.5, op.y + 0.55, '#ffe9a0', 5, 0.5, 'card');
+      const hit = enemiesNear(op, am.radius);
+      if (src && src.def && !src.tal && src.alive && !hit.includes(src)) hit.push(src);
+      for (const e of hit) { hitEnemy(e, opAtk(op) * am.mul, 'arts', false, op); bindEnemy(e, am.bind); }
+      if (eff(op).amuletExtra && src && src.def && !src.tal) hitEnemy(src, opAtk(op) * eff(op).amuletExtra, 'arts', true, op, 0, true);
+      return;
+    }
     if (op.shield > 0) {
       const absorbed = Math.min(op.shield, dmg);
       op.shield -= absorbed;
@@ -1475,15 +1657,17 @@
       op.surviveUsed = true;
       op.surviveT = sv.dur;
       healOp(op, op.maxHp * sv.heal);
-      if (op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + sv.sp);
+      if (op.skillT <= 0) op.sp = Math.min(spCap(op.skill), op.sp + sv.sp);
       addText(op.x + 0.5, op.y - 0.1, '일단 살고 봐야죠!', '#7fd8ff', 1.2, true);
       return;
     }
     op.hp -= dmg;
     op.flash = 0.12;
     sfx('hurt');
+    // 정의로운 분노: 주변 8칸 아군이 적에게 피해를 받으면 의분 +1
+    if (src && src.def && !src.tal && dmg > 0) for (const a of S.ops) if (a.alive && a !== op && a.tal.wrath && near8(a, op.x, op.y)) a.wrath = Math.min(a.tal.wrath.max, (a.wrath || 0) + 1);
     addText(op.x + 0.5, op.y + 0.25, Math.round(dmg), type === 'arts' ? '#d9b3ff' : '#ff8c8f', 0.6);
-    if (op.skill.spType === 'hit' && op.skillT <= 0) op.sp = Math.min(op.skill.sp, op.sp + 1);
+    if (op.skill.spType === 'hit' && op.skillT <= 0) op.sp = Math.min(spCap(op.skill), op.sp + 1);
     if (src && src.def.chill) op.chill = 3 * debuffMul(op);
     if (src && src.def.neural) { addNeural(op, src.def.neural); if (X.hurtSp) gainSp(op, X.hurtSp); }
     if (X.hurtSp) gainSp(op, X.hurtSp);
@@ -1680,6 +1864,7 @@
     if (e.vulnT > 0) e.vulnT -= dt;
     if (e.atkDownT > 0) e.atkDownT -= dt;
     if (e.markT > 0) e.markT -= dt;
+    if (e.bindT > 0) e.bindT -= dt;
     if (e.resDownT > 0) e.resDownT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
@@ -1703,7 +1888,7 @@
     if (e.stun > 0) { e.stun -= dt; return; }
     if (e.blockedBy && !e.blockedBy.alive) e.blockedBy = null;
     if (!e.blockedBy && !isFly(e.def) && !e.def.unblockable && !(e.def.brandUnblockable && onBrand(e.x, e.y))) tryBlock(e);
-    if (!e.blockedBy) moveEnemy(e, dt);
+    if (!e.blockedBy && !(e.bindT > 0)) moveEnemy(e, dt);
     if (!e.alive) return;
 
     if (!e.def.atk) return;   // 훈련용 표적은 공격하지 않음
@@ -2195,9 +2380,11 @@
     // 체력/SP
     const bw = T * 0.72, bx = X - bw / 2, by = Y + T * 0.1;
     bar(bx, by, bw, Math.max(3, T * 0.055), op.hp / op.maxHp, '#4cd964');
-    const spRatio = op.skillT > 0 ? (op.skillT === Infinity ? 1 : op.skillT / sk.duration) : sk.sp ? op.sp / sk.sp : 0;
+    const spRatio = op.skillT > 0 ? (op.skillT === Infinity ? 1 : op.skillT / sk.duration) : !sk.sp ? 0 : sk.stock && op.sp < spCap(sk) ? (op.sp % sk.sp) / sk.sp : op.sp / sk.sp;
     bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
     if (op.neural > 0) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), op.neural / 1000, '#c77dff');
+    // 해방자: 공격력 충전 게이지
+    if (op.def.archetype === 'librator' && !(op.skillT > 0)) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), (op.libT || 0) / 40, '#ffd86b');
     if (op.arts) {
       // 오늘의 변수: 지금 발현 중인 아츠
       const d = DAILY_ARTS[op.arts], tx2 = X, ty2 = op.rect[1] - T * 0.02;
@@ -2221,7 +2408,7 @@
       ctx.fillStyle = '#000';
       ctx.font = `900 ${T * 0.18}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('!', bx2, by2 + T * 0.01);
+      ctx.fillText(sk.stock && op.sp >= sk.sp * 2 ? String(Math.floor(op.sp / sk.sp)) : '!', bx2, by2 + T * 0.01);
     }
   }
 
@@ -2633,6 +2820,29 @@
       ellipse(X, Y, P.T * sc * z.r, P.T * sc * z.r * 0.5);
       ctx.fillStyle = z.dps ? 'rgba(160,110,255,.55)' : 'rgba(160,110,255,.3)'; ctx.fill();
       ctx.globalAlpha = 1;
+    }
+
+    // 축원 부적 · 진법 영역 (오방색 문양)
+    if (S.charms && S.charms.size) {
+      for (const c of S.charms.values()) {
+        const h = tileH(c.x, c.y);
+        poly(quad(c.x + 0.08, c.y + 0.08, c.x + 0.92, c.y + 0.92, h + 0.006));
+        if (c.field) {
+          ctx.fillStyle = `rgba(220,60,40,${0.26 + Math.sin(S.time * 3 + c.x + c.y) * 0.06})`; ctx.fill();
+          ctx.strokeStyle = 'rgba(255,207,58,.85)'; ctx.lineWidth = Math.max(1.5, P.T * 0.03); ctx.stroke();
+          poly(quad(c.x + 0.3, c.y + 0.3, c.x + 0.7, c.y + 0.7, h + 0.007));
+          ctx.strokeStyle = 'rgba(80,160,255,.7)'; ctx.lineWidth = Math.max(1, P.T * 0.02); ctx.stroke();
+        } else {
+          ctx.fillStyle = `rgba(255,220,140,${0.08 + c.n * 0.06})`; ctx.fill();
+        }
+        // 떠 있는 종이 부적
+        for (let i = 0; i < (c.field ? 3 : c.n); i++) {
+          const [X, Y, sc] = proj(c.x + 0.3 + i * 0.2, c.y + 0.5, h + 0.25 + Math.sin(S.time * 2 + i + c.x) * 0.05);
+          const w = P.T * sc * 0.09, hh = P.T * sc * 0.2;
+          ctx.fillStyle = '#f4e3b0'; ctx.fillRect(X - w / 2, Y - hh, w, hh);
+          ctx.fillStyle = '#c0302a'; ctx.fillRect(X - w * 0.25, Y - hh * 0.85, w * 0.5, hh * 0.6);
+        }
+      }
     }
 
     if (S.mode === 'placing') {
