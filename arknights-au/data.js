@@ -326,7 +326,7 @@ const OPERATORS = [
     skills: [
       { name: '관측', desc: '15초간 공격력 +40%, 동시에 2명 공격', sp: 20, initSp: 10, duration: 15, trigger: 'auto', effect: { atk: 1.4, targets: 2 } },
       { name: '약점 지적', desc: '20초간 분석이 3배 빠르게 쌓이고, 공격력 +30%', sp: 30, initSp: 15, duration: 20, trigger: 'manual', effect: { analyzeRate: 3, atk: 1.3 } },
-      { name: '반론은 받지 않아', desc: '25초간 공격 범위 확대, 분석이 4배 빠르게 쌓이고, 분석이 완료된 적의 이동 속도 -60%·공격 속도 대폭 감소', sp: 40, initSp: 25, duration: 25, trigger: 'manual', effect: { range: area(0, 4, -2, 2), analyzeRate: 4, slowAnalyzed: { move: 0.4, atk: 1.7 } } },
+      { name: '반론은 받지 않아', desc: '25초간 공격 범위 확대, 분석이 4배 빠르게 쌓이고, 분석이 완료된 적의 이동 속도 -60%·공격 속도 대폭 감소', sp: 40, initSp: 25, duration: 25, trigger: 'manual', effect: { range: area(-1, 3, -2, 2), analyzeRate: 4, slowAnalyzed: { move: 0.4, atk: 1.7 } } },
     ],
     voice: {
       obtain: '……구여운입니다. 서포터 오퍼레이터로 등록하라는 말을 들었습니다만. ……아, 양이경이요? 그 녀석은 아까부터 당신을 찾아다니던데요. 아직 못 만났습니까?',
@@ -705,7 +705,7 @@ const OPERATORS = [
     skills: [
       { name: '탄도 보정', desc: '다음 공격 시 공격력의 200%로 공격하고 대상 주변의 적에게도 폭발 피해', sp: 3, initSp: 0, duration: 0, spType: 'attack', trigger: 'auto', effect: { nextHit: 2, nextSplash: 0.9 } },
       { name: '파라벨룸', desc: '20초간 공격력 +50%·공격 속도 상승. 공격 시 크기가 다른 탄환 2발을 연속 발사 — 첫 발은 대상에게 공격력의 130% 물리 피해, 두 번째 발은 대상 주변에 공격력의 80% 범위 물리 피해', sp: 30, initSp: 15, duration: 20, trigger: 'auto', effect: { atk: 1.5, interval: 0.75, twinShot: { mul: 1.3, blast: 0.8, radius: 1 } } },
-      { name: 'PARABELLUM BULLET', desc: '15초간 공격 범위 확대, 공격력 +80%·공격 속도 대폭 상승. 범위 안의 적 최대 4명에게 푸른 탄환을 일제 사격, 각 탄환은 착탄 지점에 범위 물리 피해. 탄환 일부는 무게가 가장 무거운 적에게 집중(추가 1발)', sp: 50, initSp: 30, duration: 15, trigger: 'manual', effect: { range: area(0, 5, -2, 2), atk: 1.8, interval: 0.5, targets: 4, splash: 0.8, heavyFocus: 1 } },
+      { name: 'PARABELLUM BULLET', desc: '15초간 공격 범위 확대, 공격력 +80%·공격 속도 대폭 상승. 범위 안의 적 최대 4명에게 푸른 탄환을 일제 사격, 각 탄환은 착탄 지점에 범위 물리 피해. 탄환 일부는 무게가 가장 무거운 적에게 집중(추가 1발)', sp: 50, initSp: 30, duration: 15, trigger: 'manual', effect: { range: area(1, 5, -2, 2), atk: 1.8, interval: 0.5, targets: 4, splash: 0.8, heavyFocus: 1 } },
     ],
     voice: {
       obtain: '……리안 터너. 코드네임은 터너야. 스나이퍼로 등록하면 된다고 들었어. ……아, 맞다. 앞으로 잘 부탁해, 박사.',
@@ -751,7 +751,7 @@ const OPERATORS = [
     profile: '본명 아네모네 피셔. 20세, 155.1cm / 42kg. 여름 바다를 모방하는 광학 아츠 장비와 해양생물 형태의 투사체를 사용하는 지원 오퍼레이터. 겁이 많고 다정하며 감수성이 풍부하다. 하지만 타인의 고통을 외면해야 할 때는 두려움을 무릅쓰고 맞선다.\n\n그가 만들어 내는 여름 바다와 흰동가리는 실제 물이나 생물이 아니다. 특수 광학 아츠 장비와 오리지늄 에너지 방출 기술을 조합한 신기루지만, 흰동가리 형태의 아츠 투사체는 실제로 적에게 마법 피해를 입힌다. 이 능력에 소질이 있지만, 장시간 운용하면 심한 두통과 구토감에 시달린다.',
     quote: '무섭긴 하지만…… 그래도 그냥 두고 갈 수는 없잖아요.',
     cost: 13, redeploy: 70, block: 2,
-    hp: 1350, atk: 470, def: 130, res: 20, interval: 1.6,
+    hp: 2250, atk: 470, def: 290, res: 20, interval: 1.6,
     range: area(0, 1, 0, 0),  // 원작 범위 1-1
     summons: [
       { id: 'cf_buoy', icon: 'img/fish.png', name: '해류 부표', class: 'device', color: '#ffb347', charges: 3, noDir: true,
@@ -766,7 +766,7 @@ const OPERATORS = [
     ],
     talents: [
       { name: '여름의 잔향', desc: '해류 부표의 공격에 맞은 적은 5초간 마법 저항 -15. 같은 적에게 연속으로 맞히면 공격력의 30% 추가 마법 피해', effect: { echo: { res: 15, dur: 5, mul: 0.3 } } },
-      { name: '용기는 조금씩', desc: '공격 범위 안의 아군이 치명적인 피해를 받으면, 작전 중 1회 그 피해를 70% 줄이고 해류 부표의 배치 가능 횟수 +1', effect: { courage: { cut: 0.7 } } },
+      { name: '용기는 조금씩', desc: '자신 또는 해류 부표 주변 8칸 안의 아군이 치명적인 피해를 받으면, 작전 중 1회 그 피해를 70% 줄이고 해류 부표의 배치 가능 횟수 +1', effect: { courage: { cut: 0.7 } } },
     ],
     skills: [
       { name: '작은 흰동가리', desc: '25초간 해류 부표의 공격 속도 +50, 공격이 2연격으로 변경, 장치 주변 아군의 공격 속도 증가 +15 추가', sp: 30, initSp: 10, duration: 25, trigger: 'auto', effect: { devAspd: 50, devHits: { count: 2, mul: 1 }, devAura: 15 } },
@@ -1762,7 +1762,7 @@ const TRAIN_RULE = {
   },
   // 프로필 문단: 첫 문단은 처음부터, 나머지는 신뢰도에 따라 차례로 열림 (25% ~ 100%)
   recordTrust: [25, 100],
-  masteryCost: [{ lmd: 30000, book: 6, mat: 3 }, { lmd: 60000, book: 8, mat: 4 }, { lmd: 100000, book: 10, mat: 5, dual: 2 }],
+  masteryCost: [{ lmd: 20000, book: 6, mat: 2 }, { lmd: 40000, book: 8, mat: 3 }, { lmd: 60000, book: 10, mat: 4, dual: 2 }],
 };
 (() => {
   const add = (k, v) => { ITEMS[k] = v; };

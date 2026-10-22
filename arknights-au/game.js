@@ -1393,7 +1393,8 @@
     }
     // 용기는 조금씩: 범위 안 아군의 치명상을 작전 중 1회 줄이고 부표 횟수 회복
     if (op.hp - dmg <= 0 && !S.courageUsed) {
-      const cf = S.ops.find((o) => o.alive && o.tal.courage && o.range.has(key(op.x, op.y)));
+      const near = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= 1;
+      const cf = S.ops.find((o) => o.alive && o.tal.courage && (near(o, op) || S.ops.some((d) => d.alive && d.owner === o && near(d, op))));
       if (cf) {
         S.courageUsed = true;
         dmg *= 1 - cf.tal.courage.cut;
