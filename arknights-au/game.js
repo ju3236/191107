@@ -88,6 +88,8 @@
   //   mods { startDp, deployLimit, dpRate }, onEnd(결과) → { text, buttons }
   function beginBattle(idx, squadIds, opts = {}) {
     const st = typeof idx === 'object' ? idx : STAGES[idx];
+    // BGM: 보스가 나오는 작전은 보스 전투곡
+    if (window.SFX && SFX.bgm) SFX.bgm(st.waves.some((w) => { const e = (opts.enemies && opts.enemies[w.enemy]) || ENEMIES[w.enemy]; return e && e.boss; }) ? 'boss' : 'battle');
     if (typeof idx === 'object') idx = -1;
     const map = st.map.map((r) => r.split(''));
     const spawns = [];

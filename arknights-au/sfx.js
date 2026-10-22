@@ -1,14 +1,14 @@
 'use strict';
 // =====================================================================
-//  효과음 — 파일 없이 Web Audio로 직접 합성
-//  SFX.play('이름')  /  SFX.toggle()  /  SFX.enabled
+//  효과음 · BGM — 원작 사운드(snd/*.mp3)를 Web Audio로 재생, 파일을 못 불러오면 직접 합성한 소리로 대신
+//  SFX.play('이름')  /  SFX.toggle()  /  SFX.enabled  /  SFX.bgm('home' | 'battle' | …)  /  SFX.toggleBgm()
 // =====================================================================
 (() => {
-  const KEY = 'ashen-beacon-sound';
-  let enabled = true;
-  try { enabled = localStorage.getItem(KEY) !== 'off'; } catch { /* 저장 불가 환경 */ }
+  const KEY = 'ashen-beacon-sound', BKEY = 'ashen-beacon-bgm';
+  let enabled = true, bgmOn = true;
+  try { enabled = localStorage.getItem(KEY) !== 'off'; bgmOn = localStorage.getItem(BKEY) !== 'off'; } catch { /* 저장 불가 환경 */ }
 
-  let ac = null, master = null, noiseBuf = null;
+  let ac = null, master = null, noiseBuf = null, bgmGain = null;
   function ensure() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return true; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -22,7 +22,66 @@
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    bgmGain = ac.createGain();
+    bgmGain.gain.value = 0.35;
+    bgmGain.connect(ac.destination);
+    loadSamples();
+    if (bgmWant) startBgm(bgmWant);
     return true;
+  }
+  // ---------- 원작 사운드 파일 ----------
+  const SAMPLE = ['click', 'select', 'cancel', 'deny', 'deploy', 'retreat', 'slash', 'shot', 'arts', 'heal', 'hurt', 'kill', 'down', 'skill', 'strike', 'leak', 'boss', 'win', 'lose', 'gacha', 'levelup', 'tab'];
+  const VOL = { click: 0.5, slash: 0.55, shot: 0.55, arts: 0.55, heal: 0.5, hurt: 0.45, kill: 0.6, gacha: 0.8 };
+  const buf = {}, loading = {};
+  function load(name) {
+    if (buf[name] || loading[name]) return loading[name];
+    loading[name] = fetch(`snd/${name}.mp3`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+      .then((a) => new Promise((ok, no) => ac.decodeAudioData(a, ok, no))).then((b) => { buf[name] = b; return b; })
+      .catch(() => { loading[name] = null; return null; });
+    return loading[name];
+  }
+  function loadSamples() { for (const n of SAMPLE) load(n); }
+  function playBuf(name) {
+    const b = buf[name];
+    if (!b) return false;
+    const src = ac.createBufferSource(), g = ac.createGain();
+    src.buffer = b;
+    g.gain.value = VOL[name] || 0.7;
+    src.connect(g); g.connect(master);
+    src.start();
+    return true;
+  }
+  // ---------- BGM (반복 재생, 바뀔 때 페이드) ----------
+  let bgmWant = null, bgmCur = null, bgmSrc = null, bgmNode = null;
+  function stopBgm(fade = 0.8) {
+    if (!bgmSrc) return;
+    const s0 = bgmSrc, g0 = bgmNode, t = ac.currentTime;
+    g0.gain.setValueAtTime(g0.gain.value, t);
+    g0.gain.linearRampToValueAtTime(0.0001, t + fade);
+    setTimeout(() => { try { s0.stop(); } catch { /* 이미 멈춤 */ } }, fade * 1000 + 50);
+    bgmSrc = bgmNode = null; bgmCur = null;
+  }
+  function startBgm(name) {
+    if (!ac || !bgmOn || !enabled) return;
+    if (bgmCur === name && bgmSrc) return;
+    stopBgm();
+    bgmCur = name;
+    load('bgm_' + name).then((b) => {
+      if (!b || bgmWant !== name || bgmCur !== name || bgmSrc) return;
+      const src = ac.createBufferSource(), g = ac.createGain(), t = ac.currentTime;
+      src.buffer = b; src.loop = true;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(1, t + 1.2);
+      src.connect(g); g.connect(bgmGain);
+      src.start();
+      bgmSrc = src; bgmNode = g;
+    });
+  }
+  function bgm(name) {
+    bgmWant = name || null;
+    if (!ac) return;
+    if (!name) { stopBgm(); return; }
+    startBgm(name);
   }
   // 브라우저는 사용자가 화면을 누른 뒤에만 소리를 허용함
   window.addEventListener('pointerdown', () => { if (enabled) ensure(); }, { capture: true });
@@ -104,16 +163,22 @@
   const last = {};
 
   function play(name) {
-    if (!enabled || !SOUNDS[name] || !ensure()) return;
+    if (!enabled || !(SOUNDS[name] || SAMPLE.includes(name)) || !ensure()) return;
     const now = ac.currentTime;
     if (GAP[name] && now - (last[name] || -1) < GAP[name]) return;
     last[name] = now;
-    try { SOUNDS[name](); } catch { /* 오디오 오류는 무시 */ }
+    try { if (!playBuf(name)) SOUNDS[name](); } catch { /* 오디오 오류는 무시 */ }
   }
   function setEnabled(on) {
     enabled = on;
     try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch { /* 저장 불가 환경 */ }
-    if (on) { ensure(); play('select'); }
+    if (on) { ensure(); play('select'); if (bgmWant) startBgm(bgmWant); } else if (ac) stopBgm(0.3);
+  }
+  function setBgm(on) {
+    bgmOn = on;
+    try { localStorage.setItem(BKEY, on ? 'on' : 'off'); } catch { /* 저장 불가 환경 */ }
+    if (!ac) return;
+    if (on && bgmWant) startBgm(bgmWant); else stopBgm(0.3);
   }
 
   // 일반 버튼 클릭음 (배치 카드는 전투 코드에서 따로 냄)
@@ -126,5 +191,8 @@
     play,
     get enabled() { return enabled; },
     toggle() { setEnabled(!enabled); return enabled; },
+    bgm,
+    get bgmOn() { return bgmOn; },
+    toggleBgm() { setBgm(!bgmOn); return bgmOn; },
   };
 })();

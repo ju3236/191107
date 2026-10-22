@@ -198,8 +198,11 @@
     current = name;
     document.querySelectorAll('.screen').forEach((el) => el.classList.toggle('active', el.id === 'screen-' + name));
     ['#result', '#pause', '#modal'].forEach((s) => $(s).classList.add('hidden'));
+    if (name !== 'battle' && window.SFX && SFX.bgm) SFX.bgm(screenBgm(name));
     if (RENDER[name]) RENDER[name](arg, opts);
   }
+  // 화면별 BGM (전투는 game.js에서 정함)
+  const screenBgm = (name) => ({ store: 'shop', headhunt: 'shop', base: 'base', is: 'is' }[name] || 'home');
   function back() {
     const prev = history.pop() || 'home';
     go(prev, undefined, { back: true });
@@ -303,6 +306,7 @@
     resetArmed = false;
     openModal(`<div class="modal-title">설정</div><div class="modal-sub">SETTINGS</div>
       <div class="set-row"><span>효과음</span><button class="btn" id="btn-sound">${window.SFX && SFX.enabled ? '켜짐' : '꺼짐'}</button></div>
+      <div class="set-row"><span>배경 음악</span><button class="btn" id="btn-bgm">${window.SFX && SFX.bgmOn ? '켜짐' : '꺼짐'}</button></div>
       <div class="set-row"><span>닉네임</span><input id="nick-input" maxlength="16" value="${esc(save.nick || '')}" placeholder="${esc(GAME_INFO.commander || '박사')}"><button class="btn small" id="nick-save">저장</button></div>
       <p class="modal-text">${ACCOUNT.mode === 'online'
         ? '온라인 계정에 저장 중입니다. 다른 기기에서 같은 계정으로 열어도 이어서 플레이할 수 있습니다.'
@@ -315,6 +319,7 @@
       RENDER.home();
     });
     $('#btn-sound').addEventListener('click', (e) => { e.target.textContent = SFX.toggle() ? '켜짐' : '꺼짐'; });
+    $('#btn-bgm').addEventListener('click', (e) => { e.target.textContent = SFX.toggleBgm() ? '켜짐' : '꺼짐'; });
     $('#btn-reset').addEventListener('click', (e) => {
       if (!resetArmed) { resetArmed = true; e.target.textContent = '한 번 더 누르면 초기화됩니다'; return; }
       save.stars = {};
@@ -548,7 +553,7 @@
     if (e.target.closest('#tv-lvgo')) {
       const r = TRAIN.levelUp(OPS[detailId], JSON.parse($('#train-view').dataset.use || '{}'));
       if (!r.ok) { toast(r.why); return; }
-      sfx('select');
+      sfx('levelup');
       track('train');
       toast(`레벨 ${r.from} → ${r.to}`);
       closeTrain();
@@ -1271,11 +1276,14 @@
     const ov = $('#dialog'), nameEl = $('#dlg-name'), textEl = $('#dlg-text'), por = $('#dlg-portrait');
     let i = -1, timer = null, full = '';
     ov.classList.remove('hidden');
+    const bgmBefore = current === 'battle' ? null : screenBgm(current);
+    if (bgmBefore && window.SFX && SFX.bgm) SFX.bgm('story');
 
     function finish() {
       clearInterval(timer);
       ov.classList.add('hidden');
       ov.onclick = null;
+      if (bgmBefore && window.SFX && SFX.bgm) SFX.bgm(bgmBefore);
       done();
     }
     function next() {
@@ -1361,4 +1369,5 @@
     get current() { return current; },
   };
   RENDER.home();
+  if (window.SFX && SFX.bgm) SFX.bgm('home');
 })();
