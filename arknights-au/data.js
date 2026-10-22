@@ -318,7 +318,7 @@ const OPERATORS = [
     quote: '……그걸 이제 알아차린 겁니까?',
     cost: 14, redeploy: 45, block: 1,
     hp: 1600, atk: 520, def: 120, res: 20, interval: 1.6,
-    range: area(0, 3, -1, 1),
+    range: [[-1, -1], [-1, 0], [-1, 1], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [2, -1], [2, 0], [2, 1]],  // 원작 범위 y-6
     talents: [
       { name: '예리한 관찰', desc: '공격 범위 안의 적에게 시간이 지날수록 「분석」이 쌓임 (초당 1, 최대 5). 1스택당 방어력 -6%, 마법 저항 -6', effect: { analyze: { rate: 1, max: 5, def: 0.06, res: 6 } } },
       { name: '독보적인 추리', desc: '분석이 완료된 적이 받는 피해 +15%. 양이경이 그 적에게 주는 피해는 추가로 +20%', effect: { deduce: { amp: 0.15, partner: 'igyeong', partnerAmp: 0.2 } } },
@@ -371,7 +371,7 @@ const OPERATORS = [
     quote: '저라도 괜찮다면 이야기 상대가 되어드리겠습니다.',
     cost: 17, redeploy: 70, block: 1,
     hp: 1750, atk: 540, def: 140, res: 10, interval: 2.2,
-    range: area(0, 3, -1, 1),
+    range: [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [2, -2], [2, -1], [2, 0], [2, 1], [2, 2], [3, -1], [3, 0], [3, 1]],  // 원작 범위 3-4
     talents: [
       { name: '경청', desc: '같은 아군을 연속 치료할 때마다 그 아군에 대한 치료량 +8% (최대 +40%)', effect: { listen: { step: 0.08, max: 0.4 } } },
       { name: '정당한 보호', desc: '치료 범위 안의 아군이 받는 상태 이상(공격 속도 감소 등) 지속시간 -50%', effect: { protect: { mul: 0.5 } } },
@@ -424,7 +424,7 @@ const OPERATORS = [
     quote: '……증거도 없이 그런 말을 하는 건 그만두지 그래.',
     cost: 20, redeploy: 70, block: 1,
     hp: 1700, atk: 760, def: 120, res: 20, interval: 1.6,
-    range: area(0, 3, -1, 1),
+    range: [[0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1], [2, -1], [2, 0], [2, 1], [3, 0]],  // 원작 범위 3-1
     talents: [
       { name: '증거 확보', desc: '같은 적을 3회 공격하면 「입증」 부여. 입증된 적은 마법 저항 -15', effect: { proof: { hits: 3, res: 15 } } },
       { name: '빈틈없는 논증', desc: '입증된 적을 공격하면 공격력의 25%만큼 추가 마법 피해', effect: { argue: { mul: 0.25 } } },
@@ -478,7 +478,7 @@ const OPERATORS = [
     quote: '자, 게임을 시작할 시간입니다.',
     cost: 11, redeploy: 60, block: 1,
     hp: 1600, atk: 470, def: 240, res: 10, interval: 1.3,
-    range: area(0, 2, -1, 1),
+    range: area(0, 3, -1, 1),  // 원작 범위 3-3
     summon: {
       id: 'house_guard', name: '하우스 가드', class: 'defender', color: '#4a5a9a', summoned: true,
       cost: 4, redeploy: 25, block: 2, hp: 2600, atk: 430, def: 380, res: 10, interval: 1.25, range: area(0, 0, 0, 0),
@@ -697,7 +697,7 @@ const OPERATORS = [
     quote: '명령이 없어도, 내가 해야 할 일은 알고 있어.',
     cost: 22, redeploy: 70, block: 1,
     hp: 1850, atk: 1080, def: 140, res: 0, interval: 2.4,
-    range: area(0, 4, -1, 1),
+    range: [[2, -2], [2, -1], [2, 0], [2, 1], [2, 2], [3, -2], [3, -1], [3, 0], [3, 1], [3, 2], [4, -1], [4, 0], [4, 1]],  // 원작 범위 4-3
     talents: [
       { name: '푸른 탄도', desc: '무게 3 이상인 적을 공격할 때 방어력 30% 무시. 같은 적을 연속 공격할 때마다 그 적에게 주는 대미지 +8% (최대 3회 중첩)', effect: { blueShot: { weight: 3, ignore: 0.3, step: 0.08, max: 3 } } },
       { name: '정해지지 않은 선택', desc: '공격 범위 안에 HP 50% 이하인 아군이 있으면 공격 속도 +30. 처음 이 조건을 만족하면 즉시 SP +10', effect: { choice: { below: 0.5, aspd: 30, sp: 10 } } },
@@ -752,7 +752,7 @@ const OPERATORS = [
     quote: '무섭긴 하지만…… 그래도 그냥 두고 갈 수는 없잖아요.',
     cost: 13, redeploy: 70, block: 1,
     hp: 1350, atk: 470, def: 130, res: 20, interval: 1.6,
-    range: area(0, 2, -1, 1),
+    range: area(0, 1, 0, 0),  // 원작 범위 1-1
     summons: [
       { id: 'cf_buoy', icon: 'img/fish.png', name: '해류 부표', class: 'device', color: '#ffb347', charges: 3, noDir: true,
         cost: 3, redeploy: 3, block: 0, hp: 1200, atk: 320, def: 150, res: 30, interval: 2, dmgType: 'arts', range: area(-1, 1, -1, 1), aura: 12,
@@ -820,7 +820,7 @@ const OPERATORS = [
     quote: '……괜찮아요. 이런 일에는 익숙하니까요.',
     cost: 14, redeploy: 70, block: 1,
     hp: 1450, atk: 540, def: 120, res: 15, interval: 1.8,
-    range: area(0, 3, -1, 1),
+    range: [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [2, -1], [2, 0], [2, 1]],  // 원작 범위 3-5
     talents: [
       { name: '불행의 연쇄', desc: '시약에 맞은 적에게 8초간 「불운」 — 공격 속도 -15, 이동 속도 -20%, 공격 시 20% 확률로 실패(같은 적에게 8초마다 최대 1회). 다시 맞으면 지속 시간 초기화', effect: { unluck: { dur: 8, fail: 0.2, failCd: 8 } } },
       { name: '기억하는 향', desc: '잔향 지대 안의 아군이 받는 물리·마법 피해 -12%. 불운 상태의 적이 잔향 지대 안에서 쓰러지면 그 지대 안에서 HP 비율이 가장 낮은 아군 1명의 HP를 최대 HP의 8% 회복 (지대마다 3초에 1회)', effect: { memory: { cut: 0.12, heal: 0.08, cd: 3 } } },
@@ -969,7 +969,7 @@ const OPERATORS = [
     quote: '실험… 아니, 작전 개시!',
     cost: 19, redeploy: 40, block: 1,
     hp: 1200, atk: 680, def: 100, res: 20, interval: 1.6,
-    range: area(0, 3, -1, 1),
+    range: [[0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1], [2, -1], [2, 0], [2, 1], [3, 0]],  // 원작 범위 3-1
     skills: [
       { name: '아츠 폭발', desc: '10초간 공격력 +60%, 주변에 범위 피해', sp: 35, initSp: 15, duration: 10, trigger: 'manual', effect: { atk: 1.6, splash: 1.1 } },
     ],

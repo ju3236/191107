@@ -73,8 +73,9 @@
     if (dir === 'up') return [y, -x];
     return [x, y];
   }
+  // 자기 칸은 범위에 [0, 0]이 있을 때만 (원작 공성사수처럼 가까운 칸을 못 치는 범위)
   function computeRange(range, dir, tx, ty) {
-    const list = [[tx, ty]];
+    const list = !range.length || range.some(([x, y]) => !x && !y) ? [[tx, ty]] : [];
     for (const [rx, ry] of range) {
       const [dx, dy] = rotate(rx, ry, dir);
       if (dx === 0 && dy === 0) continue;
