@@ -1811,3 +1811,23 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
 .ri.ri.skill_2::before { background: url(img/item/skill_2.png) center / contain no-repeat; }
 .ri.ri.skill_3::before { background: url(img/item/skill_3.png) center / contain no-repeat; }
 .ri.ri::before { clip-path: none; box-shadow: none; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
+
+/* 잠재 · 신뢰도 · 프로필 기록 */
+.detail-pot { cursor: pointer; }
+.detail-pot:hover { background: #3a3c41; }
+.profile .pf-sec { display: block; margin-bottom: 10px; }
+.profile .pf-sec b { display: block; font-size: 11px; letter-spacing: .1em; color: var(--beacon); margin-bottom: 2px; }
+.profile .pf-sec.locked { color: #888; font-size: 13px; }
+.profile .pf-sec.locked .ico { width: 13px; height: 13px; vertical-align: -2px; }
+.pt-sec { margin-top: 12px; }
+.pt-sec > b { font-size: 16px; }
+.pt-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.pt-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: rgba(255,255,255,.05); color: #888; font-size: 13px; }
+.pt-row.on { color: #fff; background: rgba(255,207,58,.14); }
+.pt-lv { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: #3a3c41; font-family: var(--f-en); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.pt-row.on .pt-lv { background: #ffcf3a; color: #1a1205; }
+.pt-bar { position: relative; height: 8px; background: rgba(255,255,255,.12); margin: 8px 0 16px; }
+.pt-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffcf3a, #ff8a3a); }
+.pt-bar em { position: absolute; top: 10px; transform: translateX(-50%); font-style: normal; font-size: 10px; color: #aaa; }
+.pt-bar::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: #fff; }
+.pt-note { font-size: 13px; color: #ccc; line-height: 1.6; margin: 4px 0; }

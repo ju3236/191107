@@ -1752,6 +1752,16 @@ const TRAIN_RULE = {
   skillCost: [null, null,                                          // 레벨 2~7로 올리는 비용
     { lmd: 2000, items: { skill_1: 3 } }, { lmd: 4000, items: { skill_1: 5 } }, { lmd: 6000, items: { skill_2: 4 } },
     { lmd: 8000, items: { skill_2: 6 } }, { lmd: 12000, items: { skill_3: 4 } }, { lmd: 16000, items: { skill_3: 6 } }],
+  // 잠재 (헤드헌팅 중복): 잠재 2~6에서 차례로 얻는 효과 (누적). 오퍼레이터에 potentials: [{…} ×5]를 넣으면 직접 지정
+  //  cost: 배치 코스트 감소 · redeploy: 재배치 시간 감소(초) · atk/hp/def: 비율 증가
+  potential: [{ cost: 1 }, { redeploy: 4 }, { atk: 0.04 }, { cost: 1 }, { hp: 0.05, atk: 0.03 }],
+  // 신뢰도 보너스: 신뢰도 0~100%에 비례해 최대 이만큼 (직군별 · 오퍼레이터에 trustBonus: { … }로 직접 지정 가능)
+  trustBonus: {
+    vanguard: { atk: 0.06, def: 0.06 }, guard: { atk: 0.06, hp: 0.04 }, defender: { hp: 0.05, def: 0.07 }, sniper: { atk: 0.08 },
+    caster: { atk: 0.08 }, medic: { atk: 0.06, def: 0.04 }, supporter: { atk: 0.06, hp: 0.04 }, specialist: { atk: 0.05, def: 0.05 },
+  },
+  // 프로필 문단: 첫 문단은 처음부터, 나머지는 신뢰도에 따라 차례로 열림 (25% ~ 100%)
+  recordTrust: [25, 100],
   masteryCost: [{ lmd: 30000, book: 6, mat: 3 }, { lmd: 60000, book: 8, mat: 4 }, { lmd: 100000, book: 10, mat: 5, dual: 2 }],
 };
 (() => {

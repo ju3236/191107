@@ -83,14 +83,32 @@
     return a + ((b - a) * (lv - 1)) / (m - 1);
   }
   // 육성 상태를 적용한 오퍼레이터 정의 (전투 · 화면 표시용)
+  // ---------- 잠재 · 신뢰도 ----------
+  const potOf = (def) => Math.max(1, Math.min(6, (window.ACCOUNT && ACCOUNT.potOf(def.id)) || 1));
+  const trustOf = (def) => Math.min(200, ((P().trust || {})[def.id]) || 0);
+  const potList = (def) => def.potentials || R.potential;
+  function potBonus(def, pot = potOf(def)) {
+    const out = { cost: 0, redeploy: 0, atk: 0, hp: 0, def: 0 };
+    for (const b of potList(def).slice(0, pot - 1)) for (const [k, v] of Object.entries(b)) out[k] = (out[k] || 0) + v;
+    return out;
+  }
+  const trustMax = (def) => def.trustBonus || R.trustBonus[def.class] || {};
+  function trustBonus(def, t = trustOf(def)) {
+    const r = Math.min(100, t) / 100, out = {};
+    for (const [k, v] of Object.entries(trustMax(def))) out[k] = v * r;
+    return out;
+  }
   function trained(def, p) {
     if (!def || def.summoned) return def;
     p = p || prog(def.id);
-    const m = statMul(p.elite, p.level);
+    const m = statMul(p.elite, p.level), pb = potBonus(def), tb = trustBonus(def);
+    const mul = (k) => m * (1 + (pb[k] || 0) + (tb[k] || 0));
     return {
       ...def,
-      hp: Math.round(def.hp * m), atk: Math.round(def.atk * m), def: Math.round(def.def * m),
-      cost: Math.max(1, def.cost - R.costDown[p.elite]),
+      hp: Math.round(def.hp * mul('hp')), atk: Math.round(def.atk * mul('atk')), def: Math.round(def.def * mul('def')),
+      cost: Math.max(1, def.cost - R.costDown[p.elite] - pb.cost),
+      redeploy: def.redeploy ? Math.max(5, def.redeploy - pb.redeploy) : def.redeploy,
+      pot: potOf(def), trust: trustOf(def),
       skills: skillsOf(def).slice(0, p.elite + 1).map((sk, i) => skillAt(sk, skillPower(p.slv || 1, (p.mst || [])[i] || 0))), skill: undefined,
       talents: (def.talents || []).slice(0, p.elite),
       trained: p,
@@ -235,5 +253,5 @@
     }
     ACCOUNT.save();
   }
-  window.TRAIN = { prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
+  window.TRAIN = { potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
 })();

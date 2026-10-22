@@ -445,7 +445,7 @@
     $('#detail-talents').innerHTML = `<div class="trait"><span class="chip">특성</span>${esc(arch ? arch.trait : cls.trait)}</div>` +
       (base.talents || []).map((t, i) => `<div class="talent ${i >= pg.elite ? 'locked' : ''}"><b>${esc(t.name)}${i >= pg.elite ? ` <small>${i + 1}차 정예화 해금</small>` : ''}</b><p>${esc(t.desc)}</p></div>`).join('');
     $('#detail-race').textContent = `${o.race} · ${o.faction || cls.name}`;
-    $('#detail-profile').textContent = o.profile;
+    $('#detail-profile').innerHTML = profileHTML(base);
     $('#detail-quote').textContent = `“${o.quote}”`;
     const isA = save.assistant === o.id;
     $('#detail-assist').textContent = !owned(o.id) ? '미보유 오퍼레이터' : isA ? '현재 비서' : '비서로 지정';
@@ -680,6 +680,31 @@
       RENDER.detail();
     }));
   }
+  // 프로필: 첫 문단은 기본 정보, 나머지는 신뢰도에 따라 「기록 N」으로 열림
+  const recordNeed = (i, n) => { const [lo, hi] = TRAIN_RULE.recordTrust; return n <= 2 ? lo : Math.round((lo + ((hi - lo) * (i - 1)) / (n - 2)) / 5) * 5; };
+  function profileHTML(o) {
+    const paras = String(o.profile || '').split('\n\n'), t = trustOf(o.id);
+    return paras.map((txt, i) => {
+      if (!i) return `<span class="pf-sec"><b>기본 정보</b>${esc(txt)}</span>`;
+      const need = recordNeed(i, paras.length);
+      return t >= need ? `<span class="pf-sec"><b>기록 ${i}</b>${esc(txt)}</span>` : `<span class="pf-sec locked"><b>기록 ${i}</b>${icon('lock')} 신뢰도 ${need}% 달성 시 열람 가능</span>`;
+    }).join('');
+  }
+  // 잠재 · 신뢰도 효과 창 (상세 화면의 잠재 표시를 눌러 열기)
+  function openPotTrust(id) {
+    const o = OPS[id], pot = ACCOUNT.potOf(id), t = trustOf(id);
+    if (!pot) { toast('보유하지 않은 오퍼레이터입니다'); return; }
+    const pct = (v) => `${Math.round(v * 1000) / 10}%`;
+    const fx = (b) => [b.cost && `배치 코스트 -${b.cost}`, b.redeploy && `재배치 시간 -${b.redeploy}초`, b.atk && `공격력 +${pct(b.atk)}`, b.hp && `HP +${pct(b.hp)}`, b.def && `방어력 +${pct(b.def)}`].filter(Boolean).join(' · ');
+    const name = { atk: '공격력', hp: 'HP', def: '방어력' };
+    const tb = TRAIN.trustBonus(o, t), tm = TRAIN.trustMax(o);
+    openModal(`<div class="modal-title">${esc(o.name)} — 잠재 · 신뢰도</div><div class="modal-sub">헤드헌팅에서 중복으로 얻으면 잠재가 오르고, 작전에서 쓴 이성만큼 신뢰도가 오릅니다</div>
+      <div class="pt-sec"><b>잠재 ${pot}/6</b><div class="pt-list">${TRAIN.potList(o).map((b, i) => `<div class="pt-row ${pot >= i + 2 ? 'on' : ''}"><span class="pt-lv">${i + 2}</span>${fx(b)}</div>`).join('')}</div></div>
+      <div class="pt-sec"><b>신뢰도 ${t}%</b><div class="pt-bar"><i style="width:${Math.min(100, t / 2)}%"></i><em style="left:50%">100%</em></div>
+        <p class="pt-note">신뢰도 100%까지 능력치가 오르고(현재 ${Object.keys(tm).map((k) => `${name[k]} +${pct(tb[k])} / 최대 ${pct(tm[k])}`).join(' · ')}), 100% 이후로는 음성 기록과 승진 후 대화가 열립니다.</p>
+        <p class="pt-note">프로필 기록: ${String(o.profile || '').split('\n\n').slice(1).map((_, i, a) => `기록 ${i + 1} ${recordNeed(i + 1, a.length + 1)}%`).join(' · ') || '없음'}</p></div>`);
+  }
+  $('#detail-pot').addEventListener('click', () => openPotTrust(detailId));
   $('#detail-skin').addEventListener('click', () => openSkins(detailId));
   $('#detail-voice').addEventListener('click', () => {
     const o = OPS[detailId];
