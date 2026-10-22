@@ -188,7 +188,11 @@
       r.el.classList.toggle('cooling', r.cd > 0);
       r.el.classList.toggle('poor', S.dp < r.def.cost);
       r.el.classList.toggle('selected', S.sel === r && (S.mode === 'placing' || S.mode === 'direction' || S.mode === 'preview'));
-      if (r.cd > 0) r.cdEl.textContent = Math.ceil(r.cd);
+      if (r.cd > 0) {
+        // 재배치 대기: 원작처럼 남은 시간 고리 + 초
+        r.cdEl.textContent = Math.ceil(r.cd);
+        r.cdEl.style.setProperty('--p', `${Math.max(0, Math.min(1, 1 - r.cd / (r.cdMax || r.def.redeploy || 1))) * 360}deg`);
+      }
     }
   }
   function onCard(r) {
@@ -949,9 +953,21 @@
     op.blocked = [];
     S.ops = S.ops.filter((o) => o !== op);
     op.roster.deployed = false;
-    op.roster.cd = S.ext.practice ? 2 : op.def.redeploy * Math.max(0.2, 1 - perDep('redeploy'));
+    op.roster.cd = op.roster.cdMax = S.ext.practice ? 2 : op.def.redeploy * Math.max(0.2, 1 - perDep('redeploy'));
     if (S.inspect === op) setMode('idle');
-    if (died) { sfx('down'); addText(op.x + 0.5, op.y + 0.2, '전투 불능', '#ff6b6e', 1.2, true); }
+    const cx = op.x + 0.5, cy = op.y + 0.5;
+    if (died) {
+      // 전투 불능: 붉은 고리 + 잿빛 파편이 흩어짐
+      sfx('down');
+      addFx({ type: 'ring', x: cx, y: cy, life: 0.6, color: '#ff4d57', r: 0.9 });
+      sparks(cx, cy, '#9aa1ab', 22, { speed: 1.6, size: 0.07, h: 0.5, life: 0.9, shape: 'shard' });
+      rise(cx, cy, '#ff6b6e', 8, 0.5, 'shard');
+      addText(op.x + 0.5, op.y + 0.2, '전투 불능', '#ff6b6e', 1.2, true);
+    } else {
+      // 철수: 푸른 빛이 위로 흩어짐
+      addFx({ type: 'ring', x: cx, y: cy, life: 0.45, color: '#8fd3ff', r: 0.7 });
+      rise(cx, cy, '#bfe6ff', 12, 0.45, 'circle');
+    }
   }
   function retreat(op) {
     S.dp = Math.min(S.maxDp, S.dp + Math.floor(op.def.cost / 2));
@@ -1789,7 +1805,7 @@
     } else if (win) {
       add('계속', 'primary', () => {
         const after = firstClear ? st.after || [] : [];
-        if (after.length) UI.playDialog(after, () => UI.go('operations', 'after'));
+        if (after.length) UI.playDialog(after, () => UI.go('operations', 'after'), st);
         else UI.go('operations', 'after');
       });
     } else {
@@ -2174,14 +2190,20 @@
     const cy = Y - r - lift;
     const im = eImg(e.def);
     const ring = e.def.boss ? '#ff3b47' : isFly(e.def) ? '#5dade2' : e.def.elite ? '#ffb627' : 'rgba(255,90,90,.9)';
+    let headY = cy - r;
     if (im) {
       // 원작 도감 아이콘(투명 배경)을 그대로 세워서 그림. 발밑에 진영 색 고리
       ellipse(X, Y, r * 1.1, r * 0.42);
       ctx.lineWidth = Math.max(1.5, r * 0.09); ctx.strokeStyle = ring; ctx.stroke();
-      const sz = r * 2.5;
+      // 전신 그림: 비율 유지, 발이 땅(발밑 고리)에 닿게, 진행 방향을 바라보게 좌우 반전
+      const h = r * (e.def.boss ? 3.4 : 3), w = h * (im.naturalWidth / im.naturalHeight);
+      const prevX = e.lastX ?? e.x; if (Math.abs(e.x - prevX) > 0.002) e.faceL = e.x < prevX; e.lastX = e.x;
       ctx.save();
       if (e.flash > 0) ctx.filter = 'brightness(2.2)';
-      ctx.drawImage(im, X - sz / 2, cy + r - sz * 0.92, sz, sz);
+      const top = isFly(e.def) ? cy - h * 0.55 : Y - h * 0.97;
+      headY = top + h * 0.08;
+      if (e.faceL) { ctx.translate(X, 0); ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, top, w, h); }
+      else ctx.drawImage(im, X - w / 2, top, w, h);
       ctx.restore();
     } else {
       ctx.beginPath();
@@ -2197,7 +2219,7 @@
       ctx.strokeStyle = ring; ctx.stroke();
     }
     const bw = T * (e.def.boss ? 0.8 : 0.5);
-    bar(X - bw / 2, cy - r - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
+    bar(X - bw / 2, headY - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
     if (e.analysis > 0 && e.ana) {
       // 분석 스택 표시
       const st = Math.floor(e.analysis), done = e.analysis >= e.ana.max, pw = T * 0.07;

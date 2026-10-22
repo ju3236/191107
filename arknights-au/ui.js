@@ -352,7 +352,7 @@
     if (!b) return;
     const [i, part] = b.dataset.story.split(':');
     closeModal();
-    playDialog(STAGES[+i][part], () => {});
+    playDialog(STAGES[+i][part], () => {}, STAGES[+i]);
   });
   $('#btn-settings').innerHTML = icon('gear');
   $('#btn-notice').innerHTML = icon('mail');
@@ -923,7 +923,7 @@
     if (!ACCOUNT.useSanity(sanityCost(st))) { openSanity(() => startOperation(idx, skipStory)); return false; }
     sfx('select');
     const run = () => window.Battle.begin(idx, squad, { defs: squad.map((id) => TRAIN.trained(OPS[id])) });
-    if (!skipStory && st.before && st.before.length && !(save.stars[st.code] > 0)) playDialog(st.before, run);
+    if (!skipStory && st.before && st.before.length && !(save.stars[st.code] > 0)) playDialog(st.before, run, st);
     else run();
     return true;
   }
@@ -1153,7 +1153,7 @@
         ${s >= 3 && proxyOn ? `<div class="px-times">${[1, 2, 3, 4, 5, 6].map((n) => `<button class="${n === proxyN ? 'on' : ''}" data-px="${n}">×${n}</button>`).join('')}</div>` : ''}
       </div>`;
     const story = $('#op-story');
-    if (story) story.addEventListener('click', () => playDialog(st.before, () => {}));
+    if (story) story.addEventListener('click', () => playDialog(st.before, () => {}, st));
     $('#op-enemy').addEventListener('click', () => openEnemies(st));
     $('#op-mapview').addEventListener('click', () => openMap(st));
     $('#op-formation').addEventListener('click', () => go('formation', { stage: opSel }));
@@ -1262,8 +1262,32 @@
       </div>`;
     }).join('');
   }
-  function openEnemies(st) {
-    openModal(`<div class="modal-title">적 정보</div><div class="modal-sub">${st.code} ${esc(st.name)}</div><div class="enemy-list">${enemyRowsHTML(st.waves)}</div>`);
+  // 적 정보: 원작처럼 왼쪽에 출현 적 아이콘, 오른쪽에 큰 그림 · 능력치 등급 · 특성
+  const GRADE = [['D', 0], ['C', 0.25], ['B', 0.45], ['A', 0.65], ['S', 0.85]];
+  const gradeOf = (v, max) => { const r = Math.min(1, v / max); let g = 'D'; for (const [k, t] of GRADE) if (r >= t) g = k; return g; };
+  function enemyDetailHTML(e, n) {
+    const stat = (label, v, max) => { const g = gradeOf(v, max); return `<div class="ed-stat"><span>${label}</span><i><b style="width:${Math.min(100, (v / max) * 100)}%"></b></i><em class="g-${g}">${g}</em><small>${v}</small></div>`; };
+    const flags = [e.boss && '보스', e.elite && '엘리트', e.sea && '시본', e.fly && '비행', e.unblockable && '저지 불가', e.range > 0 && `원거리 ${e.range}`, e.arts && '마법 피해', e.aoe && '범위 공격', e.healer && '치료', e.revive && '부활', e.summon && '소환', e.dodge && '회피', (e.weight || 1) >= 3 && `무게 ${e.weight}`].filter(Boolean);
+    return `<div class="ed-art" style="--c:${e.color}">${e.image ? `<img src="${esc(e.image)}" alt="">` : `<b>${esc(e.name[0])}</b>`}<span class="ed-lv ${e.boss ? 'boss' : e.elite ? 'elite' : ''}">${e.boss ? 'BOSS' : e.elite ? 'ELITE' : 'NORMAL'}</span></div>
+      <div class="ed-body"><div class="ed-name"><small>${esc(e.code || '')}</small><b>${esc(e.name)}</b><span>×${n}</span></div>
+        <div class="ed-stats">${stat('내구', e.hp, 20000)}${stat('공격력', e.atk, 1500)}${stat('방어력', e.def, 1200)}${stat('마법 저항', e.res || 0, 80)}</div>
+        <div class="ed-flags">${flags.map((f) => `<span>${f}</span>`).join('')}</div>
+        <p class="ed-desc">${esc(e.desc || '')}</p></div>`;
+  }
+  function openEnemies(st, defs) {
+    const count = {};
+    for (const w of st.waves) count[w.enemy] = (count[w.enemy] || 0) + (w.count || 1);
+    const list = Object.entries(count).map(([id, n]) => ({ id, n, e: (defs && defs[id]) || ENEMIES[id] })).filter((x) => x.e)
+      .sort((a, b) => (b.e.boss ? 2 : b.e.elite ? 1 : 0) - (a.e.boss ? 2 : a.e.elite ? 1 : 0));
+    openModal(`<div class="modal-title">적 정보</div><div class="modal-sub">${esc(st.code || '')} ${esc(st.name)} · 출현 적 ${list.reduce((s, x) => s + x.n, 0)}</div>
+      <div class="ed-wrap"><div class="ed-list">${list.map((x, i) => `<button class="ed-pick ${i ? '' : 'on'} ${x.e.boss ? 'boss' : x.e.elite ? 'elite' : ''}" data-ed="${i}" style="--c:${x.e.color}">${x.e.image ? `<img src="${esc(x.e.image)}" alt="">` : esc(x.e.name[0])}<small>×${x.n}</small></button>`).join('')}</div>
+        <div class="ed-detail" id="ed-detail">${list[0] ? enemyDetailHTML(list[0].e, list[0].n) : ''}</div></div>`);
+    $('#modal').dataset.kind = 'enemy';
+    $('#modal-body').querySelectorAll('[data-ed]').forEach((b) => b.addEventListener('click', () => {
+      $('#modal-body').querySelectorAll('[data-ed]').forEach((x) => x.classList.toggle('on', x === b));
+      const x = list[+b.dataset.ed];
+      $('#ed-detail').innerHTML = enemyDetailHTML(x.e, x.n);
+    }));
   }
 
   function openMap(st) {
@@ -1290,8 +1314,11 @@
   // =====================================================================
   //  대화
   // =====================================================================
-  function playDialog(lines, done) {
+  // 스토리 배경: 원작 스토리 배경 그림 (장마다 다름 · img/ui/story_*.webp)
+  const storyBg = (st) => (st && typeof st.chapter === 'number' && st.chapter >= 1 && st.chapter <= 4 ? `story_${st.chapter}` : st && st.is ? 'story_is' : 'story_0');
+  function playDialog(lines, done, st) {
     const ov = $('#dialog'), nameEl = $('#dlg-name'), textEl = $('#dlg-text'), por = $('#dlg-portrait');
+    ov.style.setProperty('--bg', `url(img/ui/${storyBg(st)}.webp)`);
     let i = -1, timer = null, full = '';
     ov.classList.remove('hidden');
     const bgmBefore = current === 'battle' ? null : screenBgm(current);
@@ -1383,7 +1410,7 @@
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    skillIcon, openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    skillIcon, openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
   };
   RENDER.home();

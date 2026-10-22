@@ -30,7 +30,7 @@
     return true;
   }
   // ---------- 원작 사운드 파일 ----------
-  const SAMPLE = ['click', 'select', 'cancel', 'deny', 'deploy', 'retreat', 'slash', 'shot', 'arts', 'heal', 'hurt', 'kill', 'down', 'skill', 'strike', 'leak', 'boss', 'win', 'lose', 'gacha', 'levelup', 'tab'];
+  const SAMPLE = ['click', 'select', 'cancel', 'deny', 'deploy', 'retreat', 'slash', 'shot', 'arts', 'heal', 'hurt', 'kill', 'down', 'skill', 'strike', 'leak', 'boss', 'win', 'lose', 'gacha', 'levelup', 'tab', 'gacha_start', 'rev3', 'rev4', 'rev5', 'rev6'];
   const VOL = { click: 0.5, slash: 0.55, shot: 0.55, arts: 0.55, heal: 0.5, hurt: 0.45, kill: 0.6, gacha: 0.8 };
   const buf = {}, loading = {};
   function load(name) {

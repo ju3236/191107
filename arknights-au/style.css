@@ -1949,3 +1949,40 @@ i.relic-img.relic-sp { border-radius: 0; background: url(img/relics.webp) 0 0 / 
 .bs-room header { position: relative; margin: -14px -14px 0; padding: 14px 14px 22px; background: linear-gradient(180deg, rgba(10,12,16,.15), rgba(10,12,16,.85)), var(--bg) center / cover no-repeat; justify-content: flex-start; gap: 10px; }
 .bs-room header .bs-lv { margin-left: auto; }
 .bs-ico { width: 32px; height: 36px; object-fit: contain; filter: drop-shadow(0 1px 3px #000); }
+/* 재배치 대기 고리 */
+.card-cd { color: #fff; text-shadow: 0 1px 3px #000; }
+.card-cd::after { content: ''; position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; transform: translate(-50%, -50%); border-radius: 50%;
+  background: conic-gradient(#ff6b6e var(--p, 0deg), rgba(255,255,255,.15) 0); -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%); }
+/* 적 정보 창 (원작식) */
+#modal[data-kind="enemy"] .modal-panel { width: min(860px, 100%); }
+.ed-wrap { display: flex; gap: 14px; min-height: 320px; }
+.ed-list { width: 210px; flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-content: start; max-height: 58vh; overflow-y: auto; }
+.ed-pick { position: relative; aspect-ratio: 1; background: linear-gradient(160deg, #2b2e34, #15171b); border: 2px solid rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 22px; color: var(--c); }
+.ed-pick img { width: 92%; height: 92%; object-fit: contain; }
+.ed-pick small { position: absolute; right: 2px; bottom: 0; font-family: var(--f-en); font-size: 12px; color: #fff; text-shadow: 0 1px 2px #000; }
+.ed-pick.elite { border-color: rgba(255,182,39,.7); }
+.ed-pick.boss { border-color: rgba(255,59,71,.8); }
+.ed-pick.on { box-shadow: 0 0 0 2px #fff; }
+.ed-detail { flex: 1; min-width: 0; display: flex; gap: 14px; }
+.ed-art { position: relative; width: 190px; flex: none; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c) 35%, transparent), transparent 70%), #101216; display: flex; align-items: center; justify-content: center; }
+.ed-art img { width: 100%; height: auto; max-height: 240px; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
+.ed-art b { font-size: 72px; color: var(--c); }
+.ed-lv { position: absolute; left: 0; top: 0; font-family: var(--f-en); font-size: 11px; letter-spacing: .15em; padding: 2px 8px; background: #3a3c41; }
+.ed-lv.elite { background: #c98a14; color: #111; } .ed-lv.boss { background: #c4202c; }
+.ed-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.ed-name small { display: block; font-family: var(--f-en); color: #aaa; font-size: 12px; }
+.ed-name b { font-size: 22px; font-weight: 900; } .ed-name span { margin-left: 8px; color: #aaa; font-family: var(--f-en); }
+.ed-stats { display: flex; flex-direction: column; gap: 6px; }
+.ed-stat { display: grid; grid-template-columns: 64px 1fr 26px 48px; align-items: center; gap: 8px; font-size: 13px; }
+.ed-stat i { height: 6px; background: rgba(255,255,255,.12); } .ed-stat i b { display: block; height: 100%; background: linear-gradient(90deg, #8fb8ff, #fff); }
+.ed-stat em { font-style: normal; font-family: var(--f-en); font-size: 18px; text-align: center; }
+.ed-stat small { font-family: var(--f-en); color: #aaa; text-align: right; }
+.g-S { color: #ff5a5f; } .g-A { color: #ffb627; } .g-B { color: #ffe36b; } .g-C { color: #9fd6ff; } .g-D { color: #aaa; }
+.ed-flags { display: flex; flex-wrap: wrap; gap: 4px; } .ed-flags span { font-size: 11px; padding: 1px 8px; background: rgba(255,255,255,.1); }
+.ed-desc { margin: 0; font-size: 13px; line-height: 1.6; color: #ccc; }
+@media (max-width: 700px) { .ed-wrap { flex-direction: column; } .ed-list { width: auto; grid-template-columns: repeat(6, 1fr); max-height: none; } .ed-detail { flex-direction: column; } .ed-art { width: auto; height: 180px; } }
+/* 헤드헌팅: 원작 일반 헤드헌팅 배경 · NEW 표시 */
+#screen-headhunt { background: linear-gradient(180deg, rgba(8,9,12,.55), rgba(8,9,12,.85)), url(img/ui/gacha_bg.webp) center / cover no-repeat, #0c0d10; }
+.g-sum-card img.new { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 64px; height: auto; z-index: 3; background: none; padding: 0; }
+/* 스토리: 원작 스토리 배경 */
+.dialog { background: linear-gradient(180deg, rgba(0,0,0,.1) 40%, rgba(0,0,0,.85)), var(--bg, none) center / cover no-repeat, #000; }

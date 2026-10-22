@@ -356,7 +356,7 @@
     ov.classList.remove('hidden');
     ov.className = `overlay gacha r${top}`;
     stage.innerHTML = `<div class="g-intro"><div class="g-beam"></div><div class="g-text">HEADHUNTING</div></div>`;
-    sfx('gacha');
+    sfx('gacha_start'); setTimeout(() => sfx('gacha'), 900);
     let timer = setTimeout(next, 1500);
     function next() {
       clearTimeout(timer);
@@ -384,7 +384,7 @@
       ov.className = `overlay gacha summary`;
       stage.innerHTML = `<div class="g-summary">
         <div class="g-sum-title">헤드헌팅 결과</div>
-        <div class="g-sum-grid">${results.map((r) => `<div class="g-sum-card r${r.def.rarity || 3}">${cardHTML(r.def, 'small')}${r.isNew ? '<span class="new">NEW</span>' : ''}</div>`).join('')}</div>
+        <div class="g-sum-grid">${results.map((r) => `<div class="g-sum-card r${r.def.rarity || 3}">${cardHTML(r.def, 'small')}${r.isNew ? '<img class="new" src="img/ui/gacha_new.png" alt="NEW">' : ''}</div>`).join('')}</div>
         <button class="btn primary" id="g-close">확인</button>
       </div>`;
       $('#g-close').addEventListener('click', close);
