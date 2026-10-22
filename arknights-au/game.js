@@ -167,7 +167,8 @@
       c.style.setProperty('--c', r.def.color);
       c.innerHTML = `<span class="card-face">${r.def.image ? `<img src="${r.def.image}" alt="">` : r.def.icon ? `<img src="${r.def.icon}" alt="" style="object-fit:contain;padding:14%;background:${r.def.color}">` : r.def.name[0]}</span>
         <span class="card-cost">${r.def.cost}</span><span class="card-class">${UI.icon(r.def.class)}</span>
-        <span class="card-name">${r.def.name}</span><span class="card-cd"></span>`;
+        <span class="card-name">${r.def.name}</span><span class="card-cd"></span>
+        <span class="card-rar" style="background-image:url(img/ui/card_rarity_${(r.def.rarity || 3) >= 6 ? 6 : (r.def.rarity || 3) === 5 ? 5 : 4}.png)"></span>`;
       c.addEventListener('click', () => onCard(r));
       r.el = c;
       r.cdEl = c.querySelector('.card-cd');
