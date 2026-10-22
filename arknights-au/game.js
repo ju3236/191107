@@ -347,7 +347,7 @@
   $('#pause-quit').addEventListener('click', () => {
     $('#pause').classList.add('hidden');
     if (S.ext.onEnd) { S.paused = false; S.quit = true; endBattle(false); return; }
-    const i = S.idx; UI.onBattleQuit(i); UI.go('operations');
+    const i = S.idx; UI.onBattleQuit(i); UI.go('operations', 'after');
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) togglePause(true); });
 
@@ -1769,13 +1769,13 @@
     } else if (win) {
       add('계속', 'primary', () => {
         const after = firstClear ? st.after || [] : [];
-        if (after.length) UI.playDialog(after, () => UI.go('operations'));
-        else UI.go('operations');
+        if (after.length) UI.playDialog(after, () => UI.go('operations', 'after'));
+        else UI.go('operations', 'after');
       });
     } else {
       add('다시 도전', 'primary', () => UI.startOperation(idx, true));
     }
-    if (!ext) add('작전 목록', '', () => UI.go('operations'));
+    if (!ext) add('작전 목록', '', () => UI.go('operations', 'after'));
     setTimeout(() => { if (S === ended) $('#result').classList.remove('hidden'); }, 400);
   }
 

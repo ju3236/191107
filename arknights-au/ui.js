@@ -903,26 +903,56 @@
   const NODE_Y = [40, 40, 66, 30, 58];
 
   let chapterSel = null;
-  const chapters = () => (typeof CHAPTERS !== 'undefined' && CHAPTERS.length ? CHAPTERS : [{ id: undefined, code: 'EP', name: GAME_INFO.chapter || GAME_INFO.title }]);
-  const stagesOf = (ch) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => st.chapter === ch.id || (ch.id === undefined));
+  // 하단 탭: main(메인 스토리) · supply(물자 비축) · chip(칩 탐색). seriesSel: 고른 시리즈 (없으면 카드 목록)
+  let opsMode = 'main', seriesSel = null;
+  const chapters = () => (typeof CHAPTERS !== 'undefined' && CHAPTERS.length ? CHAPTERS : [{ id: undefined, code: 'EP', name: GAME_INFO.chapter || GAME_INFO.title }]).filter((c) => c.id !== 'supply');
+  const stagesOf = (ch) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => !st.supply && (st.chapter === ch.id || ch.id === undefined));
+  const seriesStages = (id) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => st.supply === id);
+  const DAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
+  // 원작처럼 하루는 오전 4시에 바뀜
+  const gameDay = () => new Date(Date.now() - 4 * 3600e3).getDay();
+  const seriesOf = (st) => (typeof SUPPLY_SERIES !== 'undefined' ? SUPPLY_SERIES : []).find((x) => x.id === st.supply);
+  const seriesOpen = (sr) => !sr || !sr.days || sr.days.includes(gameDay());
+  const daysText = (sr) => (sr.days ? [1, 2, 3, 4, 5, 6, 0].filter((d) => sr.days.includes(d)).map((d) => DAY_KO[d]).join('') + '요일 개방' : '상시 개방');
+  const supplyReady = () => cleared(STAGES[3]);
   RENDER.operations = (arg, opts = {}) => {
-    if (!unlocked(opSel)) opSel = 0;
-    if (!opts.back) {
-      let last = 0;
-      STAGES.forEach((st, i) => { if (!st.supply && unlocked(i)) last = i; });
-      opSel = last;
-      chapterSel = STAGES[last].chapter;
+    if (!opts.back && arg !== 'after') { opsMode = 'main'; seriesSel = null; }
+    if (arg === 'supply' || arg === 'chip') { opsMode = arg; seriesSel = null; }
+    document.querySelectorAll('#ops-nav [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === opsMode));
+    const scr = $('#screen-operations');
+    if (opsMode !== 'main' && !seriesSel) { scr.classList.add('cards-mode'); renderSeriesCards(); return; }
+    scr.classList.remove('cards-mode');
+    $('#ops-cards').classList.add('hidden');
+    let list;
+    if (opsMode === 'main') {
+      if (!opts.back && arg !== 'after') {
+        let last = 0;
+        STAGES.forEach((st, i) => { if (!st.supply && unlocked(i)) last = i; });
+        opSel = last;
+        chapterSel = STAGES[last].chapter;
+      }
+      if (!STAGES[opSel] || STAGES[opSel].supply) { opSel = 0; chapterSel = STAGES[0].chapter; }
+      const chs = chapters();
+      const cur = chs.find((c) => c.id === chapterSel) || chs[0];
+      chapterSel = cur.id;
+      // 에피소드 탭: 그 에피소드의 첫 작전이 열려 있어야 선택 가능
+      $('#chapter-title').innerHTML = chs.map((c) => {
+        const first = stagesOf(c)[0];
+        const open = first && unlocked(first.i);
+        return `<button class="ep-tab ${c.id === cur.id ? 'on' : ''} ${open ? '' : 'locked'}" data-ep="${c.id}"><small>${esc(c.code)}</small><b>${open ? esc(c.name) : '???'}</b></button>`;
+      }).join('');
+      list = stagesOf(cur);
+    } else {
+      const sr = SUPPLY_SERIES.find((x) => x.id === seriesSel);
+      list = seriesStages(seriesSel);
+      $('#chapter-title').innerHTML = `<button class="ep-tab" data-series-back><small>◀ ${opsMode === 'chip' ? 'CHIPS' : 'SUPPLIES'}</small><b>${opsMode === 'chip' ? '칩 탐색' : '물자 비축'}</b></button>
+        <span class="ep-tab on series-now" style="--sc:${sr.color}"><small>${esc(sr.en)} · ${daysText(sr)}</small><b>${esc(sr.name)}</b></span>`;
+      if (!list.some(({ i }) => i === opSel)) {
+        let last = list[0].i;
+        list.forEach(({ i }) => { if (unlocked(i)) last = i; });
+        opSel = last;
+      }
     }
-    const chs = chapters();
-    const cur = chs.find((c) => c.id === chapterSel) || chs[0];
-    chapterSel = cur.id;
-    // 에피소드 탭: 그 에피소드의 첫 작전이 열려 있어야 선택 가능
-    $('#chapter-title').innerHTML = chs.map((c) => {
-      const first = stagesOf(c)[0];
-      const open = first && unlocked(first.i);
-      return `<button class="ep-tab ${c.id === cur.id ? 'on' : ''} ${open ? '' : 'locked'}" data-ep="${c.id}"><small>${esc(c.code)}</small><b>${open ? esc(c.name) : '???'}</b></button>`;
-    }).join('');
-    const list = stagesOf(cur);
     if (!list.some(({ i }) => i === opSel)) opSel = list[0].i;
     const map = $('#ops-map');
     const gap = 300, x0 = 150;
@@ -945,7 +975,54 @@
     </div>`;
     renderOpsPanel();
   };
+  // 물자 비축 · 칩 탐색: 요일 일정 + 시리즈 카드
+  function renderSeriesCards() {
+    const today = gameDay();
+    const week = [1, 2, 3, 4, 5, 6, 0];
+    $('#chapter-title').innerHTML = `<div class="sched"><span class="sched-t">SCHEDULE</span>${week.map((d) => `<span class="sched-d ${d === today ? 'today' : ''}">${d === today ? '<small>TODAY</small>' : ''}${DAY_KO[d]}</span>`).join('')}</div>`;
+    const ready = supplyReady();
+    const cards = SUPPLY_SERIES.filter((sr) => sr.tab === opsMode);
+    $('#ops-cards').classList.remove('hidden');
+    $('#ops-cards').innerHTML = cards.map((sr) => {
+      const open = seriesOpen(sr);
+      const done = seriesStages(sr.id).filter(({ st }) => cleared(st)).length, total = seriesStages(sr.id).length;
+      const art = sr.classes ? `<span class="sc-cls">${sr.classes.map((c) => `<span class="sc-dia">${icon(c)}</span>`).join('')}</span>` : `<i class="ri ${sr.item} sc-item"></i>`;
+      return `<button class="series-card ${open && ready ? '' : 'closed'}" data-series="${sr.id}" style="--sc:${sr.color}">
+        <span class="sc-art">${art}</span>
+        <span class="sc-en">${esc(sr.en)}</span>
+        <b class="sc-name">${esc(sr.name)}</b>
+        <span class="sc-gain">${esc(sr.gain)}</span>
+        <span class="sc-days">${daysText(sr)}</span>
+        <span class="sc-dots">${week.map((d) => `<i class="${!sr.days || sr.days.includes(d) ? 'on' : ''} ${d === today ? 'today' : ''}"></i>`).join('')}</span>
+        <span class="sc-prog">${done}/${total}</span>
+        ${open && ready ? '' : `<span class="sc-lock"><b>진입 불가</b><small>${ready ? '오늘은 개방되지 않습니다' : '1-4 클리어 후 개방'}</small></span>`}
+      </button>`;
+    }).join('');
+  }
+  $('#ops-cards').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-series]');
+    if (!b) return;
+    const sr = SUPPLY_SERIES.find((x) => x.id === b.dataset.series);
+    if (!supplyReady()) { toast('메인 스토리 1-4를 클리어하면 개방됩니다'); return; }
+    if (!seriesOpen(sr)) { toast(`${sr.name}: ${daysText(sr)} · 오늘은 진입할 수 없습니다`); return; }
+    sfx('select');
+    seriesSel = sr.id;
+    opSel = -1;
+    RENDER.operations(undefined, { back: true });
+  });
+  $('#ops-nav').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mode]');
+    if (!b) return;
+    if (b.dataset.mode === 'is') { go('is'); return; }
+    sfx('select');
+    if (b.dataset.mode === opsMode && !seriesSel) return;
+    opsMode = b.dataset.mode;
+    seriesSel = null;
+    if (opsMode === 'main') { RENDER.operations(); return; }
+    RENDER.operations(undefined, { back: true });
+  });
   $('#chapter-title').addEventListener('click', (e) => {
+    if (e.target.closest('[data-series-back]')) { seriesSel = null; RENDER.operations(undefined, { back: true }); return; }
     const b = e.target.closest('[data-ep]');
     if (!b) return;
     if (b.classList.contains('locked')) { toast('이전 에피소드를 완료하면 해금됩니다'); return; }
@@ -992,7 +1069,10 @@
     $('#op-enemy').addEventListener('click', () => openEnemies(st));
     $('#op-mapview').addEventListener('click', () => openMap(st));
     $('#op-formation').addEventListener('click', () => go('formation', { stage: opSel }));
-    $('#op-start').addEventListener('click', () => (proxyOn && s >= 3 ? runProxy(opSel, proxyN) : go('formation', { stage: opSel })));
+    $('#op-start').addEventListener('click', () => {
+      if (!seriesOpen(seriesOf(st))) { toast('오늘은 개방되지 않은 작전입니다'); return; }
+      if (proxyOn && s >= 3) runProxy(opSel, proxyN); else go('formation', { stage: opSel });
+    });
     $('#op-proxy').addEventListener('click', () => { proxyOn = !proxyOn; renderOpsPanel(); });
     document.querySelectorAll('[data-px]').forEach((b) => b.addEventListener('click', () => { proxyN = +b.dataset.px; renderOpsPanel(); }));
   }
@@ -1000,6 +1080,7 @@
   let proxyOn = false, proxyN = 1;
   function runProxy(idx, n) {
     const st = STAGES[idx], cost = sanityCost(st) * n;
+    if (!seriesOpen(seriesOf(st))) { toast('오늘은 개방되지 않은 작전입니다'); return; }
     if (!ACCOUNT.useSanity(cost)) { openSanity(() => runProxy(idx, n)); return; }
     fixPlayer();
     const total = {};
