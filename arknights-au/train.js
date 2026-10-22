@@ -164,23 +164,26 @@
     return { ok: true, from: p.level, to: r.level };
   }
   // 작전 보상 (일반 작전) — 이성 소모량과 장에 따라
-  function stageDrops(st, idx, stars, first) {
-    const c = st.sanity || 6, ch = st.chapter || 1, out = {};
+  // 드롭 테이블 (작전 목록 패널 표시 · 보상 계산 공용)
+  //  메인 스토리: 용문폐(이성 × 12) + 작전마다 정해진 주요 재료(별 3개면 확정, 아니면 70%) · 추가 1개 50% · 부가 재료 25%
+  //    1~2장은 중급 재료, 3장부터는 고급 재료. 스테이지에 mainDrop / subDrop을 넣으면 직접 지정
+  //    작전기록·칩·스킬개론은 나오지 않음 (물자 비축 · 칩 탐색에서)
+  //  물자 비축 · 칩 탐색: 스테이지의 drops(고정) · chance([아이템, 확률, 개수])
+  function dropTable(st, idx) {
+    if (st.supply) return { fixed: Object.entries(st.drops || {}), chance: (st.chance || []).map(([k, p, n]) => [k, p, n || 1]) };
+    const ch = st.chapter || 1, pool = ch >= 3 ? R.matsT3 : R.matsT2;
+    const n = STAGES.slice(0, idx).filter((x) => !x.supply && x.chapter === st.chapter).length;
+    const main = st.mainDrop || pool[(n + ch * 2) % pool.length];
+    const sub = st.subDrop || pool[(n + ch * 2 + 3) % pool.length];
+    return { fixed: [['lmd', (st.sanity || 6) * R.lmdPerSanity]], main, chance: [[main, 1, 1, '주요'], [main, 0.5, 1, '추가'], [sub, 0.25, 1]] };
+  }
+  function stageDrops(st, idx, stars) {
+    const t = dropTable(st, idx), out = {};
     const add = (k, n) => { if (n > 0) out[k] = (out[k] || 0) + n; };
-    const rnd = (a) => a[Math.floor(Math.random() * a.length)];
-    add('lmd', c * 250);
-    let exp = c * 350 * (stars === 3 ? 1 : 0.7);
-    for (const k of [...R.expItems].reverse()) { const v = ITEMS[k].exp, n = Math.floor(exp / v); if (n) { add(k, n); exp -= n * v; } }
-    if (exp >= 100) add('exp_1', 1);
-    add(rnd(R.matsT2), 1 + Math.floor(Math.random() * 2));
-    add(R.matsT2[(idx + 1) % R.matsT2.length], 1);
-    if (stars === 3 && Math.random() < 0.5) add(rnd(R.matsT2), 1);
-    const classes = Object.keys(CLASSES).filter((k) => k !== 'device');
-    if (Math.random() < 0.35 || first) add('chip_' + rnd(classes), 1);
-    if (Math.random() < 0.25) add('skill_1', 1);
-    if (ch >= 2) {
-      if (Math.random() < 0.3 || first) add(rnd(R.matsT3), 1);
-      if (Math.random() < 0.1 || (first && idx % 3 === 0)) add('dual_' + rnd(classes), 1);
+    for (const [k, n] of t.fixed) add(k, n);
+    for (const [k, p, n, tag] of t.chance) {
+      const q = tag === '주요' ? (stars >= 3 ? 1 : 0.7) : tag === '추가' && stars < 3 ? 0 : p;
+      if (Math.random() < q) add(k, n);
     }
     return out;
   }
@@ -217,5 +220,5 @@
     }
     ACCOUNT.save();
   }
-  window.TRAIN = { prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
+  window.TRAIN = { prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
 })();

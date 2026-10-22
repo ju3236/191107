@@ -1046,8 +1046,8 @@
       <div class="op-story">
         ${st.before && st.before.length ? `<button class="story-btn" id="op-story">${icon('play')}<span>스토리</span></button>` : ''}
         <div class="op-desc">
-          <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명${st.supply ? '' : ' · 첫 클리어 보상 오리지늄 1'}</div>
-          ${st.supply ? `<div class="op-drops">${Object.entries(st.drops).map(([k, n]) => `<span title="${esc(ITEMS[k].name)}"><i class="ri ${k}"></i>${esc(ITEMS[k].short)} ×${n}</span>`).join('')}${(st.chance || []).map(([k, p2]) => `<span class="maybe"><i class="ri ${k}"></i>${esc(ITEMS[k].short)} ${Math.round(p2 * 100)}%</span>`).join('')}</div>` : ''}
+          <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명${st.supply || cleared(st) ? '' : ' · 첫 클리어 보상 오리지늄 1'}</div>
+          ${dropsHTML(st, opSel)}
           <p>${esc(st.desc)}</p>
           <p class="op-warn">출현 적: ${enemyIds.map((id) => ENEMIES[id] ? esc(ENEMIES[id].name) : id).join(', ')}</p>
         </div>
@@ -1075,6 +1075,13 @@
     });
     $('#op-proxy').addEventListener('click', () => { proxyOn = !proxyOn; renderOpsPanel(); });
     document.querySelectorAll('[data-px]').forEach((b) => b.addEventListener('click', () => { proxyN = +b.dataset.px; renderOpsPanel(); }));
+  }
+  // 드롭 표시: 고정 · 주요(별 3개 확정) · 확률
+  function dropsHTML(st, idx) {
+    const t = TRAIN.dropTable({ ...st, sanity: sanityCost(st) }, idx);
+    const item = (k, txt, cls = '') => `<span class="${cls}" title="${esc(ITEMS[k].name)}"><i class="ri ${k}"></i>${esc(ITEMS[k].short)} ${txt}</span>`;
+    return `<div class="op-drops"><small class="od-t">${st.supply ? '고정 드롭' : '드롭'}</small>${t.fixed.map(([k, n]) => item(k, `×${n.toLocaleString('ko-KR')}`)).join('')}${t.chance.map(([k, p, n, tag]) =>
+      tag === '주요' ? item(k, '<em>주요 · ★3 확정</em>', 'main') : item(k, `${tag === '추가' ? '+1 ' : n > 1 ? `×${n} ` : ''}${Math.round(p * 100)}%`, 'maybe')).join('')}</div>`;
   }
   // 대리 작전: 별 3개로 깬 작전을 N번 바로 완료 (이성 N배, 보상 N번)
   let proxyOn = false, proxyN = 1;
