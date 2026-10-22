@@ -1113,7 +1113,7 @@
     // 공격수: 저지 중인 적 전부 동시 공격
     if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
-      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry'))));
+      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord'))));
     const prio = eff(op).priority;
     list.sort((a, b) =>
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
@@ -1274,7 +1274,28 @@
       for (let i = 0; i < count; i++) {
         attackFx(op, t, i, type, op.skillT > 0 || mul > 1.4, cx, cy);
         const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
-        hitEnemy(t, atk * crit * (t === targets[0] ? bsMul : 1), type, crit > 1, op, ignOf(t));
+        // 로드: 저지하지 않은 적(원거리 공격)에게는 공격력 80%
+        const lordMul = op.def.archetype === 'lord' && t.blockedBy !== op ? 0.8 : 1;
+        // 패턴 학습: 분석 완료된 적에게 방어력 무시 · 추가 피해 (NO CONTINUE: 피해 +20%)
+        const pt = op.tal.pattern, anal = pt && t.analyzedT > 0;
+        const ptIgn = anal ? pt.ignore + (op.def.trained && op.def.trained.elite >= 2 ? pt.ignore2 || 0 : 0) : 0;
+        const anaMul = anal ? 1 + (eff(op).analyzedAmp || 0) : 1;
+        hitEnemy(t, atk * crit * lordMul * anaMul * (t === targets[0] ? bsMul : 1), type, crit > 1, op, Math.min(1, ignOf(t) + ptIgn));
+        if (pt && t.alive) {
+          if (anal) {
+            t.analyzedT = pt.dur;
+            hitEnemy(t, opAtk(op) * (pt.extra + (op.def.trained && op.def.trained.elite >= 2 ? pt.extra2 || 0 : 0)) * anaMul, 'phys', false, op, ptIgn, true);
+          } else if (t.blockedBy !== op || eff(op).patternBlocked) {
+            t.ptHits = (t.ptHits || 0) + 1;
+            if (t.ptHits >= pt.hits) { t.analyzedT = pt.dur; t.ptHits = 0; addText(t.x, t.y - 0.45, '분석 완료', '#7fe0ff', 0.9, true); }
+          }
+        }
+        // NO CONTINUE: 같은 적을 N회 공격할 때마다 추가 피해 + 기절
+        const ev = eff(op).everyHit;
+        if (ev && i === 0 && t.alive) {
+          if (op.evTarget === t) op.evN++; else { op.evTarget = t; op.evN = 1; }
+          if (op.evN % ev.every === 0) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#7fe0ff', r: 0.5 }); hitEnemy(t, opAtk(op) * ev.mul, 'phys', true, op, ptIgn, true); stunEnemy(t, ev.stun); }
+        }
         const ec = op.def.summoned && op.owner && op.owner.tal.echo;
         if (ec && t.alive) {
           t.resDown = ec.res; t.resDownT = ec.dur;
@@ -1374,9 +1395,22 @@
     addText(op.x + 0.5, op.y - 0.1, '신경 손상', '#c77dff', 1, true);
     if (op.hp <= 0) removeOp(op, true);
   }
-  function onDodge(op) {
+  function onDodge(op, src) {
     const X = S.mods;
     addText(op.x + 0.5, op.y + 0.25, '회피', '#cfd3d6', 0.5);
+    // 저스트 가드: 회피하면 반격 (1초에 1번) — 공격한 적이 범위 안이면 그 적, 아니면 범위 안 가장 가까운 적
+    const ct = eff(op).counter;
+    if (ct && S.time - (op.counterAt ?? -9) >= ct.cd) {
+      const inR = (e) => e && e.alive && (e.blockedBy === op || op.range.has(key(Math.floor(e.x), Math.floor(e.y))));
+      const t = inR(src) ? src : S.enemies.filter(inR).sort((a, b) => Math.hypot(a.x - op.x - 0.5, a.y - op.y - 0.5) - Math.hypot(b.x - op.x - 0.5, b.y - op.y - 0.5))[0];
+      if (t) {
+        op.counterAt = S.time;
+        addFx({ type: 'hit', style: 'slash', x: t.x, y: t.y, life: 0.3, color: '#7fe0ff' });
+        addText(op.x + 0.5, op.y - 0.05, '저스트 가드', '#7fe0ff', 0.7, true);
+        hitEnemy(t, opAtk(op) * ct.mul, 'phys', true, op, 0, true);
+        stunEnemy(t, ct.stun);
+      }
+    }
     if (X.dodgeAtk) op.dodgeAtkT = X.dodgeAtk.dur;
     if (X.dodgeAspd) op.dodgeAspdT = X.dodgeAspd.dur;
     if (X.dodgeNext) op.charge = Math.max(op.charge || 0, 1 + X.dodgeNext);
@@ -1384,8 +1418,8 @@
   function hitOp(op, atk, type, src) {
     if (!op.alive) return;
     const X = S.mods;
-    if (type === 'phys' && Math.random() < opDodge(op)) { onDodge(op); return; }
-    if (type === 'arts' && Math.random() < opArtsDodge(op)) { onDodge(op); return; }
+    if (type === 'phys' && Math.random() < opDodge(op)) { onDodge(op, src); return; }
+    if (type === 'arts' && Math.random() < opArtsDodge(op)) { onDodge(op, src); return; }
     const eg = src && src.blockedBy === op && op.tal.easygoing;
     if (eg && Math.random() < eg.nullify) { addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); return; }
     if (op.immune > 0) { op.immune--; addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); if (X.dodgeNext) op.charge = Math.max(op.charge || 0, 1 + X.dodgeNext); return; }
@@ -1635,6 +1669,7 @@
     e.flash = Math.max(0, e.flash - dt);
     if (e.def.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * e.def.regen * healAura * dt);
     if (e.slowT > 0) e.slowT -= dt;
+    if (e.analyzedT > 0) e.analyzedT -= dt;
     if (e.vulnT > 0) e.vulnT -= dt;
     if (e.atkDownT > 0) e.atkDownT -= dt;
     if (e.markT > 0) e.markT -= dt;
