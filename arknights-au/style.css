@@ -1765,3 +1765,49 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
   .ms-rew { grid-column: 1; }
   .ms-reset { margin-left: 0; }
 }
+
+/* 아이템 아이콘: 원작 이미지 (img/item/<아이템 id>.png · © Hypergryph/Yostar) */
+.ri.ri.cert_hi::before { background: url(img/item/cert_hi.png) center / contain no-repeat; }
+.ri.ri.cert_lo::before { background: url(img/item/cert_lo.png) center / contain no-repeat; }
+.ri.ri.chip_caster::before { background: url(img/item/chip_caster.png) center / contain no-repeat; }
+.ri.ri.chip_defender::before { background: url(img/item/chip_defender.png) center / contain no-repeat; }
+.ri.ri.chip_guard::before { background: url(img/item/chip_guard.png) center / contain no-repeat; }
+.ri.ri.chip_medic::before { background: url(img/item/chip_medic.png) center / contain no-repeat; }
+.ri.ri.chip_sniper::before { background: url(img/item/chip_sniper.png) center / contain no-repeat; }
+.ri.ri.chip_specialist::before { background: url(img/item/chip_specialist.png) center / contain no-repeat; }
+.ri.ri.chip_supporter::before { background: url(img/item/chip_supporter.png) center / contain no-repeat; }
+.ri.ri.chip_vanguard::before { background: url(img/item/chip_vanguard.png) center / contain no-repeat; }
+.ri.ri.dual_caster::before { background: url(img/item/dual_caster.png) center / contain no-repeat; }
+.ri.ri.dual_defender::before { background: url(img/item/dual_defender.png) center / contain no-repeat; }
+.ri.ri.dual_guard::before { background: url(img/item/dual_guard.png) center / contain no-repeat; }
+.ri.ri.dual_medic::before { background: url(img/item/dual_medic.png) center / contain no-repeat; }
+.ri.ri.dual_sniper::before { background: url(img/item/dual_sniper.png) center / contain no-repeat; }
+.ri.ri.dual_specialist::before { background: url(img/item/dual_specialist.png) center / contain no-repeat; }
+.ri.ri.dual_supporter::before { background: url(img/item/dual_supporter.png) center / contain no-repeat; }
+.ri.ri.dual_vanguard::before { background: url(img/item/dual_vanguard.png) center / contain no-repeat; }
+.ri.ri.exp_1::before { background: url(img/item/exp_1.png) center / contain no-repeat; }
+.ri.ri.exp_2::before { background: url(img/item/exp_2.png) center / contain no-repeat; }
+.ri.ri.exp_3::before { background: url(img/item/exp_3.png) center / contain no-repeat; }
+.ri.ri.exp_4::before { background: url(img/item/exp_4.png) center / contain no-repeat; }
+.ri.ri.lmd::before { background: url(img/item/lmd.png) center / contain no-repeat; }
+.ri.ri.m_device::before { background: url(img/item/m_device.png) center / contain no-repeat; }
+.ri.ri.m_device3::before { background: url(img/item/m_device3.png) center / contain no-repeat; }
+.ri.ri.m_iron::before { background: url(img/item/m_iron.png) center / contain no-repeat; }
+.ri.ri.m_iron3::before { background: url(img/item/m_iron3.png) center / contain no-repeat; }
+.ri.ri.m_keton::before { background: url(img/item/m_keton.png) center / contain no-repeat; }
+.ri.ri.m_keton3::before { background: url(img/item/m_keton3.png) center / contain no-repeat; }
+.ri.ri.m_poly::before { background: url(img/item/m_poly.png) center / contain no-repeat; }
+.ri.ri.m_poly3::before { background: url(img/item/m_poly3.png) center / contain no-repeat; }
+.ri.ri.m_rock::before { background: url(img/item/m_rock.png) center / contain no-repeat; }
+.ri.ri.m_rock3::before { background: url(img/item/m_rock3.png) center / contain no-repeat; }
+.ri.ri.m_sugar::before { background: url(img/item/m_sugar.png) center / contain no-repeat; }
+.ri.ri.m_sugar3::before { background: url(img/item/m_sugar3.png) center / contain no-repeat; }
+.ri.ri.originite::before { background: url(img/item/originite.png) center / contain no-repeat; }
+.ri.ri.orundum::before { background: url(img/item/orundum.png) center / contain no-repeat; }
+.ri.ri.permit::before { background: url(img/item/permit.png) center / contain no-repeat; }
+.ri.ri.permit10::before { background: url(img/item/permit10.png) center / contain no-repeat; }
+.ri.ri.sanity::before { background: url(img/item/sanity.png) center / contain no-repeat; }
+.ri.ri.skill_1::before { background: url(img/item/skill_1.png) center / contain no-repeat; }
+.ri.ri.skill_2::before { background: url(img/item/skill_2.png) center / contain no-repeat; }
+.ri.ri.skill_3::before { background: url(img/item/skill_3.png) center / contain no-repeat; }
+.ri.ri::before { clip-path: none; box-shadow: none; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
