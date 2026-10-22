@@ -241,8 +241,11 @@
     return list.find((o) => o.rect && X >= o.rect[0] && X <= o.rect[2] && Y >= o.rect[1] && Y <= o.rect[3]);
   }
   const opAt = (tx, ty) => S.ops.find((o) => o.x === tx && o.y === ty);
-  function canPlace(def, tx, ty) {
+  function canPlace(def, tx, ty, r = S.sel) {
     if (tx < 0 || ty < 0 || tx >= S.cols || ty >= S.rows) return false;
+    // 전술가: 지원군(소환물)은 자기 공격 범위 안에만
+    const own = r && r.owner;
+    if (def.summoned && own && own.alive && own.def.archetype === 'tactician' && !own.range.has(key(tx, ty))) return false;
     const ch = S.map[ty][tx];
     const need = tileOf(def) === 'ground' ? '.' : '^';
     const ok = ch === need || (need === '.' && ch === '~') || (need === '^' && S.mods.rangedGround && (ch === '.' || ch === '~'));
@@ -481,7 +484,8 @@
     if (!ps || !op.debuffedTarget) return 1;
     return inSquad(ps.partner) ? ps.partnerSpeed : ps.speed;
   }
-  const opBlock = (op) => op.def.block + (eff(op).block || 0) + B(op, 'block');
+  // 기수: 스킬 지속 시간 동안 저지 가능 수 0
+  const opBlock = (op) => (op.def.archetype === 'bearer' && op.skillT > 0 ? 0 : op.def.block + (eff(op).block || 0) + B(op, 'block'));
   const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0) + (op.def.dodge || 0) + B(op, 'dodge');
   const opArtsDodge = (op) => (op.def.artsDodge || 0) + (eff(op).artsDodge || 0) + B(op, 'artsDodge');
   const tileOf = (def) => def.tile || CLASSES[def.class].tile;
@@ -860,6 +864,8 @@
     if (src && src.def) {
       if (type === 'arts' && X.classArtsDmg && X.classArtsDmg[src.def.class]) m += X.classArtsDmg[src.def.class];
       if (X.blockedDealt && e.blockedBy) m += X.blockedDealt;
+      // 전술가: 자기 지원군이 저지한 적에게 공격력 150%
+      if (src.def.archetype === 'tactician' && e.blockedBy && e.blockedBy.owner === src) m += 0.5;
       if (X.seaDmg && e.def.sea) m += X.seaDmg;
       const d = Math.hypot(src.x + 0.5 - e.x, src.y + 0.5 - e.y);
       if (X.farDmg) m += X.farDmg * Math.min(1, Math.max(0, (d - 1) / 5));
@@ -1112,6 +1118,7 @@
     if (op.stun > 0) { op.stun -= dt; op.atkCd = Math.max(op.atkCd, 0.2); return; }
     if (op.hotT > 0) { op.hotT -= dt; healOp(op, op.hotAmt * dt, true); }
     op.blocked = op.blocked.filter((e) => e.alive && e.blockedBy === op);
+    if (op.blocked.length && opBlock(op) <= 0) { for (const e of op.blocked) e.blockedBy = null; op.blocked = []; }
 
     if (op.skillT > 0) {
       if (op.skillT !== Infinity) {
@@ -1176,7 +1183,9 @@
         else { op.healTarget = allies[0]; op.healStacks = 0; }
       }
       for (const a of allies) {
-        healOp(a, opAtk(op) * (ls && a === op.healTarget ? 1 + op.healStacks * ls.step : 1));
+        // 테라피스트: 멀리 있는(주변 8칸 밖) 아군 치료량 80%
+        const far = op.def.archetype === 'therapist' && !eff(op).fullFar && Math.max(Math.abs(a.x - op.x), Math.abs(a.y - op.y)) > 1 ? 0.8 : 1;
+        healOp(a, opAtk(op) * far * (ls && a === op.healTarget ? 1 + op.healStacks * ls.step : 1));
         if (rb) { a.resBuff = rb.res; a.resT = rb.dur; }
         if (hot) { a.hotAmt = opAtk(op) * hot.mul; a.hotT = hot.dur; }
         const hv = vfxOf(op.def);

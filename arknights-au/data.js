@@ -40,22 +40,22 @@ const DAILY_ARTS = {
 
 // 세부 직군(원작의 아키타입). 특성 효과는 게임 엔진에 구현되어 있습니다.
 const ARCHETYPES = {
-  marksman:  { name: '명사수', trait: '공중 목표 우선 공격' },
-  guardian:  { name: '가디언', trait: '적 3명 저지 가능, 스킬로 아군 HP 회복' },
-  executor:  { name: '처형자', trait: '재배치 시간 대폭 감소, 배치 즉시 스킬 발동' },
-  centurion: { name: '공격수', trait: '저지 중인 모든 적 동시 공격' },
-  fighter:   { name: '파이터', trait: '적 1명 저지, 공격 속도가 매우 빠름' },
-  hexer:     { name: '약화자', trait: '공격 시 마법 대미지, 공격 범위 안의 적을 약화' },
-  therapist: { name: '테라피스트', trait: '아군 HP 회복, 장기전에서 아군 상태를 안정적으로 유지' },
-  core:      { name: '코어 캐스터', trait: '적에게 마법 대미지' },
-  tactician: { name: '전술가', trait: '배치하면 소환물(하우스 가드)을 배치할 수 있음. 소환물은 배치 인원을 차지하지 않음' },
-  pioneer:   { name: '척후병', trait: '적 2명 저지' },
-  protector: { name: '프로텍터', trait: '적 3명 저지' },
-  besieger:  { name: '공성사수', trait: '공격 범위가 넓으며, 무게가 가장 무거운 적을 우선 공격' },
-  artificer: { name: '기능공', trait: '아군에게 지원 효과를 제공하는 장치(해류 부표)를 배치할 수 있음. 장치는 배치 인원을 차지하지 않음' },
-  alchemist: { name: '연금술사', trait: '고지대 배치. 시약을 던져 범위 안 지상 적에게 마법 피해를 주고, 잠시 유지되는 「잔향 지대」를 만듦' },
-  bearer:    { name: '기수', trait: '스킬 사용 중 공격을 멈추고, 아군에게 지원 효과를 주며 대량의 배치 코스트를 획득' },
-  sentry:    { name: '센트리 프로텍터', trait: '적 3명 저지, 전방의 적을 원거리 사격 가능, 공중 목표 공격 가능' },
+  marksman:  { name: '명사수', trait: '공중 유닛 우선 공격' },
+  guardian:  { name: '가디언', trait: '스킬로 아군 유닛 HP 회복' },
+  executor:  { name: '처형자', trait: '재배치 시간 대폭 감소' },
+  centurion: { name: '공격수', trait: '저지하고 있는 모든 적 동시에 공격' },
+  fighter:   { name: '파이터', trait: '적 1명 저지 가능' },
+  hexer:     { name: '약화자', trait: '공격 시 마법 대미지를 입힘' },
+  therapist: { name: '테라피스트', trait: '넓은 치료 범위 보유, 멀리 있는 목표 치료 시 치유량이 80%로 변경' },
+  core:      { name: '코어 캐스터', trait: '공격 시 마법 대미지를 입힘' },
+  tactician: { name: '전술가', trait: '공격 범위에 지원군 소환 가능, 지원군이 저지한 적 공격 시 자신의 공격력이 150%로 증가' },
+  pioneer:   { name: '척후병', trait: '적 2명 저지 가능' },
+  protector: { name: '프로텍터', trait: '적 3명 저지 가능' },
+  besieger:  { name: '공성사수', trait: '무게 등급이 가장 높은 적을 우선 공격' },
+  artificer: { name: '기능공', trait: '적 2명 저지 가능, <지원 장치>를 사용해 작전 지원' },
+  alchemist: { name: '연금술사', trait: '연금 유닛을 투척해 작전 지원' },
+  bearer:    { name: '기수', trait: '스킬 지속 시간 동안 저지 가능 수가 0으로 변경' },
+  sentry:    { name: '센트리 프로텍터', trait: '적 3명 저지 가능, 원거리 공격 가능' },
 };
 
 // 공격 범위 도우미: 오른쪽을 바라볼 때 기준 상대 좌표 (x: 앞쪽 +, y: 아래쪽 +)
@@ -377,9 +377,9 @@ const OPERATORS = [
       { name: '정당한 보호', desc: '치료 범위 안의 아군이 받는 상태 이상(공격 속도 감소 등) 지속시간 -50%', effect: { protect: { mul: 0.5 } } },
     ],
     skills: [
-      { name: '차분한 대응', desc: '20초간 치료량 +50%, 치료한 아군의 마법 저항 +25 (5초)', sp: 25, initSp: 10, duration: 20, trigger: 'auto', effect: { atk: 1.5, resBuff: { res: 25, dur: 5 } } },
-      { name: '당신의 이야기를', desc: '25초간 치료 범위 확대, 동시에 2명 치료, 치료량 85%. 치료한 아군은 5초간 매초 공격력의 12%만큼 HP 회복', sp: 30, initSp: 15, duration: 25, trigger: 'auto', effect: { range: area(0, 4, -2, 2), targets: 2, atk: 0.85, hot: { mul: 0.12, dur: 5 } } },
-      { name: '변호인의 소임', desc: '발동 즉시 범위 안 모든 아군 HP를 공격력의 150%만큼 회복, 20초간 범위 안 아군이 받는 피해 -30%, 치료량 +20%. HP 비율이 낮은 아군 우선 치료', sp: 40, initSp: 25, duration: 20, trigger: 'manual', effect: { burstHeal: 1.5, allyGuard: 0.7, atk: 1.2 } },
+      { name: '차분한 대응', desc: '20초간 치료량 +40%, 동시에 2명 치료. 치료한 아군의 마법 저항 +25 (5초)', sp: 25, initSp: 10, duration: 20, trigger: 'auto', effect: { atk: 1.4, targets: 2, resBuff: { res: 25, dur: 5 } } },
+      { name: '당신의 이야기를', desc: '25초간 동시에 3명 치료, 치료량 90%, 멀리 있는 아군도 치료량이 줄지 않음. 치료한 아군은 5초간 매초 공격력의 12%만큼 HP 회복', sp: 30, initSp: 15, duration: 25, trigger: 'auto', effect: { targets: 3, atk: 0.9, fullFar: true, hot: { mul: 0.12, dur: 5 } } },
+      { name: '변호인의 소임', desc: '발동 즉시 범위 안 모든 아군 HP를 공격력의 150%만큼 회복, 20초간 범위 안 아군이 받는 피해 -30%, 치료량 +20%, 멀리 있는 아군도 치료량이 줄지 않음', sp: 40, initSp: 25, duration: 20, trigger: 'manual', effect: { burstHeal: 1.5, allyGuard: 0.7, atk: 1.2, fullFar: true } },
     ],
     voice: {
       obtain: '처음 뵙겠습니다. 다이치 소우스케라고 합니다. 변호사로 활동하고 있으며, 이번에 의료 오퍼레이터로 등록하게 되었습니다. ……후후, 조금 특이한 경력이긴 하지요. 앞으로 잘 부탁드립니다, 박사님.',
@@ -750,7 +750,7 @@ const OPERATORS = [
     image: 'img/clownfish.png',
     profile: '본명 아네모네 피셔. 20세, 155.1cm / 42kg. 여름 바다를 모방하는 광학 아츠 장비와 해양생물 형태의 투사체를 사용하는 지원 오퍼레이터. 겁이 많고 다정하며 감수성이 풍부하다. 하지만 타인의 고통을 외면해야 할 때는 두려움을 무릅쓰고 맞선다.\n\n그가 만들어 내는 여름 바다와 흰동가리는 실제 물이나 생물이 아니다. 특수 광학 아츠 장비와 오리지늄 에너지 방출 기술을 조합한 신기루지만, 흰동가리 형태의 아츠 투사체는 실제로 적에게 마법 피해를 입힌다. 이 능력에 소질이 있지만, 장시간 운용하면 심한 두통과 구토감에 시달린다.',
     quote: '무섭긴 하지만…… 그래도 그냥 두고 갈 수는 없잖아요.',
-    cost: 13, redeploy: 70, block: 1,
+    cost: 13, redeploy: 70, block: 2,
     hp: 1350, atk: 470, def: 130, res: 20, interval: 1.6,
     range: area(0, 1, 0, 0),  // 원작 범위 1-1
     summons: [
