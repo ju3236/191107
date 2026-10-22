@@ -2035,18 +2035,20 @@
     const a = x + 0.08, b = y + 0.08, c = x + 0.92, d = y + 0.92, h = 0.95;
     poly(quad(a, b, c, d, 0)); ctx.fillStyle = fill; ctx.fill();
     poly([proj(a, d, 0), proj(c, d, 0), proj(c, d, h), proj(a, d, h)]); ctx.fill();
+    // 빛나는 테두리: shadowBlur는 매 프레임 매우 느려서(특히 내장 그래픽) 굵은 반투명 선 + 가는 선으로 대신
     ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(1.5, P.T * 0.035);
-    ctx.shadowColor = color; ctx.shadowBlur = 10;
-    poly(quad(a, b, c, d, 0)); ctx.stroke();
-    poly(quad(a, b, c, d, h)); ctx.stroke();
-    ctx.beginPath();
-    for (const [u, v] of [[a, b], [c, b], [c, d], [a, d]]) {
-      const p0 = proj(u, v, 0), p1 = proj(u, v, h);
-      ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
-    }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+    const edges = () => {
+      poly(quad(a, b, c, d, 0)); ctx.stroke();
+      poly(quad(a, b, c, d, h)); ctx.stroke();
+      ctx.beginPath();
+      for (const [u, v] of [[a, b], [c, b], [c, d], [a, d]]) {
+        const p0 = proj(u, v, 0), p1 = proj(u, v, h);
+        ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
+      }
+      ctx.stroke();
+    };
+    ctx.globalAlpha = 0.25; ctx.lineWidth = Math.max(5, P.T * 0.11); edges();
+    ctx.globalAlpha = 1; ctx.lineWidth = Math.max(1.5, P.T * 0.035); edges();
     // 경고 표시
     const [X, Y, s] = proj(x + 0.5, d, h * 0.5);
     const r = P.T * 0.2 * s;
@@ -2308,6 +2310,14 @@
 
   // 빛나는 점 (가산 혼합)
   function glow(X, Y, r, color, a = 1) {
+    // 작은 파티클은 그라디언트 없이 두 겹 원으로 (그라디언트를 매 프레임 수백 개 만들면 느려짐)
+    if (r < 7) {
+      const ga = ctx.globalAlpha;
+      ctx.fillStyle = color; ctx.globalAlpha = ga * 0.45; ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.globalAlpha = ga * a; ctx.beginPath(); ctx.arc(X, Y, r * 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = ga;
+      return;
+    }
     const g = ctx.createRadialGradient(X, Y, 0, X, Y, r);
     g.addColorStop(0, `rgba(255,255,255,${a})`);
     g.addColorStop(0.25, color);
@@ -2494,8 +2504,10 @@
       ctx.fillRect(X - pw * 0.12, Y - ph * 0.9, pw * 0.24, ph * 0.9);
       ctx.save(); ctx.translate(X, Y); ctx.scale(1, 0.42); ctx.rotate(k * 2.4);
       const R = T * (0.55 + k * 0.25);
-      ctx.strokeStyle = f.color; ctx.shadowColor = f.color; ctx.shadowBlur = T * 0.2;
-      ctx.lineWidth = Math.max(1.5, T * 0.035);
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = Math.max(4, T * 0.12); ctx.globalAlpha = fade * 0.3;
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = Math.max(1.5, T * 0.035); ctx.globalAlpha = fade;
       ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.arc(0, 0, R * 0.78, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath();
@@ -2565,7 +2577,7 @@
   }
   // 불꽃 파티클 뿌리기 (타일 좌표)
   function sparks(x, y, color, n, o = {}) {
-    if (S.effects.length > 420) return;
+    if (S.effects.length > 260) return;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, v = (o.speed || 1) * (0.4 + Math.random() * 0.8);
       S.effects.push({ type: 'p', t: 0, life: (o.life || 0.45) * (0.6 + Math.random() * 0.6), x, y, h: o.h ?? 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, vh: (o.up ?? 0.8) * (0.5 + Math.random()), g: o.g ?? 1.2, color, size: (o.size || 0.05) * (0.7 + Math.random() * 0.6), shape: o.shape, spin: (Math.random() - 0.5) * 10 });
@@ -2573,7 +2585,7 @@
   }
   // 위로 떠오르는 빛 알갱이
   function rise(x, y, color, n, spread = 0.35, shape) {
-    if (S.effects.length > 420) return;
+    if (S.effects.length > 260) return;
     for (let i = 0; i < n; i++) S.effects.push({ type: 'p', t: 0, life: 0.7 + Math.random() * 0.6, x: x + (Math.random() - 0.5) * spread, y: y + (Math.random() - 0.5) * spread * 0.6, h: Math.random() * 0.2, vx: 0, vy: 0, vh: 0.8 + Math.random() * 0.8, g: 0, color, size: (shape && shape !== 'circle' ? 0.05 : 0.035) + Math.random() * 0.03, a: 0.9, shape, spin: (Math.random() - 0.5) * 4 });
   }
 
