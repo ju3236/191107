@@ -216,7 +216,7 @@
   function banners() {
     const list = bannerSource()
       .filter((b) => !b.until || b.until >= today())
-      .map((b) => ({ key: 'bn:' + b.id, name: b.name, featured: b.featured.filter((id) => OPS[id]), tag: [b.tag || '확률 UP', untilText(b.until)].filter(Boolean).join(' · ') }))
+      .map((b) => ({ key: 'bn:' + b.id, name: b.name, until: b.until, featured: b.featured.filter((id) => OPS[id]), tag: [b.tag || '확률 UP', untilText(b.until)].filter(Boolean).join(' · ') }))
       .filter((b) => b.featured.length);
     list.push({ key: 'standard', name: GACHA.standardName, featured: [], tag: '상시' });
     return list;
@@ -241,30 +241,41 @@
   }
   const rate6 = () => GACHA.rates[6] + Math.max(0, ACCOUNT.player.pity - GACHA.pityStart + 1) * GACHA.pityStep;
 
+  // 원작 헤드헌팅 화면: 배너 넘김(« » · 상단 점), 왼쪽 큰 6성, 오른쪽 붉은 패널(나머지 확률 UP), 아래 확률 UP 문구 · 1회/10회
+  const opTag = (o, big) => `<div class="hh-tag2 ${big ? 'big' : ''}"><span class="hh-stars">${'★'.repeat(o.rarity || 3)}</span><b>${icon(o.class)}${esc(o.name)}</b></div>`;
+  const opImg = (o) => (o.image ? `<img src="${esc(o.image)}" alt="" draggable="false">` : `<span class="hh-ph" style="--c:${o.color}">${esc(o.name[0])}</span>`);
   RENDER.headhunt = () => {
     UI.renderResources();
     const list = banners();
     if (!hhSel || !list.find((x) => x.key === hhSel)) hhSel = list[0].key;
-    const bn = list.find((x) => x.key === hhSel);
-    $('#hh-banners').innerHTML = list.map((x) => `<button class="${x.key === hhSel ? 'on' : ''}" data-hh="${x.key}"><b>${esc(x.name)}</b><small>${esc(x.tag)}</small></button>`).join('');
-    const showcase = (bn.featured.length ? bn.featured.map((id) => OPS[id]) : pool().filter((o) => (o.rarity || 3) >= 6).slice(0, 3)).filter(Boolean);
-    const sixes = bn.featured.map((id) => OPS[id]).filter((o) => o && o.rarity === 6);
-    const fives = bn.featured.map((id) => OPS[id]).filter((o) => o && o.rarity === 5);
+    const k = list.findIndex((x) => x.key === hhSel), bn = list[k];
+    $('#hh-banners').innerHTML = list.map((x) => `<button class="${x.key === hhSel ? 'on' : ''}" data-hh="${x.key}" title="${esc(x.name)}"></button>`).join('');
+    const feat = bn.featured.map((id) => OPS[id]).filter(Boolean).sort((a, b) => (b.rarity || 3) - (a.rarity || 3));
+    const show = feat.length ? feat : pool().filter((o) => (o.rarity || 3) >= 6 && o.image).slice(0, 3);
+    const lead = show[0], rest = show.slice(1);
+    const end = bn.until ? `${+bn.until.slice(5, 7)}월 ${+bn.until.slice(8, 10)}일 03:59에 종료됩니다.` : '상시 진행되는 헤드헌팅입니다.';
     $('#hh-main').innerHTML = `
-      <div class="hh-art">${showcase.map((o, i) => `<div class="hh-op" style="--i:${i}">${artHTML(o)}</div>`).join('')}</div>
-      <div class="hh-info">
-        <div class="hh-kind">HEADHUNTING</div>
-        <div class="hh-name">${esc(bn.name)}</div>
-        <div class="hh-tag">${esc(bn.tag)}</div>
-        ${sixes.length ? `<div class="hh-up"><span class="up6">★6</span> ${sixes.map((o) => esc(o.name)).join(' · ')} <small>6성 획득 시 50% 확률</small></div>` : ''}
-        ${fives.length ? `<div class="hh-up"><span class="up5">★5</span> ${fives.map((o) => esc(o.name)).join(' · ')} <small>5성 획득 시 50% 확률</small></div>` : ''}
-        ${!bn.featured.length ? '<div class="hh-up">모든 오퍼레이터가 같은 확률로 등장합니다</div>' : ''}
-        <div class="hh-pity">${ACCOUNT.player.pity}회 연속 6성 미획득 · 다음 6성 확률 <b>${Math.round(rate6() * 100)}%</b></div>
-        <button class="btn small" id="hh-rates">확률 정보</button>
-      </div>
-      <div class="hh-btns">
-        <button class="hh-btn" data-pull="1"><b>헤드헌팅 1회</b><span class="hh-cost">${payLabel(1)}</span></button>
-        <button class="hh-btn ten" data-pull="10"><b>헤드헌팅 10회</b><span class="hh-cost">${payLabel(10)}</span></button>
+      <button class="hh-arrow l" data-hhstep="-1" aria-label="이전 배너">«</button>
+      <button class="hh-arrow r" data-hhstep="1" aria-label="다음 배너">»</button>
+      <div class="hh-card">
+        <div class="hh-lead">${lead ? `<div class="hh-lead-art">${opImg(lead)}</div>${opTag(lead, true)}<button class="hh-e2" data-hhop="${esc(lead.id)}">${UI.icon('search')}<span>오퍼레이터<br>정보</span></button>` : ''}</div>
+        <div class="hh-red">
+          <div class="hh-red-ops">${rest.map((o, i) => `<div class="hh-sub" style="--i:${i}">${opImg(o)}${opTag(o, (o.rarity || 3) >= 6)}${(o.rarity || 3) >= 6 ? `<button class="hh-e2 sm" data-hhop="${esc(o.id)}">${UI.icon('search')}<span>정보</span></button>` : ''}</div>`).join('')}</div>
+          <div class="hh-banner-name"><small>HEADHUNTING</small>${esc(bn.name)}</div>
+        </div>
+        <div class="hh-copy">
+          <div class="hh-headline">${feat.length ? '상기 캐릭터 출현 확률 UP!!!' : '모든 오퍼레이터 같은 확률!!!'}</div>
+          <div class="hh-desc">
+            <p>${feat.length ? `${feat.filter((o) => o.rarity === 6).map((o) => esc(o.name)).join(' · ') || feat.map((o) => esc(o.name)).join(' · ')} 출현 확률 UP — 해당 등급을 얻으면 50% 확률로 등장` : '이 헤드헌팅은 모든 오퍼레이터가 같은 확률로 등장합니다'}</p>
+            <p>${end}</p>
+            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">6성 미획득 누적 횟수 <b>${ACCOUNT.player.pity}</b></span></div>
+          </div>
+        </div>
+        <div class="hh-pull">
+          <div class="hh-ribbon"><b>${Math.round(rate6() * 100)}%</b> 다음 6성 확률 <small>50회 이후 1회마다 +2%</small></div>
+          <div class="hh-costs"><span>${payLabel(1)}</span><span>${payLabel(10)}</span></div>
+          <div class="hh-pbtns"><button class="hh-p1" data-pull="1">1회 진행</button><button class="hh-p10" data-pull="10">10회 진행</button></div>
+        </div>
       </div>`;
   };
   ACCOUNT.on('banner', () => {
@@ -278,6 +289,10 @@
   });
   $('#hh-main').addEventListener('click', (e) => {
     if (e.target.closest('#hh-rates')) { openRates(); return; }
+    const st = e.target.closest('[data-hhstep]');
+    if (st) { const list = banners(), k = list.findIndex((x) => x.key === hhSel); hhSel = list[(k + +st.dataset.hhstep + list.length) % list.length].key; RENDER.headhunt(); return; }
+    const op = e.target.closest('[data-hhop]');
+    if (op) { go('detail', op.dataset.hhop); return; }
     const b = e.target.closest('[data-pull]');
     if (b) tryPull(+b.dataset.pull);
   });
