@@ -132,7 +132,7 @@
       S.boldId = c[Math.floor(Math.random() * c.length)].def.id;
     }
     $('#hud-stage').textContent = `${st.code} ${st.name}`;
-    $('#btn-speed').innerHTML = '1X<small>▶</small><kbd>F</kbd>';
+    $('#btn-speed').innerHTML = '<img src="img/ui/btn_speed_1x.png" alt="1배속"><kbd>F</kbd>';
     ['#result', '#pause', '#inspect', '#hint', '#toast'].forEach((s) => $(s).classList.add('hidden'));
     buildCards();
     resize();
@@ -334,7 +334,7 @@
   function toggleSpeed() {
     if (!S) return;
     S.speed = S.speed === 1 ? 2 : 1;
-    $('#btn-speed').innerHTML = S.speed + 'X<small>' + (S.speed > 1 ? '▶▶' : '▶') + '</small><kbd>F</kbd>';
+    $('#btn-speed').innerHTML = `<img src="img/ui/btn_speed_${S.speed > 1 ? 2 : 1}x.png" alt="${S.speed}배속"><kbd>F</kbd>`;
   }
   $('#btn-speed').addEventListener('click', toggleSpeed);
   function togglePause(force) {
@@ -391,7 +391,7 @@
       $('#ins-tabs').querySelectorAll('[data-itab]').forEach((b) => b.classList.toggle('on', b.dataset.itab === insTab));
       let body = '';
       if (insTab === 'skill') {
-        body = `<div class="ins-sk"><span class="ins-sk-ico" style="--c:${d.color}"><b>S${skillsOf(d).indexOf(sk) + 1 || 1}</b></span><div><b class="ins-skill-name" id="ins-skill-name">${UI.esc(sk.name)}</b><div class="ins-chips">${skillChips(sk)}</div></div></div><p class="ins-skill-desc" id="ins-skill-desc">${UI.esc(sk.desc)}</p>`;
+        body = `<div class="ins-sk"><span class="ins-sk-ico" style="--c:${d.color}"><img src="${UI.skillIcon(sk, Math.max(0, skillsOf(d).indexOf(sk)), d)}" alt=""><b>S${skillsOf(d).indexOf(sk) + 1 || 1}</b></span><div><b class="ins-skill-name" id="ins-skill-name">${UI.esc(sk.name)}</b><div class="ins-chips">${skillChips(sk)}</div></div></div><p class="ins-skill-desc" id="ins-skill-desc">${UI.esc(sk.desc)}</p>`;
       } else if (insTab === 'trait') {
         body = `<p>${UI.esc(arch ? arch.trait : CLASSES[d.class].trait)}</p>`;
       } else {

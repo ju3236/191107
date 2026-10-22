@@ -320,16 +320,16 @@
     </div>
     <div class="hud">
       <div class="hud-left">
-        <button id="btn-gear" class="hud-sq" aria-label="메뉴"><span data-ico="gear"></span></button>
+        <button id="btn-gear" class="hud-sq img" aria-label="메뉴"><img src="img/ui/btn_system.png" alt=""></button>
         <div class="hud-stage" id="hud-stage"></div>
       </div>
       <div class="hud-stats">
-        <span class="stat"><i class="hud-ico enemy">◎</i><b id="hud-enemy">0/0</b></span>
-        <span class="stat life"><i class="hud-ico" data-ico="defender"></i><b id="hud-life">3</b></span>
+        <span class="stat"><img class="hud-img" src="img/ui/hud_enemy.png" alt="적"><b id="hud-enemy">0/0</b></span>
+        <span class="stat life"><img class="hud-img" src="img/ui/hud_life.png" alt="목숨"><b id="hud-life">3</b></span>
       </div>
       <div class="hud-btns">
-        <button id="btn-speed" class="hud-sq speed">1X<small>▶</small><kbd>F</kbd></button>
-        <button id="btn-pause" class="hud-sq">❚❚<kbd>Space</kbd></button>
+        <button id="btn-speed" class="hud-sq img speed"><img src="img/ui/btn_speed_1x.png" alt="1배속"><kbd>F</kbd></button>
+        <button id="btn-pause" class="hud-sq img"><img src="img/ui/btn_pause.png" alt="일시정지"><kbd>Space</kbd></button>
       </div>
     </div>
     <div id="hint" class="hint hidden"></div>
@@ -350,13 +350,13 @@
     </div>
     <div id="op-ring" class="op-ring hidden">
       <div class="ring-diamond"></div>
-      <button class="ring-btn retreat" id="ins-retreat" aria-label="철수"><span class="ring-ico">⤺</span><kbd>Q</kbd></button>
+      <button class="ring-btn retreat" id="ins-retreat" aria-label="철수"><img class="ring-img" src="img/ui/btn_escape.png" alt=""><kbd>Q</kbd></button>
       <button class="ring-btn skill" id="ins-skill" aria-label="스킬 발동"></button>
     </div>
     <div class="rotate-hint">↻ 화면을 가로로 돌리면 맵이 크게 보입니다</div>
     <div class="deploy-bar">
       <div class="dp">
-        <div class="dp-row"><span class="dp-ico">◆</span><span class="dp-num" id="dp-num">0</span></div>
+        <div class="dp-row"><img class="dp-ico" src="img/ui/hud_cost.png" alt="코스트"><span class="dp-num" id="dp-num">0</span></div>
         <div class="dp-bar"><i id="dp-fill"></i></div>
         <div class="dp-limit">배치 가능 인원: <b id="deploy-left">0</b></div>
       </div>

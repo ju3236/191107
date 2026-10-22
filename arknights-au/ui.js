@@ -53,7 +53,10 @@
     fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
     shrink: '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>',
   };
+  // 원작 직군 아이콘 (img/ui/pro_<직군>.png, 흰색 그림)
+  const PRO_IMG = new Set(['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist']);
   function icon(name, cls = '') {
+    if (PRO_IMG.has(name)) return `<img class="ico pro ${cls}" src="img/ui/pro_${name}.png" alt="" draggable="false">`;
     return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name] || ''}</svg>`;
   }
   function hydrateIcons(root = document) {
@@ -130,7 +133,22 @@
     </div>`;
   }
   // 정예화 표시 (0: 없음, 1: 꺾쇠 하나, 2: 둘)
-  const eliteIcon = (e) => `<svg viewBox="0 0 40 24" class="elite-ico">${e === 0 ? '<path d="M6 4 20 13 34 4" fill="none" stroke="currentColor" stroke-width="2" opacity=".6"/>' : '<path d="M2 2 20 14 38 2" fill="none" stroke="currentColor" stroke-width="4"/>'}${e >= 2 ? '<path d="M2 10 20 22 38 10" fill="none" stroke="currentColor" stroke-width="4"/>' : ''}</svg>`;
+  const eliteIcon = (e) => `<img class="elite-ico" src="img/ui/elite_${e}.png" alt="정예화 ${e}" draggable="false">`;
+  // 스킬 아이콘: 효과에 맞는 원작 공용 스킬 아이콘 (img/skill/*.png)
+  function skillIcon(sk, i = 0, def = {}) {
+    const e = (sk && sk.effect) || {}, n = Math.min(3, i + 1);
+    let k;
+    if (def.class === 'medic' || e.burstHeal || e.hot) k = e.allyGuard ? 'heal_rage' : 'heal_up';
+    else if (e.dp || e.dpRegen || e.dpFor) k = 'charge_cost';
+    else if (e.range) k = 'range_extend';
+    else if (e.nextHit || e.shell || e.twinShot || e.strike) k = 'powerstrike';
+    else if (e.def || e.block || e.shield || e.allyGuard || e.guardDef) k = 'def_up';
+    else if (e.heal || e.regen || e.selfHeal) k = 'heal_self';
+    else if (e.interval || e.aspd || e.devAspd) k = 'quickattack';
+    else if (def.class === 'caster' || def.class === 'supporter' || def.dmgType === 'arts') k = 'magic_rage';
+    else k = 'atk_up';
+    return `img/skill/${k === 'range_extend' ? k : k + '_' + n}.png`;
+  }
   // 오퍼레이터 목록 카드 (원작 목록 화면 모양)
   function rosterCardHTML(def) {
     const list = skillsOf(def), si = skillIndex(def), pot = ACCOUNT.potOf(def.id), pg = TRAIN.prog(def.id);
@@ -433,11 +451,11 @@
     $('#detail-block').innerHTML = Array.from({ length: 3 }, (_, i) => `<i class="${i < o.block ? 'on' : ''}"></i>`).join('');
     $('#detail-stars').textContent = stars(o.rarity);
     const pot = ACCOUNT.potOf(o.id);
-    $('#detail-pot').textContent = pot ? `잠재 ${pot} · 신뢰도 ${trustOf(o.id)}%` : '미보유';
+    $('#detail-pot').innerHTML = pot ? `<img src="img/ui/pot_${pot}.png" alt="">잠재 ${pot} · 신뢰도 ${trustOf(o.id)}%` : '미보유';
     $('#detail-en').textContent = o.en || '';
     $('#detail-name').textContent = o.name;
     fitName($('#detail-name'));
-    $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${esc(arch.name)}</small>` : ''}`;
+    $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${PRO_IMG.has(o.class) ? `<img class="sub-ico" src="img/ui/sub_${esc(o.archetype)}.png" alt="">` : ''}${esc(arch.name)}</small>` : ''}`;
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
     $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
     $('#detail-cost').textContent = o.cost;
@@ -445,7 +463,7 @@
     const lvTag = (i) => (i > pg.elite ? '' : `<span class="sk-lv ${pg.mst[i] ? 'm' : ''}">${pg.mst[i] ? `특화 ${pg.mst[i]}` : `Lv.${pg.slv}`}</span>`);
     $('#detail-skill').innerHTML = (owned(base.id) ? `<button class="sk-train" id="sk-train">스킬 육성 · 레벨 ${pg.slv}/${TRAIN_RULE.skillMax[pg.elite]}</button>` : '') + list.map((sk0, i) => { const sk = tlist[i] || sk0; return `
       <button class="skill-row ${i === cur ? 'on' : ''} ${i > pg.elite ? 'locked' : ''}" data-skill="${i}">${i > pg.elite ? `<span class="lock-tag">${eliteIcon(i)} ${i}차 정예화 해금</span>` : ''}${lvTag(i)}
-        <div class="sk-ico" style="--c:${o.color}"><b>S${i + 1}</b><small>${sk.spType === 'deploy' ? '배치' : 'SP ' + sk.sp}</small></div>
+        <div class="sk-ico" style="--c:${o.color}"><img src="${skillIcon(sk0, i, o)}" alt=""><b>S${i + 1}</b><small>${sk.spType === 'deploy' ? '배치' : 'SP ' + sk.sp}</small></div>
         <div><b>${esc(sk.name)}</b><em>${SP_TYPE[sk.spType || 'time']} · ${sk.trigger === 'auto' ? '자동 발동' : '수동 발동'}${durText(sk)}</em><p>${esc(sk0.desc)}</p>${sk.power && sk.power < 1 && i <= pg.elite ? `<p class="sk-pow">현재 위력 ${Math.round(sk.power * 100)}% (설명은 특화 3 기준)</p>` : ''}</div>
       </button>`; }).join('') + (list.length > 1 ? '<div class="skill-hint">눌러서 전투에 쓸 스킬을 고르세요</div>' : '');
     $('#detail-talents').innerHTML = `<div class="trait"><span class="chip">특성</span>${esc(arch ? arch.trait : cls.trait)}</div>` +
@@ -1365,7 +1383,7 @@
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    skillIcon, openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
   };
   RENDER.home();
