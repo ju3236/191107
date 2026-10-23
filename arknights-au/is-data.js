@@ -51,8 +51,8 @@ const IS_DATA = {
   en: 'THE SUNKEN BEACON',
   intro: '이베리아 앞바다에서 꺼진 지 오래인 등대의 불빛이 다시 깜박이기 시작했다. 로도스 아일랜드 행동대 「등대」는 신호의 근원을 찾아 바다 아래로 향한다. 물러설 길은 없다. 가라앉은 등대에 닿을 때까지.',
 
-  // 원작(미즈키 & 카이룰라 아버) 기준: 초기 희망 6
-  start: { life: 10, ingot: 10, hope: 6 },
+  // 원작(미즈키 & 카이룰라 아버) 초기값: 목표 HP 4 · 희망 6 · 오리지늄각뿔 6 · 편성 가능 인원수 6 · 주사위 1 · 등불 100
+  start: { life: 4, ingot: 6, hope: 6, squad: 6, dice: 1, light: 100, key: 0 },
   // 희망 — 원작과 같이 모집과 랭크 상승에 씀 (레어도별). 임시 모집 오퍼레이터는 모집 희망 0
   hopeCost: { 6: 6, 5: 3, 4: 2, 3: 0, 2: 0, 1: 0 },
   promoteCost: { 6: 3, 5: 2, 4: 1, 3: 0, 2: 0, 1: 0 },
@@ -110,16 +110,8 @@ const IS_DATA = {
     { id: 'random', name: '원하는 대로', desc: '랜덤 모집권 3장, 그중 1장은 4★ 임시 모집 확정 출현', random: 3 },
   ],
 
-  // 분대: 탐색 시작 시 하나 고름. fx는 소장품과 같은 형식
-  squads: [
-    { id: 'command', name: '지휘 분대', desc: '시작 희망 +2', fx: { gain: { hope: 2 } } },
-    { id: 'logistic', name: '후방 지원 분대', desc: '시작 오리지늄각뿔 +10, 교역소 가격 -10%', fx: { gain: { ingot: 10 }, shopDiscount: 0.1 } },
-    { id: 'assault', name: '돌격 전술 분대', desc: '뱅가드·가드 공격력 +15%', fx: { stat: { atk: 0.15 }, classes: ['vanguard', 'guard'] } },
-    { id: 'bulwark', name: '보루 전술 분대', desc: '디펜더·메딕 HP +20%, 방어력 +10%', fx: { stat: { hp: 0.2, def: 0.1 }, classes: ['defender', 'medic'] } },
-    { id: 'ranged', name: '원거리 전술 분대', desc: '스나이퍼·캐스터 공격력 +15%', fx: { stat: { atk: 0.15 }, classes: ['sniper', 'caster'] } },
-    { id: 'research', name: '연구 분대', desc: '시작 시 무작위 소장품 2개, 시작 희망 -2', fx: { gain: { relic: 2, hope: -2 } } },
-    { id: 'beacon', name: '등대 분대', desc: '시작 최대 목표 HP +4, 명흔에 의한 HP 감소 무시 (등대 AU 전용)', fx: { gain: { maxLife: 4 }, brandImmune: true } },
-  ],
+  // 분대 · 출발 전 준비 · 난이도 · 조우 이벤트 등은 원작 데이터 is-ro2.js(IS_RO2)를 씁니다
+
 
   // ---------------------------------------------------------------------
   //  소장품은 is-relics.js (원작 「쉐이의 기이한 계원」 목록). fx 키:
@@ -501,51 +493,4 @@ const IS_DATA = {
     },
   },
 
-  // ---------------------------------------------------------------------
-  //  불온한 조우 (이벤트). floors: 나오는 층 (1부터, 없으면 전부)
-  //  choices: { label, desc, cost: { ingot|hope|life }, gain: {...}, chance: 성공 확률, fail: 실패 시 gain, result, failResult }
-  //  gain 키: ingot, hope, life, exp, relic: 개수 | 'rare' | 'special' | 소장품 id, ticket: 장수, promote: 고급 물자배급권 장수, promoteClass: 직군 랭크 상승권
-  // ---------------------------------------------------------------------
-  events: [
-    { id: 'wreck', title: '좌초된 상선', text: '암초에 걸린 상선 한 척이 기울어져 있다. 짐칸은 아직 물에 잠기지 않았다.',
-      choices: [
-        { label: '짐칸을 뒤진다', desc: '60% 오리지늄각뿔 +7 / 40% 목표 HP -1, 오리지늄각뿔 +2', chance: 0.6, gain: { ingot: 7 }, fail: { life: -1, ingot: 2 }, result: '물에 젖은 상자 안에서 오리지늄각뿔를 찾았다.', failResult: '갑판 아래에 숨어 있던 무언가가 덤벼들었다. 겨우 몇 개만 챙겨 빠져나왔다.' },
-        { label: '그냥 지나간다', desc: '지휘 경험치 +1', gain: { exp: 1 }, result: '불필요한 위험은 피했다.' },
-      ] },
-    { id: 'keeper', title: '등대지기의 노래', text: '안개 너머에서 낮은 노랫소리가 들려온다. 오래전 이 바다를 지키던 등대지기들의 노래다.',
-      choices: [
-        { label: '귀를 기울인다', desc: '희망 -1, 무작위 소장품 1개', cost: { hope: 1 }, gain: { relic: 1 }, result: '노래가 끝난 자리에 낡은 물건 하나가 남아 있었다.' },
-        { label: '노래를 따라 부른다', desc: '목표 HP +2', gain: { life: 2 }, result: '모두의 마음이 조금 가벼워졌다.' },
-      ] },
-    { id: 'chest', title: '표류하는 상자', text: '파도에 떠밀려 온 상자 하나. 자세히 보니 뚜껑이 아주 조금씩 움직인다.',
-      choices: [
-        { label: '열어 본다', desc: '50% 희귀 소장품 / 50% 목표 HP -2', chance: 0.5, gain: { relic: 'rare' }, fail: { life: -2 }, result: '상자 안에는 귀한 물건이 들어 있었다.', failResult: '상자 시테러였다! 간신히 떼어 냈다.' },
-        { label: '불태운다', desc: '오리지늄각뿔 +2', gain: { ingot: 2 }, result: '타고 남은 재 속에서 오리지늄각뿔를 건졌다.' },
-      ] },
-    { id: 'believer', title: '심해 교회의 신도', text: '해변에 무릎 꿇은 신도가 바다를 향해 기도하고 있다. 당신들을 보자 웃으며 손짓한다.',
-      choices: [
-        { label: '이야기를 듣는다', desc: '오리지늄각뿔 -4, 희망 +2', cost: { ingot: 4 }, gain: { hope: 2 }, result: '알아듣기 힘든 교리 속에서 쓸 만한 정보를 얻었다.' },
-        { label: '경계하며 물러난다', desc: '지휘 경험치 +2', gain: { exp: 2 }, result: '뒤돌아보니 신도는 이미 바닷속으로 걸어 들어가고 있었다.' },
-      ] },
-    { id: 'diver', title: '길 잃은 잠수부', text: '부상당한 잠수부가 바위 틈에 숨어 있다. 소속을 묻자 고개를 저을 뿐이다.',
-      choices: [
-        { label: '치료해 준다', desc: '오리지늄각뿔 -3, 모집권 1장', cost: { ingot: 3 }, gain: { ticket: 1 }, result: '잠수부가 아는 사람을 소개해 주었다.' },
-        { label: '장비를 넘겨받는다', desc: '오리지늄각뿔 +5, 목표 HP -1', gain: { ingot: 5, life: -1 }, result: '잠수부는 장비를 두고 사라졌다. 어딘가 꺼림칙하다.' },
-      ] },
-    { id: 'market', title: '해안가 어시장', text: '폐허가 된 항구에 아직 문을 연 노점이 하나 있다. 생선 냄새가 지독하다.',
-      choices: [
-        { label: '생선을 산다', desc: '오리지늄각뿔 -3, 목표 HP +3', cost: { ingot: 3 }, gain: { life: 3 }, result: '따뜻한 생선 수프로 몸을 녹였다.' },
-        { label: '흥정한다', desc: '50% 오리지늄각뿔 +4 / 50% 아무 일도 없음', chance: 0.5, gain: { ingot: 4 }, fail: {}, result: '상인이 웃으며 덤을 얹어 주었다.', failResult: '상인은 고개를 저었다.' },
-      ] },
-    { id: 'mirror', title: '물에 비친 얼굴', floors: [2, 3, 4], text: '잔잔한 물웅덩이에 비친 얼굴이 조금 늦게 움직인다.',
-      choices: [
-        { label: '들여다본다', desc: '고급 물자배급권 1장 (오퍼레이터 1명 희망 소모 없이 랭크 상승)', gain: { promote: 1 }, result: '물속의 얼굴이 무언가를 속삭였다. 머릿속이 맑아진다.' },
-        { label: '돌을 던진다', desc: '오리지늄각뿔 +3', gain: { ingot: 3 }, result: '물결이 퍼지자 바닥에 깔린 오리지늄각뿔가 보였다.' },
-      ] },
-    { id: 'storm', title: '다가오는 폭풍', floors: [2, 3, 4], text: '수평선 너머에서 검은 구름이 몰려온다. 폭풍의 중심에서 희미한 불빛이 보인다.',
-      choices: [
-        { label: '폭풍 속으로', desc: '희망 -2, 특별 소장품 1개', cost: { hope: 2 }, gain: { relic: 'special' }, result: '불빛이 있던 자리에서 무언가를 건져 올렸다.' },
-        { label: '서둘러 피한다', desc: '목표 HP -1', gain: { life: -1 }, result: '간신히 폭풍을 피했지만 모두 지쳐 버렸다.' },
-      ] },
-  ],
 };

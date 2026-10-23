@@ -128,6 +128,9 @@
       mode: 'idle', sel: null, tile: null, dir: 'right', press: null, inspect: null,
       shake: 0, T: 40, dpr: 1,
     };
+    // 태생 백합: 초기 배치 코스트가 무작위로 변경 / 키틴질 나이프: 무작위 1명 공격력 · HP +100%
+    if (mods.randomStartDp) S.dp = Math.max(0, S.dp + Math.floor(Math.random() * 16) - 5);
+    if (mods.chitin && S.roster.length) { const c = S.roster[Math.floor(Math.random() * S.roster.length)]; c.def = { ...c.def, atk: c.def.atk * 2, hp: c.def.hp * 2 }; }
     // 치엔창 꾸러미: 배치 코스트를 무작위로 섞음 / 담대함의 칼날: 코스트가 가장 높은 오퍼레이터
     if (mods.shuffleCost && S.roster.length > 1) {
       const costs = S.roster.map((r) => r.def.cost).sort(() => Math.random() - 0.5);
@@ -638,6 +641,12 @@
         for (const op of S.ops) if (op.alive && op.def.class === 'defender') for (const e of enemiesNear(op, 1.5)) { stunEnemy(e, X.defenderBind.stun); hitEnemy(e, opAtk(op) * X.defenderBind.mul, 'phys', false, op, 0, true); }
       }
     }
+    // 계시 「변천」: 최대 HP가 가장 높은 오퍼레이터 초당 SP / 「강인함」: HP 비율이 가장 낮은 오퍼레이터 초당 HP 회복
+    if (X.spBoost || X.lowHeal) {
+      const live = S.ops.filter((o) => o.alive && !o.def.summoned);
+      if (X.spBoost && live.length) gainSp(live.reduce((a, o) => (o.maxHp > a.maxHp ? o : a)), X.spBoost * dt);
+      if (X.lowHeal && live.length) healOp(live.reduce((a, o) => (o.hp / o.maxHp < a.hp / a.maxHp ? o : a)), X.lowHeal * dt, true);
+    }
     if (X.kingTools && S.life === 1) {
       S.kingT = (S.kingT || 0) + dt;
       if (S.kingT >= X.kingTools.every) { S.kingT = 0; for (const op of S.ops) { gainSp(op, X.kingTools.sp); healOp(op, op.maxHp * X.kingTools.hp, true); } }
@@ -1026,6 +1035,7 @@
       if (changed) buildCards();
     }
     relicDeploy(op, r);
+    if (def.mut && def.mut.freeze) { op.stun = 15; addText(tx + 0.5, ty - 0.4, '신경 쇠퇴', '#9266b2', 1.2, true); }
     sfx('deploy');
     if (r.left !== undefined) { r.left--; r.cd = def.redeploy; } else r.deployed = true;
     addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.4, color: def.color });
@@ -1276,6 +1286,7 @@
     if (op.resT > 0) op.resT -= dt;
     if (op.surviveT > 0) op.surviveT -= dt;
     op.brand = onBrand(op.x, op.y);
+    if (op.def.mut && op.def.mut.drain && op.hp < op.maxHp) op.hp = Math.max(1, op.hp - op.maxHp * 0.015 * dt);
     if (op.brand && !S.mods.brandImmune) { op.hp -= op.maxHp * 0.01 * dt; if (op.hp <= 0) { removeOp(op, true); return; } }
     if (op.stun > 0) { op.stun -= dt; op.atkCd = Math.max(op.atkCd, 0.2); return; }
     if (op.hotT > 0) { op.hotT -= dt; healOp(op, op.hotAmt * dt, true); }
@@ -1561,7 +1572,7 @@
   function addNeural(op, v) {
     if (!op.alive || v <= 0) return;
     const m = debuffMul(op);
-    op.neural = (op.neural || 0) + v * m;
+    op.neural = (op.neural || 0) + v * m * (1 + (S.mods.neuralMul || 0));
     if (op.neural < 1000) return;
     op.neural = 0;
     op.stun = 6 * m;
@@ -1602,6 +1613,7 @@
     if (src && src.markT > 0 && eff(op).markCut) dmg *= 1 - eff(op).markCut;
     if (op.surviveT > 0) dmg *= 1 - op.tal.survive.cut;
     if (op.takenMul) dmg *= op.takenMul;
+    if (op.def.evo) dmg *= 0.65;
     if (src && src.def) {
       if (X.firstHitCut && !src.firstHitDone) { src.firstHitDone = true; dmg *= 1 - X.firstHitCut; }
       if (X.blockedTaken && src.blockedBy) dmg *= 1 - X.blockedTaken;
@@ -1709,6 +1721,7 @@
       def, path, pi: 1, x: path[0].x, y: path[0].y,
       hp: def.hp, maxHp: def.hp, atkCd: def.interval * 0.5, blockedBy: null, alive: true, flash: 0,
       stun: 0, atkMul: 1, revived: false, blinked: false, analysis: 0, ana: null, slowT: 0, proofHits: 0, proof: null,
+      rushT: S.mods.eliteRush && (def.elite || def.boss) ? S.mods.eliteRush.dur : 0,
     });
     if (def.boss) { sfx('boss'); toast(`경고 — ${def.name} 출현`); S.shake = 0.5; } else sfx('spawn');
   }
@@ -1719,7 +1732,9 @@
     if (e.def.dodge && Math.random() < e.def.dodge) { addText(e.x, e.y - 0.25, '회피', '#cfd3d6', 0.4); return; }
     const hd = e.def.harden && e.hp / e.maxHp < e.def.harden.below ? e.def.harden.def : 1;
     if (src && src.def && X.ignoreDef && X.ignoreDef.classes.includes(src.def.class)) ignore = Math.min(1, ignore + X.ignoreDef.v);
-    let def = e.def.def * hd * (1 - ignore), res = e.def.res || 0, amp = relicDealt(e, type, src);
+    if (src && src.def && src.def.evo) ignore = Math.min(1, ignore + 0.35);
+    let def = e.def.def * hd * (1 - ignore), res = (e.def.res || 0) * (src && src.def && src.def.evo ? 0.65 : 1), amp = relicDealt(e, type, src);
+    if (e.rushT > 0) amp *= 1 - S.mods.eliteRush.cut;
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
     if (e.resDownT > 0) res = Math.max(0, res - e.resDown);
     if (e.unluckyT > 0) for (const o of luckOps()) {
@@ -1826,7 +1841,7 @@
   }
 
   function moveEnemy(e, dt) {
-    let step = e.def.speed * dt * (e.slowT > 0 ? e.slowMove : 1) * (e.auraMove || 1) * Math.max(0.2, 1 - perDep('enemySlow'));
+    let step = e.def.speed * dt * (S.mods.anger && S.time < S.mods.anger.dur ? 1 - S.mods.anger.speed : 1) * (e.slowT > 0 ? e.slowMove : 1) * (e.auraMove || 1) * Math.max(0.2, 1 - perDep('enemySlow'));
     while (step > 0 && e.alive) {
       const p = e.path[e.pi];
       const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
@@ -1852,8 +1867,8 @@
   }
 
   function enemyAtk(e) {
-    const en = e.def.enrage;
-    return e.def.atk * e.atkMul * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1) * (e.markT > 0 && e.markBy ? 1 - e.markBy.tal.relay.atkDown : 1) * (e.unluckyT > 0 && luckOps().some((o) => eff(o).luckAtk) ? 1 - Math.max(...luckOps().map((o) => eff(o).luckAtk || 0)) : 1);
+    const en = e.def.enrage, X = S.mods;
+    return e.def.atk * e.atkMul * (e.rushT > 0 ? 1 + X.eliteRush.atk : 1) * (X.anger && S.time < X.anger.dur ? 1 - X.anger.atk : 1) * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1) * (e.markT > 0 && e.markBy ? 1 - e.markBy.tal.relay.atkDown : 1) * (e.unluckyT > 0 && luckOps().some((o) => eff(o).luckAtk) ? 1 - Math.max(...luckOps().map((o) => eff(o).luckAtk || 0)) : 1);
   }
 
   function updateEnemy(e, dt, healAura) {
@@ -1865,6 +1880,7 @@
     if (e.atkDownT > 0) e.atkDownT -= dt;
     if (e.markT > 0) e.markT -= dt;
     if (e.bindT > 0) e.bindT -= dt;
+    if (e.rushT > 0) e.rushT -= dt;
     if (e.resDownT > 0) e.resDownT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
