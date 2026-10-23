@@ -1172,6 +1172,9 @@
     op.skillT = sk.duration === -1 ? Infinity : sk.duration || 0;
     op.charges = ef.charges || 0;
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
+    // 발동 순간 이 스킬의 공격 범위를 1.5초간 판 위에 표시
+    op.flashUntil = S.time + 1.5;
+    op.flashTiles = ef.range ? computeRange(ef.range, op.dir, op.x, op.y).list : op.rangeList.slice();
     afterActivate(op, ef);
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.6, color: op.def.color, r: 0.9 });
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.45, color: '#ffcf3a', r: 0.6 });
@@ -2930,6 +2933,10 @@
       fillTiles(computeRange(S.sel.def.range, S.dir, S.tile.x, S.tile.y).list, 'rgba(255,150,40,.35)', 'rgba(255,170,60,.9)');
     } else if (S.mode === 'inspect' && S.inspect) {
       fillTiles(S.inspect.rangeList, 'rgba(255,150,40,.3)', 'rgba(255,170,60,.8)');
+    }
+    for (const op of S.ops) if (op.alive && op.flashUntil > S.time && op !== S.inspect) {
+      const a = Math.min(1, (op.flashUntil - S.time) / 0.5);
+      fillTiles(op.flashTiles, `rgba(255,214,90,${0.28 * a})`, `rgba(255,225,120,${0.85 * a})`);
     }
 
     // 뒤쪽부터 앞쪽 순서로 유닛 그리기

@@ -171,6 +171,7 @@
     melee1: { name: '전방 1칸', range: area(0, 1, 0, 0) },
     melee2: { name: '전방 2칸', range: area(0, 2, 0, 0) },
     around: { name: '주변 8칸', range: area(-1, 1, -1, 1) },
+    diamond2: { name: '마름모 2칸', range: area(-2, 2, -2, 2).filter(([x, y]) => Math.abs(x) + Math.abs(y) <= 2) },
     ranged: { name: '원거리 3×4', range: area(0, 3, -1, 1) },
     long:   { name: '장거리 3×5', range: area(0, 4, -1, 1) },
   };
@@ -220,11 +221,14 @@
     const skills = (Array.isArray(d.skills) ? d.skills : []).slice(0, 3).map((s) => {
       const k = obj(s);
       const spType = ['time', 'attack', 'hit', 'deploy'].includes(k.spType) ? k.spType : 'time';
+      const rangeKey = RANGE_PRESETS[k.range] ? k.range : '';
+      const effect = skillFx(k.fx);
+      if (rangeKey) effect.range = RANGE_PRESETS[rangeKey].range;
       return {
-        name: str(k.name, 30) || '스킬', desc: str(k.desc, 200), spType,
+        rangeKey, name: str(k.name, 30) || '스킬', desc: str(k.desc, 200), spType,
         trigger: k.trigger === 'auto' || spType === 'deploy' ? 'auto' : 'manual',
         sp: spType === 'deploy' ? 0 : num(k.sp, 20, 1, 200), initSp: spType === 'deploy' ? 0 : num(k.initSp, 0, 0, 200),
-        duration: num(k.duration, 10, -1, 120), effect: skillFx(k.fx), fx: obj(k.fx),
+        duration: num(k.duration, 10, -1, 120), effect, fx: obj(k.fx),
       };
     });
     if (!skills.length) skills.push({ name: '기본 공격', desc: '스킬 없음', sp: 999, initSp: 0, duration: 0, trigger: 'manual', effect: {}, fx: {} });

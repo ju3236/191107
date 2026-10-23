@@ -706,7 +706,7 @@
       imageId: '', cost: 15, redeploy: 40, block: 2, hp: 2500, atk: 600, def: 350, res: 0, interval: 1.2, range: 'melee1',
       profile: '', quote: '', voices: '', isOnly: false,
       talents: [{ name: '', desc: '', fx: {} }, { name: '', desc: '', fx: {} }],
-      skills: [0, 1, 2].map(() => ({ name: '', desc: '', spType: 'time', trigger: 'manual', sp: 30, initSp: 10, duration: 15, fx: {} })),
+      skills: [0, 1, 2].map(() => ({ name: '', desc: '', spType: 'time', trigger: 'manual', sp: 30, initSp: 10, duration: 15, range: '', fx: {} })),
       creator: '',
     };
   }
@@ -718,7 +718,7 @@
       hp: o.hp, atk: o.atk, def: o.def, res: o.res, interval: o.interval, range: o.rangeKey, profile: o.profile, quote: o.quote,
       voices: (o.voices || []).join('\n'), creator: o.creator, isOnly: !!o.isOnly,
       talents: [0, 1].map((i) => (o.talents[i] ? { name: o.talents[i].name, desc: o.talents[i].desc, fx: { ...o.talents[i].fx } } : b.talents[i])),
-      skills: [0, 1, 2].map((i) => (o.skills[i] && o.skills[i].name !== '기본 공격' ? { ...b.skills[i], ...o.skills[i], fx: { ...o.skills[i].fx } } : { ...b.skills[i], name: '' })),
+      skills: [0, 1, 2].map((i) => (o.skills[i] && o.skills[i].name !== '기본 공격' ? { ...b.skills[i], ...o.skills[i], range: o.skills[i].rangeKey || '', fx: { ...o.skills[i].fx } } : { ...b.skills[i], name: '' })),
     };
   }
   const inp = (id, label, val, type = 'text', extra = '') => `<label>${label}<input id="${id}" type="${type}" value="${esc(val ?? '')}" ${extra}></label>`;
@@ -762,7 +762,7 @@
         ${sel(`s${i}-spType`, 'SP 회복', s.spType, [['time', '자동 회복'], ['attack', '공격 회복'], ['hit', '피격 회복'], ['deploy', '배치 시 발동']])}
         ${sel(`s${i}-trigger`, '발동', s.trigger, [['manual', '수동 발동'], ['auto', '자동 발동']])}
         ${inp(`s${i}-sp`, '필요 SP', s.sp, 'number')}${inp(`s${i}-initSp`, '초기 SP', s.initSp, 'number')}
-        ${inp(`s${i}-duration`, '지속(초, 0=즉시, -1=무한)', s.duration, 'number')}</div>
+        ${inp(`s${i}-duration`, '지속(초, 0=즉시, -1=무한)', s.duration, 'number')}${sel(`s${i}-range`, '스킬 중 공격 범위', s.range || '', [['', '기본 범위 그대로'], ...Object.entries(ACCOUNT.RANGE_PRESETS).map(([k, r]) => [k, r.name])])}</div>
         <details ${s.name ? 'open' : ''}><summary>효과 수치</summary>${fxGrid('s' + i, SKILL_FX, s.fx)}</details></section>`).join('')}
     </div>`;
     const file = $('#ed-file');
@@ -799,7 +799,7 @@
       talents: [0, 1].map((i) => ({ name: v(`t${i}-name`).trim(), desc: v(`t${i}-desc`).trim(), fx: fx('t' + i, TALENT_FX) })).filter((t) => t.name),
       skills: [0, 1, 2].map((i) => ({
         name: v(`s${i}-name`).trim(), desc: v(`s${i}-desc`).trim(), spType: v(`s${i}-spType`), trigger: v(`s${i}-trigger`),
-        sp: n(`s${i}-sp`), initSp: n(`s${i}-initSp`), duration: n(`s${i}-duration`), fx: fx('s' + i, SKILL_FX),
+        sp: n(`s${i}-sp`), initSp: n(`s${i}-initSp`), duration: n(`s${i}-duration`), range: v(`s${i}-range`), fx: fx('s' + i, SKILL_FX),
       })).filter((s) => s.name),
       creator: editing.data.creator || '',
     };
