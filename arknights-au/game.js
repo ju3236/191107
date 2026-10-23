@@ -1276,7 +1276,7 @@
     // 공격수: 저지 중인 적 전부 동시 공격
     if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
-      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord'))));
+      (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord' && !eff(op).antiAir))));
     const prio = eff(op).priority;
     list.sort((a, b) =>
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
