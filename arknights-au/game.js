@@ -520,7 +520,7 @@
   }
   // 기수: 스킬 지속 시간 동안 저지 가능 수 0
   // 해방자: 스킬 미발동 시 저지 0
-  const opBlock = (op) => ((op.def.archetype === 'bearer' && op.skillT > 0) || (op.def.archetype === 'librator' && !(op.skillT > 0)) ? 0 : op.def.block + (eff(op).block || 0) + B(op, 'block'));
+  const opBlock = (op) => ((op.def.archetype === 'bearer' && op.skillT > 0) || (op.def.archetype === 'librator' && !(op.skillT > 0)) ? 0 : op.def.block + (eff(op).block || 0) + B(op, 'block') + (op.remOwner ? eff(op.remOwner).remBlock || 0 : 0));
   const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0) + (op.def.dodge || 0) + B(op, 'dodge');
   const opArtsDodge = (op) => (op.def.artsDodge || 0) + (eff(op).artsDodge || 0) + B(op, 'artsDodge');
   const tileOf = (def) => def.tile || CLASSES[def.class].tile;
@@ -668,6 +668,13 @@
   // 오퍼레이터 재능·스킬로 생기는 매 프레임 버프 (키스 · 루시아 등)
   function charBuffs(op, add, dt) {
     const t = op.tal, ef = eff(op);
+    // 잔영: 강화 중첩 · 3스킬 공격 속도
+    if (op.remOwner) { if (op.remBoost) add('atk', op.remOwner.tal.remnant.atk * op.remBoost); if (op.remOwner.alive && eff(op.remOwner).remAspd) add('aspd', eff(op.remOwner).remAspd); }
+    // 앙가르드!: 공격할 때마다 공격 속도, 최대 중첩이면 공격력 · 회피
+    if (t.engarde && op.egN) { add('aspd', t.engarde.aspd * op.egN); if (op.egN >= t.engarde.max) { add('atk', t.engarde.atk); add('dodge', t.engarde.dodge); } }
+    // 끝까지 한 걸음: HP가 낮을수록 공격력
+    if (t.lastStep) { const r = op.hp / op.maxHp; if (r <= t.lastStep.hp2) add('atk', t.lastStep.atk2); else if (r <= t.lastStep.hp1) add('atk', t.lastStep.atk1); }
+    if (op.dodgeT > 0) add('dodge', op.dodgeV);
     if (op.def.summoned && op.owner && op.owner.alive) {
       const oe = eff(op.owner);
       if (oe.guardAtk) add('atk', oe.guardAtk - 1);
@@ -888,6 +895,10 @@
       if (!g.def.summoned || !g.owner || !g.owner.alive) continue;
       const ot = g.owner.tal, oe = eff(g.owner);
       for (const e of g.blocked) {
+        if (g.remOwner && e.blockedBy === g) {
+          if (ot.witness) { e.witnessT = ot.witness.dur; e.witnessBy = g.owner; }
+          if (oe.remSlow) slowEnemy(e, 1 - oe.remSlow, 0.3);
+        }
         if (ot.houseEdge) { e.vulnAmp = Math.max(e.vulnT > 0 ? e.vulnAmp : 0, ot.houseEdge.vuln); e.vulnT = 0.3; }
         if (oe.guardAtkDown) { e.atkDown = oe.guardAtkDown; e.atkDownT = 0.3; }
       }
@@ -1017,6 +1028,55 @@
   const alliesNear = (op, r) => S.ops.filter((o) => o.alive && Math.hypot(o.x - op.x, o.y - op.y) <= r);
   const enemiesNear = (op, r) => S.enemies.filter((e) => e.alive && Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) <= r);
 
+  // ---------- 셰이퍼 캐스터(신이서): 잔영 ----------
+  const remnantsOf = (ow) => S.ops.filter((o) => o.alive && o.remOwner === ow);
+  const remMax = (ow) => eff(ow).remMax || ow.def.remnant.max;
+  const freeGround = (x, y) => x >= 0 && y >= 0 && x < S.cols && y < S.rows && (S.map[y][x] === '.' || S.map[y][x] === '~') && !opAt(x, y);
+  function spawnRemnant(ow, x, y) {
+    const rd = ow.def.remnant;
+    if (!rd || !freeGround(x, y) || remnantsOf(ow).length >= remMax(ow)) return null;
+    // 이서의 육성 상태(공격력)에 맞춰 잔영 능력치도 함께 오름
+    const k = Math.max(0.4, Math.min(1.4, ow.def.atk / 660));
+    const def = { ...rd, hp: Math.round(rd.hp * k), atk: Math.round(rd.atk * k), summoned: true, remnant: true, cost: 0, redeploy: 0, rarity: 0,
+      skills: [{ name: '-', desc: '', sp: 999, duration: 0, effect: {} }], talents: [] };
+    const op = {
+      def, tal: talentFx(def), skill: def.skills[0], roster: { def, deployed: true, cd: 0 }, x, y, dir: ow.dir, hp: def.hp, maxHp: def.hp, atkCd: 0.5,
+      sp: 0, skillT: 0, charges: 0, charge: 0, burst: null, shield: 0, chill: 0, auraDef: 0, firstStrike: false, lastStandUsed: false,
+      blocked: [], alive: true, flash: 0, born: S.time, owner: ow, remOwner: ow, lifeT: rd.life, remBoost: 0,
+    };
+    setRange(op, def.range);
+    S.ops.push(op);
+    addFx({ type: 'ring', x: x + 0.5, y: y + 0.5, life: 0.5, color: '#8a8fb0', r: 0.7 });
+    rise(x + 0.5, y + 0.5, '#3a3f4a', 8, 0.5, 'shard');
+    addText(x + 0.5, y - 0.1, '잔영', '#c9c3ff', 0.8, true);
+    return op;
+  }
+  // 범위 안 빈 지상 타일 (가까운 적이 있는 타일부터)
+  function remnantTiles(ow, nearX, nearY) {
+    const list = ow.rangeList.filter(([x, y]) => freeGround(x, y));
+    const fe = S.enemies.filter((e) => e.alive && !isFly(e.def));
+    const score = ([x, y]) => (nearX != null ? Math.hypot(x + 0.5 - nearX, y + 0.5 - nearY) : fe.length ? Math.min(...fe.map((e) => Math.hypot(x + 0.5 - e.x, y + 0.5 - e.y))) : 0);
+    return list.sort((a, b) => score(a) - score(b));
+  }
+  function summonRemnants(ow, n, nearX, nearY) {
+    let c = 0;
+    for (const [x, y] of remnantTiles(ow, nearX, nearY)) { if (c >= n) break; if (spawnRemnant(ow, x, y)) c++; }
+    return c;
+  }
+  // 범위 안에서 지상 적이 쓰러짐: 그 자리에 잔영, 가득하면 가장 약한 잔영 강화
+  function remnantOnKill(ow, e) {
+    const rt = ow.tal.remnant, tx = Math.floor(e.x), ty = Math.floor(e.y);
+    const extra = e.witHitBy === ow && e.witHitUntil > S.time ? 1 : 0;
+    let n = (rt ? 1 : 0) + extra;
+    if (rt && remnantsOf(ow).length >= remMax(ow)) {
+      const w = remnantsOf(ow).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      if (w) { healOp(w, w.maxHp * rt.heal, true); w.remBoost = Math.min(rt.stack, w.remBoost + 1); addText(w.x + 0.5, w.y - 0.1, '잔영 강화', '#c9c3ff', 0.7, true); }
+      return;
+    }
+    if (n && spawnRemnant(ow, tx, ty)) n--;
+    if (n) summonRemnants(ow, n, e.x, e.y);
+  }
+
   function deploy(r, tx, ty, dir) {
     if (r.left !== undefined && r.left <= 0) { setMode('idle'); return; }
     if (S.dp < r.def.cost) { toast('배치 코스트가 부족합니다'); setMode('idle'); return; }
@@ -1060,6 +1120,22 @@
   function removeOp(op, died) {
     if (!op.alive) return;
     op.alive = false;
+    for (const rm of S.ops.filter((o) => o.remOwner === op && o.alive)) removeOp(rm, false);
+    if (op.remOwner) {
+      // 잔영이 사라지면 주변 적에게 마법 피해 (3스킬: 이서 공격력의 240% + 공포)
+      const ow = op.remOwner, rb = ow.alive && eff(ow).remBurst, cx0 = op.x + 0.5, cy0 = op.y + 0.5;
+      const mul = rb ? rb.mul : op.def.fade || 0.6, base = ow.alive ? opAtk(ow) : op.def.atk;
+      addFx({ type: 'ring', x: cx0, y: cy0, life: 0.5, color: rb ? '#c9c3ff' : '#8a8fb0', r: 1.3 });
+      for (const e of S.enemies.filter((e) => e.alive && Math.hypot(e.x - cx0, e.y - cy0) <= 1.3)) {
+        hitEnemy(e, base * mul, 'arts', false, ow.alive ? ow : null, 0, true);
+        if (rb && e.alive) { stunEnemy(e, rb.fear); addText(e.x, e.y - 0.4, '공포', '#c9a6ff', 0.6); }
+      }
+      for (const e of op.blocked) if (e.blockedBy === op) e.blockedBy = null;
+      op.blocked = [];
+      S.ops = S.ops.filter((o) => o !== op);
+      if (S.inspect === op) setMode('idle');
+      return;
+    }
     // 주인이 퇴각하면 소환물도 함께 퇴각, 카드도 사라짐
     const srs = op.roster.summonRs;
     if (srs) {
@@ -1106,6 +1182,20 @@
     }
     activateSkill(op);
   }
+  // 프리즈 드 페르: 전방 지상 적 최대 3명에게 3연속 공격
+  function priseDeFer(op, p) {
+    const tiles = new Set(computeRange(area(0, p.reach, 0, 0), op.dir, op.x, op.y).list.map(([x, y]) => key(x, y)));
+    const ts = S.enemies.filter((e) => e.alive && !isFly(e.def) && tiles.has(key(Math.floor(e.x), Math.floor(e.y)))).sort((a, b) => (b.blockedBy === op) - (a.blockedBy === op) || remaining(a) - remaining(b)).slice(0, p.targets);
+    op.invulnT = p.guard;
+    for (const t of ts) {
+      attackFx(op, t, 0, 'phys', true, op.x + 0.5, op.y + 0.5);
+      hitEnemy(t, opAtk(op) * p.mul, 'phys', true, op);
+      if (t.alive) { t.atkSlowT = p.slowDur; t.atkSlowMul = 1 + p.slow; }
+      if (t.alive) { attackFx(op, t, 1, 'phys', true, op.x + 0.5, op.y + 0.5); hitEnemy(t, opAtk(op) * p.mul, 'phys', true, op, p.ignore); }
+      if (t.alive) { attackFx(op, t, 2, 'phys', true, op.x + 0.5, op.y + 0.5); hitEnemy(t, opAtk(op) * p.last, 'phys', true, op, p.ignore); if (t.alive) stunEnemy(t, p.stun); }
+    }
+    addText(op.x + 0.5, op.y - 0.1, ts.length ? '프리즈 드 페르' : '빈틈 없음', '#ff5a64', 0.9, true);
+  }
   function activateSkill(op) {
     const sk = op.skill, ef = sk.effect || {};
     if (op.skillT > 0 || op.sp < sk.sp) return false;
@@ -1115,6 +1205,10 @@
     if (ef.heal) healOp(op, op.maxHp * ef.heal);
     if (ef.shield) op.shield = op.maxHp * ef.shield;
     if (ef.nextHit) { op.charge = ef.nextHit; op.chargeStun = ef.nextStun || 0; }
+    if (ef.remSummon && op.def.remnant) summonRemnants(op, ef.remSummon);
+    if (ef.dodgeBuff) { op.dodgeT = ef.dodgeBuff.dur; op.dodgeV = ef.dodgeBuff.v; }
+    if (ef.lastTouch) { op.ltUsed = false; op.ltReady = false; }
+    if (ef.priseDeFer) priseDeFer(op, ef.priseDeFer);
     if (ef.hpMul && sk.duration) { op.maxHp *= ef.hpMul; op.hp *= ef.hpMul; }
     op.rallyUsed = false; op.finN = 0; op.shellN = 0;
     if (ef.accident) op.accT = ef.accident.every;
@@ -1280,12 +1374,16 @@
 
   // 같은 학교 친구들 (김가을 「패턴 학습」 공통 시너지)
   const SCHOOL = ['gaeul', 'iai', 'simhae', 'byeol'];
+  const SWORD_HITS = { count: 2, mul: 1 };   // 소드마스터: 일반 공격 2연격
   function pickTargets(op, n) {
     const ground = isGround(op.def);
     const antiAir = op.def.class === 'sniper';
     // 공격수: 저지 중인 적 전부 동시 공격
     if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
-    const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
+    // 셰이퍼 캐스터: 자신의 잔영이 저지 중인 적은 거리와 관계없이 공격 (3스킬: 모두 동시에)
+    const remB = (e) => op.def.archetype === 'soulcaster' && e.blockedBy && e.blockedBy.remOwner === op;
+    if (eff(op).remAll) n = Math.max(n, S.enemies.filter((e) => e.alive && remB(e)).length);
+    const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op || remB(e) ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord' && !eff(op).antiAir))));
     const prio = eff(op).priority || (op.def.archetype === 'deadeye' ? 'lowDef' : null);
     const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0);
@@ -1318,6 +1416,10 @@
     const sk = op.skill, ef = sk.effect || {};
     op.flash = Math.max(0, op.flash - dt);
     op.chill = Math.max(0, op.chill - dt);
+    if (op.remOwner) { op.lifeT -= dt; if (op.lifeT <= 0) { removeOp(op, false); return; } }
+    if (op.dodgeT > 0) op.dodgeT -= dt;
+    if (op.invulnT > 0) op.invulnT -= dt;
+    if (op.egN && !eff(op).engardeKeep && (op.egT -= dt) <= 0) op.egN = 0;
     // 사람 없는 곳이 좋아요: 공격받지 않고 일정 시간이 지나면 은신 준비
     const stl = op.tal.stealth;
     if (stl && !op.sready && S.time >= (op.srBlock ?? op.born + stl.idle)) { op.sready = true; addText(op.x + 0.5, op.y - 0.1, '은신 준비', '#bfe3ff', 0.7, true); }
@@ -1426,6 +1528,17 @@
 
     const targets = pickTargets(op, n);
     if (!targets.length) return;
+    if (op.ltReady) {
+      // 마지막 한 점: 범위 안 적 최대 3명에게 공격력의 350% 피해 3회
+      const lt = eff(op).lastTouch || (op.skill.effect || {}).lastTouch;
+      op.ltReady = false;
+      if (lt) {
+        for (const t of pickTargets(op, lt.targets)) for (let k = 0; k < lt.count && t.alive; k++) { attackFx(op, t, k, 'phys', true, op.x + 0.5, op.y + 0.5); hitEnemy(t, opAtk(op) * lt.mul, 'phys', true, op, eff(op).ignoreDef || 0); }
+        S.shake = Math.max(S.shake, 0.3); sfx('strike');
+        afterAttack(op);
+        return;
+      }
+    }
     const type = eff(op).arts ? 'arts' : op.def.dmgType || (op.def.class === 'caster' || op.def.class === 'supporter' ? 'arts' : 'phys');
     // 타고난 천재: 같은 적을 연속 공격하면 방어력 무시가 쌓임
     let ignore = 0;
@@ -1480,7 +1593,7 @@
     const finish = fin && ++op.finN % fin.every === 0;
     const sh = eff(op).shell;
     const shell = sh && ++op.shellN % sh.every === 0;
-    const hits = op.burst || eff(op).hits || oeff(op).devHits;
+    const hits = op.burst || eff(op).hits || oeff(op).devHits || (op.def.archetype === 'sword' ? SWORD_HITS : null);
     op.burst = null;
     const count = hits ? hits.count : 1, hitMul = hits ? hits.mul : 1;
     const atk = opAtk(op) * mul * hitMul, splash = eff(op).splash || op.def.splash || nsplash;
@@ -1504,13 +1617,19 @@
         const starred = starOf(t, op), sm = op.tal.starMark, ef0 = eff(op);
         const starMul = starred ? 1 + (sm ? sm.amp : 0) + (ef0.starAmp || 0) : 1;
         const starIgn = starred ? (sm && t.blockedBy ? sm.ignore : 0) + (ef0.starIgnore || 0) : 0;
-        const blkMul = ef0.blockedMul && t.blockedBy ? ef0.blockedMul : 1;
-        const dmg = atk * crit * lordMul * anaMul * starMul * blkMul * (t === targets[0] ? bsMul : 1), ign = Math.min(1, ignOf(t) + ptIgn + starIgn);
+        const blkMul = (ef0.blockedMul && t.blockedBy ? ef0.blockedMul : 1) * (op.tal.remnant && t.blockedBy && t.blockedBy.remOwner === op ? 1 + op.tal.remnant.amp : 1);
+        const nIgn = charged ? (op.skill.effect || {}).nextIgnore || 0 : 0;
+        const dmg = atk * crit * lordMul * anaMul * starMul * blkMul * (t === targets[0] ? bsMul : 1), ign = Math.min(1, ignOf(t) + ptIgn + starIgn + nIgn);
         S.noDodge = charged && wasReady && !!(op.skill.effect || {}).starHit;
         hitEnemy(t, dmg, type, crit > 1, op, ign);
         S.noDodge = false;
         if (i === 0 && t.alive && charged && starred && (op.skill.effect || {}).starHit) { const sh = op.skill.effect.starHit; hitEnemy(t, opAtk(op) * sh.mul, 'phys', false, op, ign, true); if (t.alive) stunEnemy(t, sh.stun); }
         if (i === 0 && t.alive && ef0.extraShot && Math.random() < ef0.extraShot) { attackFx(op, t, 1, type, true, cx, cy); hitEnemy(t, dmg, type, false, op, ign, true); }
+        // 이상현상 기록: 강화 공격 대상에게 목격, 8초 안에 쓰러지면 잔영 추가
+        if (i === 0 && charged && (op.skill.effect || {}).witnessHit) { t.witnessT = op.skill.effect.witnessHit; t.witnessBy = op; t.witHitBy = op; t.witHitUntil = S.time + op.skill.effect.witnessHit; }
+        // 끝까지 한 걸음: HP 40% 이하면 준 피해의 8% 회복
+        const ls2 = op.tal.lastStep;
+        if (ls2 && op.hp / op.maxHp <= ls2.hp2) healOp(op, calcDamage(dmg, type, t.def.def * (1 - ign), t.def.res || 0) * ls2.drain, true);
         if ((sm || ef0.starEach) && t.alive) { if (!starred) addText(t.x, t.y - 0.45, '별흔', '#bfe3ff', 0.6); t.starUntil = S.time + (sm ? sm.dur : 8); t.starBy = op; }
         if (pt && t.alive) {
           if (anal) {
@@ -1613,6 +1732,8 @@
   function afterAttack(op) {
     const sk = op.skill;
     op.lastAtkAt = S.time;
+    const eg = op.tal.engarde;
+    if (eg) { op.egN = Math.min(eg.max, (op.egN || 0) + 1); op.egT = eg.dur; }
     if (sk.spType === 'attack' && op.skillT <= 0) op.sp = Math.min(spCap(sk), op.sp + 1);
     if (op.charges > 0 && --op.charges === 0 && op.skillT > 0) endSkill(op);
     op.atkCd = opInterval(op);
@@ -1662,6 +1783,7 @@
     const X = S.mods;
     if (type === 'phys' && Math.random() < opDodge(op)) { onDodge(op, src); return; }
     if (type === 'arts' && Math.random() < opArtsDodge(op)) { onDodge(op, src); return; }
+    if (op.invulnT > 0) return;
     if (op.tal.stealth) { op.sready = false; op.srBlock = Math.max(op.srBlock || 0, S.time + op.tal.stealth.idle); }
     const eg = src && src.blockedBy === op && op.tal.easygoing;
     if (eg && Math.random() < eg.nullify) { addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); return; }
@@ -1763,6 +1885,10 @@
       healOp(op, op.maxHp * ls.heal);
       addText(op.x + 0.5, op.y - 0.1, '마지막 정리', '#ffcf3a', 1, true);
     }
+    // 마지막 피스트: 지속 중 처음 HP 40% 이하 → 회복 + 다음 공격 강화(마지막 한 점)
+    const lt = eff(op).lastTouch;
+    if (lt && !op.ltUsed && op.hp > 0 && op.hp / op.maxHp <= lt.below) { op.ltUsed = true; op.ltReady = true; healOp(op, op.maxHp * lt.heal); addText(op.x + 0.5, op.y - 0.1, '마지막 한 점', '#ff5a64', 1.1, true); }
+    if (op.hp <= 0 && op.remOwner && src && src.witnessT > 0 && op.remOwner.alive && op.remOwner.tal.witness) gainSp(op.remOwner, op.remOwner.tal.witness.sp);
     if (op.hp <= 0) removeOp(op, true);
   }
 
@@ -1794,6 +1920,7 @@
     if (e.rushT > 0) amp *= 1 - S.mods.eliteRush.cut;
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
     if (e.resDownT > 0) res = Math.max(0, res - e.resDown);
+    if (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness) res = Math.max(0, res - e.witnessBy.tal.witness.res);
     if (e.unluckyT > 0) for (const o of luckOps()) {
       const le = eff(o);
       if (le.luckDef) def *= 1 - le.luckDef;
@@ -1855,6 +1982,7 @@
       const nx = S.enemies.filter((o) => o.alive && o !== e && sb.range.has(key(Math.floor(o.x), Math.floor(o.y)))).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
       if (nx) { nx.starUntil = S.time + sb.tal.starMark.dur; nx.starBy = sb; addText(nx.x, nx.y - 0.45, '별흔', '#bfe3ff', 0.7, true); }
     }
+    if (!isFly(e.def)) for (const ow of S.ops) if (ow.alive && ow.def.remnant && (ow.tal.remnant || (e.witHitBy === ow && e.witHitUntil > S.time)) && ow.range.has(key(Math.floor(e.x), Math.floor(e.y)))) remnantOnKill(ow, e);
     if (src && src.def && src.tal) onOpKill(src);
     if (e.unluckyT > 0) zoneKill(e);
     relicKill(e);
@@ -1897,6 +2025,11 @@
         }
         e.blockedBy = op;
         op.blocked.push(e);
+        if (op.remOwner) {
+          const ow = op.remOwner, oe = eff(ow);
+          if (ow.tal.witness) { e.witnessT = ow.tal.witness.dur; e.witnessBy = ow; }
+          if (oe.remBind && !e.remBound) { e.remBound = true; bindEnemy(e, oe.remBind); addText(e.x, e.y - 0.4, '속박', '#c9c3ff', 0.7); }
+        }
         if (S.mods.firstBlockStun && !e.blockedOnce) { e.blockedOnce = true; stunEnemy(e, S.mods.firstBlockStun); addText(e.x, e.y - 0.4, '공포', '#c9a6ff', 0.8); }
         return;
       }
@@ -1945,6 +2078,8 @@
     if (e.bindT > 0) e.bindT -= dt;
     if (e.rushT > 0) e.rushT -= dt;
     if (e.resDownT > 0) e.resDownT -= dt;
+    if (e.witnessT > 0) e.witnessT -= dt;
+    if (e.atkSlowT > 0) e.atkSlowT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
     const na = e.def.neuralAura;
@@ -2019,7 +2154,7 @@
       }
     }
     hitOp(target, atk, type, e);
-    e.atkCd = e.def.interval * (e.slowT > 0 ? e.slowAtk : 1) * (e.auraAtkI || 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
+    e.atkCd = e.def.interval * (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness ? 1 + e.witnessBy.tal.witness.aspd : 1) * (e.atkSlowT > 0 ? e.atkSlowMul : 1) * (e.slowT > 0 ? e.slowAtk : 1) * (e.auraAtkI || 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
   }
 
   // =====================================================================
@@ -2480,6 +2615,7 @@
   }
 
   function drawOp(op) {
+    if (op.remOwner) { ctx.save(); ctx.globalAlpha = 0.62; ctx.filter = 'grayscale(1) brightness(.7) contrast(1.2)'; drawOpBody(op); ctx.restore(); return; }
     if (isCamo(op)) { ctx.save(); ctx.globalAlpha = 0.5; drawOpBody(op); ctx.restore(); return; }
     drawOpBody(op);
   }
