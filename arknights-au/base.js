@@ -112,7 +112,7 @@
     const b = settle(), f = FAC.find((x) => x.id === fid), slots = f.slots[b.lv[fid] - 1];
     const where = {};
     for (const x of FAC) for (const id of b.ops[x.id]) where[id] = x;
-    const list = OPERATORS.filter((o) => !o.summoned && !o.custom && ACCOUNT.owns(o.id))
+    const list = OPERATORS.filter((o) => !o.summoned && ACCOUNT.owns(o.id))
       .sort((a, c) => (where[c.id] === f) - (where[a.id] === f) || opEff(f, c.id) - opEff(f, a.id) || (c.rarity || 3) - (a.rarity || 3));
     openModal(`<div class="modal-title">${esc(f.name)} — 오퍼레이터 배치</div><div class="modal-sub">${b.ops[fid].length}/${slots}명 · 눌러서 배치 / 해제 · ${f.classes.length ? `${f.classes.map((c) => CLASSES[c].name).join(' · ')} 효율 +${Math.round(BASE.classEff * 100)}%, ` : ''}정예화 단계마다 +${Math.round(BASE.eliteEff * 100)}%</div>
       <div class="bs-pick">${list.map((o) => {

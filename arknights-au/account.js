@@ -65,7 +65,7 @@
   }
 
   // ---------- 저장 (한 번에 하나씩, 잠깐 모아서) ----------
-  let mode = 'local', db = null, user = null, assets = null, uid = null, isAdmin = false;
+  let mode = 'local', db = null, user = null, assets = null, uid = null, isAdmin = false, isOwner = false;
   let saveTimer = null, saving = false, dirty = false;
   function save() {
     dirty = true;
@@ -273,10 +273,12 @@
     if (user) {
       uid = await user.id();
       isAdmin = await user.canEdit();
+      try { isOwner = !!(await user.isOwner()); } catch { isOwner = false; }
     }
     subscribeShared();
     if (!uid) { emit('mode'); return; }
-    if (isAdmin) assets = await window.claude.use('assets');
+    // 관리자: 오퍼레이터 그림 · 모든 플레이어: 건의에 사진 첨부 (assets upload: interact)
+    try { assets = await window.claude.use('assets'); } catch { assets = null; }
     try {
       const snap = await db.doc('players/' + uid).get();
       mode = 'online';
@@ -340,6 +342,7 @@
   // 오프라인: 이 브라우저에만 저장
   const FB_LOCAL = 'akau-feedback';
   const localFb = () => { try { return JSON.parse(localStorage.getItem(FB_LOCAL) || '[]'); } catch { return []; } };
+  const FB_MAX_IMG = 3;
   async function sendFeedback(fb) {
     const doc = { kind: 'feedback', fbType: fb.type === 'bug' ? 'bug' : 'idea', title: str(fb.title, 80), body: str(fb.body, 2000), where: str(fb.where, 60), env: str(fb.env, 160), status: 'open', at: Date.now() };
     if (mode !== 'online') {
@@ -348,6 +351,13 @@
       emit('requests');
       return 'local';
     }
+    const imgs = [];
+    for (const f of (fb.files || []).slice(0, FB_MAX_IMG)) {
+      if (!assets) break;
+      const a = await assets.upload(f);
+      if (a && isAssetId(a.id)) imgs.push(a.id);
+    }
+    if (imgs.length) doc.imgs = imgs;
     await db.collection('requests').add({ uid, ...doc });
     return 'online';
   }
@@ -394,8 +404,8 @@
 
   window.ACCOUNT = {
     player, save, on, emit, normalize, freshPlayer,
-    get mode() { return mode; }, get uid() { return uid; }, get isAdmin() { return isAdmin && mode === 'online'; },
-    get canUpload() { return !!assets; }, get myRequests() { return myRequests.filter((r) => r.kind !== 'feedback'); },
+    get mode() { return mode; }, get uid() { return uid; }, get isAdmin() { return isAdmin && mode === 'online'; }, get isOwner() { return isOwner && mode === 'online'; },
+    get canUpload() { return !!assets && isAdmin; }, get canAttach() { return !!assets && mode === 'online'; }, FB_MAX_IMG, get myRequests() { return myRequests.filter((r) => r.kind !== 'feedback'); },
     get myFeedback() { return mode === 'online' ? myRequests.filter((r) => r.kind === 'feedback') : localFb(); }, sendFeedback,
     bal, canPay, spend, earn, owns, obtain, potOf,
     sanity, useSanity, addSanity, refillSanity, nextSanityMs, SANITY_MAX,

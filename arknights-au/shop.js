@@ -456,9 +456,15 @@
     ACCOUNT.admin.watch('players', (l) => { A.players = l; re(); });
     ACCOUNT.admin.watch('grants', (l) => { A.grants = l; re(); });
   }
+  const fbImgs = (r) => {
+    const ids = (Array.isArray(r.imgs) ? r.imgs : []).filter((x) => /^[0-9a-f]{32}$/.test(x));
+    return ids.length ? `<div class="fb-imgs">${ids.map((id) => `<a href="/_blob/${id}" target="_blank" rel="noopener"><img src="/_blob/${id}" alt="첨부 사진" loading="lazy"></a>`).join('')}</div>` : '';
+  };
   let lastPending = -1;
+  // 건의 · 버그 알림은 주인(GM)에게만, 자기가 보낸 글은 세지 않음
+  const fbOpen = () => (ACCOUNT.isOwner ? A.feedback.filter((r) => r.status === 'open' && r.uid !== ACCOUNT.uid).length : 0);
   function notifyPending() {
-    const n = A.requests.filter((r) => r.status === 'pending').length + A.feedback.filter((r) => r.status === 'open').length;
+    const n = A.requests.filter((r) => r.status === 'pending').length + fbOpen();
     const tile = $('#tile-admin');
     if (tile) tile.dataset.badge = n ? String(n) : '';
     if (lastPending >= 0 && n > lastPending) toast(`새 결제 요청 · 건의가 ${n - lastPending}건 들어왔습니다`);
@@ -494,7 +500,7 @@
     }
     subscribeAdmin();
     $('#admin-tabs').innerHTML = ADMIN_TABS.map(([k, n]) => {
-      const badge = k === 'requests' ? A.requests.filter((r) => r.status === 'pending').length : k === 'feedback' ? A.feedback.filter((r) => r.status === 'open').length : 0;
+      const badge = k === 'requests' ? A.requests.filter((r) => r.status === 'pending').length : k === 'feedback' ? fbOpen() : 0;
       return `<button class="${k === adminTab ? 'on' : ''}" data-atab="${k}">${n}${badge ? `<span class="badge">${badge}</span>` : ''}</button>`;
     }).join('');
     const main = $('#admin-main');
@@ -519,7 +525,7 @@
         <div class="fb-filter">${[['open', '처리 전'], ['done', '반영 완료'], ['rejected', '보류'], ['all', '전체']].map(([k, n]) => `<button class="btn small ${fbFilter === k ? 'primary' : ''}" data-fbf="${k}">${n}</button>`).join('')}</div>
         <div class="fb-admin">${list.map((r) => `<div class="fb-item st-${esc(r.status)}" data-fbid="${esc(r.id)}">
           <div class="fb-head"><span class="chip fb-${r.fbType === 'bug' ? 'bug' : 'idea'}">${r.fbType === 'bug' ? '버그' : '건의'}</span><b class="fb-title"></b><span class="fb-who"></span><span class="req-time">${timeText(r.at)}</span></div>
-          <p class="fb-body"></p><small class="fb-meta"></small>
+          <p class="fb-body"></p>${fbImgs(r)}<small class="fb-meta"></small>
           <div class="fb-act">${ST.map(([k, n]) => `<button class="btn small ${r.status === k ? 'primary' : ''}" data-fbset="${k}">${n}</button>`).join('')}
             <input class="fb-reply" maxlength="500" placeholder="답변 (보낸 사람에게 보입니다)"><button class="btn small" data-fbreply>답변 저장</button></div></div>`).join('') || '<p class="empty-note">글이 없습니다.</p>'}</div>`;
       // 사용자 입력은 textContent로

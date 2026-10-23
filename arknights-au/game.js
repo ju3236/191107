@@ -141,6 +141,9 @@
       S.boldId = c[Math.floor(Math.random() * c.length)].def.id;
     }
     $('#hud-stage').textContent = `${st.code} ${st.name}`;
+    $('#btn-spawner').classList.toggle('hidden', !opts.practice);
+    $('#tr-panel').classList.add('hidden');
+    S.autoWaves = true; S.trSpawn = 0; S.trCount = 1;
     $('#btn-speed').innerHTML = '<img src="img/ui/btn_speed_1x.png" alt="1배속"><kbd>F</kbd>';
     ['#result', '#pause', '#inspect', '#hint', '#toast'].forEach((s) => $(s).classList.add('hidden'));
     buildCards();
@@ -338,8 +341,8 @@
     if (!op) { toast('오퍼레이터를 선택하거나 마우스를 올려 주세요'); return; }
     if (code === 'KeyQ') { retreat(op); setMode('idle'); return; }
     const sk = op.skill;
-    if (sk.trigger !== 'manual') toast(`${op.def.name}의 스킬은 자동 발동입니다`);
-    else if (op.skillT > 0 && (sk.effect || {}).cancelable) { useSkill(op); if (S.inspect === op) refreshInspect(true); }
+    if (op.skillT > 0 && (sk.effect || {}).cancelable) { useSkill(op); if (S.inspect === op) refreshInspect(true); }
+    else if (sk.trigger !== 'manual') toast(`${op.def.name}의 스킬은 자동 발동입니다`);
     else if (op.skillT > 0) toast('스킬 발동 중입니다');
     else if (op.sp < sk.sp) toast(`SP가 부족합니다 (${Math.floor(op.sp)}/${sk.sp})`);
     else { activateSkill(op); if (S.inspect === op) refreshInspect(true); }
@@ -1993,12 +1996,57 @@
     if (S.ext.practice) {
       // 훈련장: 코스트 무한, 적은 끝없이 반복
       S.dp = S.maxDp;
-      if (!S.queue.length && !S.enemies.length) { S.queue = S.ext.waveSet.map((q) => ({ ...q, t: q.t + S.time + 2 })); S.total += S.queue.length; S.round = (S.round || 1) + 1; toast(`${S.round}번째 반복`); }
+      if (S.autoWaves && !S.queue.length && !S.enemies.length) { S.queue = S.ext.waveSet.map((q) => ({ ...q, t: q.t + S.time + 2 })); S.total += S.queue.length; S.round = (S.round || 1) + 1; toast(`${S.round}번째 반복`); }
       return;
     }
     if (S.life <= 0) endBattle(false);
     else if (!S.queue.length && !S.enemies.length) endBattle(true);
   }
+
+  // ---------- 훈련장: 적을 골라서 내보내기 ----------
+  const TR_COUNTS = [1, 3, 5];
+  function renderSpawner() {
+    const esc = UI.esc;
+    const el = $('#tr-panel'), list = Object.entries(ENEMIES).sort((a, b) => (a[1].boss ? 2 : a[1].elite ? 1 : 0) - (b[1].boss ? 2 : b[1].elite ? 1 : 0));
+    el.innerHTML = `<div class="tr-head"><b>적 배출</b><button class="tr-x" data-tr="close" aria-label="닫기">✕</button></div>
+      <div class="tr-opts">
+        <button class="btn small ${S.autoWaves ? 'primary' : ''}" data-tr="auto">자동 반복 ${S.autoWaves ? '켜짐' : '꺼짐'}</button>
+        <button class="btn small danger" data-tr="clear">모두 제거</button>
+      </div>
+      <div class="tr-opts"><span>출현 지점</span>${S.paths.map((_, i) => `<button class="btn small ${S.trSpawn === i ? 'primary' : ''}" data-trs="${i}">${i + 1}</button>`).join('')}
+        <span>수량</span>${TR_COUNTS.map((n) => `<button class="btn small ${S.trCount === n ? 'primary' : ''}" data-trc="${n}">${n}</button>`).join('')}</div>
+      <div class="tr-list">${list.map(([id, d]) => `<button class="tr-en ${d.boss ? 'boss' : d.elite ? 'elite' : ''}" data-tre="${id}" title="${esc(d.desc || '')}"><span class="tr-face" style="${faceStyle(d)}">${esc(faceText(d))}</span><b>${esc(d.name)}</b></button>`).join('')}</div>`;
+  }
+  $('#btn-spawner').addEventListener('click', () => {
+    if (!S || !S.ext.practice) return;
+    const el = $('#tr-panel');
+    if (el.classList.toggle('hidden')) return;
+    renderSpawner();
+  });
+  $('#tr-panel').addEventListener('click', (e) => {
+    if (!S || !S.ext.practice) return;
+    const t = e.target.closest('[data-tr],[data-trs],[data-trc],[data-tre]');
+    if (!t) return;
+    const d = t.dataset;
+    if (d.tr === 'close') { $('#tr-panel').classList.add('hidden'); return; }
+    if (d.tr === 'auto') {
+      S.autoWaves = !S.autoWaves;
+      if (!S.autoWaves) { S.total -= S.queue.length; S.queue = []; }
+      toast(S.autoWaves ? '기본 적이 다시 반복해서 나옵니다' : '고른 적만 나옵니다');
+    } else if (d.tr === 'clear') {
+      for (const en of S.enemies) en.alive = false;
+      S.total -= S.queue.length + S.enemies.length; S.queue = []; S.enemies = [];
+      toast('필드의 적을 모두 지웠습니다');
+    } else if (d.trs) S.trSpawn = +d.trs;
+    else if (d.trc) S.trCount = +d.trc;
+    else if (d.tre) {
+      for (let i = 0; i < S.trCount; i++) S.queue.push({ t: S.time + 0.3 + i * 1.2, enemy: d.tre, spawn: S.trSpawn });
+      S.queue.sort((a, b) => a.t - b.t);
+      S.total += S.trCount;
+      return;
+    }
+    renderSpawner();
+  });
 
   function endBattle(win) {
     S.ended = true;

@@ -1947,7 +1947,7 @@ img.dp-ico { width: 34px; height: 34px; object-fit: contain; }
 /* 통합전략 소장품 아이콘: 스프라이트 시트 (칸 112px → 58px로 줄여 표시) */
 i.relic-img.relic-sp { border-radius: 0; background: url(img/relics.webp) 0 0 / 928px auto no-repeat; }
 /* 메인 화면 배경: 원작 기본 배경 (로도스 아일랜드 갑판) */
-.home-bg { background: linear-gradient(90deg, rgba(10,11,14,.55), rgba(10,11,14,.25) 45%, rgba(10,11,14,.7)), url(img/ui/home_bg.webp) center / cover no-repeat, #15171b !important; }
+.home-bg { background: linear-gradient(90deg, rgba(10,11,14,.55), rgba(10,11,14,.25) 45%, rgba(10,11,14,.7)), var(--home-bg-img, url(img/ui/home_bg.webp)) center / cover no-repeat, #15171b !important; }
 /* 기반시설: 원작 방 그림 · 방 아이콘 */
 .bs-room header { position: relative; margin: -14px -14px 0; padding: 14px 14px 22px; background: linear-gradient(180deg, rgba(10,12,16,.15), rgba(10,12,16,.85)), var(--bg) center / cover no-repeat; justify-content: flex-start; gap: 10px; }
 .bs-room header .bs-lv { margin-left: auto; }
@@ -2322,3 +2322,38 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
   .nt-title { margin-top: 12px; font-size: 17px; padding: 8px 10px; }
   .nt-body { font-size: 14px; }
 }
+/* 통합전략: 위아래 통로 (열쇠 필요) */
+.is-lines path.vkey { stroke: rgba(255,214,120,.35); stroke-width: 3; stroke-dasharray: 7 6; }
+.is-lines path.vkey.on { stroke: #ffd27a; filter: drop-shadow(0 0 4px rgba(255,210,122,.7)); }
+#screen-isrun .is-vkey { position: absolute; height: 24px; transform: translate(-50%, -50%); pointer-events: none; opacity: .55; z-index: 1; }
+#screen-isrun .is-vkey.on { opacity: 1; }
+.fb-attach { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fb-attach label.btn { cursor: pointer; }
+.fb-thumbs { display: flex; gap: 6px; }
+.fb-thumb { position: relative; }
+.fb-thumb img { width: 56px; height: 56px; object-fit: cover; border: 1px solid var(--line); display: block; }
+.fb-thumb button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: #000c; color: #fff; font-size: 11px; }
+.fb-imgs { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 6px; }
+.fb-imgs img { max-width: 220px; max-height: 160px; border: 1px solid var(--line); display: block; }
+
+/* 로비 배경 선택 */
+.bg-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.bg-pk { position: relative; aspect-ratio: 16 / 9; background: #23262c center / cover no-repeat; border: 2px solid transparent; display: flex; align-items: flex-end; }
+.bg-pk span { width: 100%; padding: 3px 6px; background: linear-gradient(0deg, rgba(0,0,0,.75), transparent); color: #fff; font-size: 13px; font-weight: 700; text-align: left; }
+.bg-pk.on { border-color: var(--beacon); }
+.bg-pk[data-bg="random"] span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: none; }
+.set-row small { color: var(--muted); font-size: 12px; margin-left: 6px; }
+/* 훈련장: 적 배출 패널 */
+.tr-spawn-btn { position: absolute; left: 12px; top: 64px; z-index: 6; padding: 6px 12px; background: rgba(20,22,26,.85); border: 1px solid var(--beacon); color: #fff; font-weight: 700; font-size: 14px; }
+.tr-panel { position: absolute; left: 12px; top: 100px; bottom: 120px; width: min(330px, 46vw); z-index: 7; background: rgba(18,20,24,.94); border: 1px solid var(--line); border-top: 3px solid var(--beacon); padding: 10px; display: flex; flex-direction: column; gap: 6px; color: var(--text); }
+.tr-head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+.tr-x { width: 28px; height: 28px; color: #ccc; }
+.tr-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.tr-opts span { margin: 0 2px 0 6px; }
+.tr-opts .btn.small { min-width: 0; padding: 3px 8px; }
+.tr-list { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 4px; align-content: start; }
+.tr-en { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; background: #23262c; border: 1px solid transparent; color: #ddd; }
+.tr-en:hover { border-color: var(--beacon); }
+.tr-en.elite { background: #2e2a1f; } .tr-en.boss { background: #3a1f1f; }
+.tr-face { width: 44px; height: 44px; background-size: contain; background-position: center; background-repeat: no-repeat; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff; }
+.tr-en b { font-size: 11px; line-height: 1.2; text-align: center; word-break: keep-all; }

@@ -14,9 +14,46 @@
   const writeSave = () => ACCOUNT.save();
   const owned = (id) => ACCOUNT.owns(id);
   const ownedOps = () => OPERATORS.filter((o) => owned(o.id));
+  const ASST_MAX = 12;
+  let rotatedFor = null;
   function fixPlayer() {
     save.squad = save.squad.filter((id) => OPS[id] && owned(id));
     if (!OPS[save.assistant] || !owned(save.assistant)) save.assistant = (ownedOps()[0] || OPERATORS[0]).id;
+    // 비서 여러 명: 접속할 때마다 / 하루에 한 번 바뀜
+    save.assistants = (Array.isArray(save.assistants) ? save.assistants : []).filter((id) => OPS[id] && owned(id)).slice(0, ASST_MAX);
+    if (!save.assistants.length) save.assistants = [save.assistant];
+    if (rotatedFor !== ACCOUNT.mode && save.assistants.length > 1) {
+      rotatedFor = ACCOUNT.mode;
+      const l = save.assistants;
+      if (save.asstMode === 'login') save.assistant = pick(l.filter((id) => id !== save.assistant));
+      else if (save.asstMode === 'daily') {
+        const day = Math.floor((Date.now() + 9 * 3600e3) / 86400e3);
+        save.assistant = l[day % l.length];
+      }
+    }
+    applyHomeBg();
+  }
+  // ---------- 로비 배경 (원작 홈 배경) ----------
+  const HOME_BGS = [['default', '기본', 'img/ui/home_bg.webp'], ...[
+    ['bg_rhodes_night', '밤'], ['bg_main_victoria_1', '흐림'], ['bg_siesta_1', '휴일'], ['bg_kazimierz_1', '상업'],
+    ['bg_ursus_1', '엄동'], ['bg_yan_1', '산악'], ['bg_iberia_1', '바다'], ['bg_rogue_1', '무너진 벽'], ['bg_anniversary_1', '축제'],
+    ['bg_laterano_1', '맑음'], ['bg_rhine_1', '수풀'], ['bg_rogue_2', '저편'], ['bg_rogue_3', '시작'], ['bg_rhodes_flower_1', '꽃밭'],
+    ['bg_sandboxv2_1', '광야'], ['bg_dungeon_1', '던전'], ['bg_sui_1', '푸름'], ['bg_rogue_4', '의식의 형성'], ['bg_kalts_1', '발자취'],
+  ].map(([id, n]) => [id, n, `img/homebg/${id}.webp`])];
+  let randomBg = null;
+  function applyHomeBg() {
+    let id = save.homeBg || 'default';
+    if (id === 'random') id = randomBg = randomBg || pick(HOME_BGS)[0];
+    const bg = HOME_BGS.find((b) => b[0] === id) || HOME_BGS[0];
+    document.documentElement.style.setProperty('--home-bg-img', `url(${bg[2]})`);
+  }
+  function openBgPicker() {
+    const cur = save.homeBg || 'default';
+    openModal(`<div class="modal-title">로비 배경</div><div class="modal-sub">원작 홈 배경 · 눌러서 바로 바꿉니다</div>
+      <div class="bg-pick">${[['random', '접속마다 무작위', '']].concat(HOME_BGS).map(([id, n, src]) => `<button class="bg-pk ${cur === id ? 'on' : ''}" data-bg="${id}" ${src ? `style="background-image:url(${src})"` : ''}><span>${esc(n)}</span></button>`).join('')}</div>`);
+    $('#modal-body').querySelectorAll('[data-bg]').forEach((b) => b.addEventListener('click', () => {
+      save.homeBg = b.dataset.bg; randomBg = null; writeSave(); applyHomeBg(); openBgPicker();
+    }));
   }
 
   // ---------- 아이콘 ----------
@@ -319,11 +356,14 @@
     openModal(`<div class="modal-title">기록</div><div class="modal-sub">ARCHIVES · 지나온 이야기를 다시 봅니다</div><div class="arc-list">${rows}</div>`);
   }
   let resetArmed = false;
+  const ASST_MODE = { fixed: '고정', login: '접속할 때마다', daily: '하루에 한 번' };
   function openSettings() {
     resetArmed = false;
     openModal(`<div class="modal-title">설정</div><div class="modal-sub">SETTINGS</div>
       <div class="set-row"><span>효과음</span><button class="btn" id="btn-sound">${window.SFX && SFX.enabled ? '켜짐' : '꺼짐'}</button></div>
       <div class="set-row"><span>배경 음악</span><button class="btn" id="btn-bgm">${window.SFX && SFX.bgmOn ? '켜짐' : '꺼짐'}</button></div>
+      <div class="set-row"><span>로비 배경 <small>${esc(save.homeBg === 'random' ? '접속마다 무작위' : (HOME_BGS.find((b) => b[0] === (save.homeBg || 'default')) || HOME_BGS[0])[1])}</small></span><button class="btn" id="btn-homebg">변경</button></div>
+      <div class="set-row"><span>비서 교체 <small>비서 ${save.assistants.length}명 · 오퍼레이터 상세에서 추가</small></span><button class="btn" id="btn-asst">${ASST_MODE[save.asstMode || 'fixed']}</button></div>
       <div class="set-row"><span>닉네임</span><input id="nick-input" maxlength="16" value="${esc(save.nick || '')}" placeholder="${esc(GAME_INFO.commander || '박사')}"><button class="btn small" id="nick-save">저장</button></div>
       <p class="modal-text">${ACCOUNT.mode === 'online'
         ? '온라인 계정에 저장 중입니다. 다른 기기에서 같은 계정으로 열어도 이어서 플레이할 수 있습니다.'
@@ -334,6 +374,13 @@
       writeSave();
       toast('닉네임을 저장했습니다');
       RENDER.home();
+    });
+    $('#btn-homebg').addEventListener('click', openBgPicker);
+    $('#btn-asst').addEventListener('click', (e) => {
+      const ks = Object.keys(ASST_MODE);
+      save.asstMode = ks[(ks.indexOf(save.asstMode || 'fixed') + 1) % ks.length];
+      writeSave();
+      e.target.textContent = ASST_MODE[save.asstMode];
     });
     $('#btn-sound').addEventListener('click', (e) => { e.target.textContent = SFX.toggle() ? '켜짐' : '꺼짐'; });
     $('#btn-bgm').addEventListener('click', (e) => { e.target.textContent = SFX.toggleBgm() ? '켜짐' : '꺼짐'; });
@@ -426,7 +473,21 @@
   $('#btn-feedback').addEventListener('click', () => openFeedback());
   // ---------- 버그 신고 · 건의 ----------
   const SCREEN_NAME = { home: '메인 화면', operators: '오퍼레이터', detail: '오퍼레이터 상세', squad: '편성', ops: '작전', battle: '전투', is: '통합전략', isrun: '통합전략 탐색', store: '구매센터', headhunt: '헤드헌팅', base: '기반시설', depot: '창고', admin: '관리자' };
-  let fbType = 'bug', fbDraft = { title: '', body: '' };
+  let fbType = 'bug', fbDraft = { title: '', body: '' }, fbFiles = [];
+  // 첨부 사진은 긴 변 1600px JPEG로 줄여서 올림
+  function shrinkImage(file) {
+    return new Promise((res) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob((b) => { URL.revokeObjectURL(url); res(b || file); }, 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); res(file); };
+      img.src = url;
+    });
+  }
   function openFeedback(from) {
     const where = SCREEN_NAME[from || current] || from || current || '';
     const mine = ACCOUNT.myFeedback || [];
@@ -437,11 +498,12 @@
         <div class="fb-types"><button class="btn small ${fbType === 'bug' ? 'primary' : ''}" data-fbt="bug">🐞 버그 신고</button><button class="btn small ${fbType === 'idea' ? 'primary' : ''}" data-fbt="idea">💡 건의</button></div>
         <input id="fb-title" maxlength="80" placeholder="${fbType === 'bug' ? '무엇이 잘못됐나요? (예: 통합전략 상점에서 구매가 안 됨)' : '어떤 걸 바꾸면 좋을까요?'}">
         <textarea id="fb-body" maxlength="2000" rows="6" placeholder="${fbType === 'bug' ? '언제 · 어디서 · 무엇을 했더니 · 어떻게 됐는지 적어 주세요' : '자세한 내용을 적어 주세요'}"></textarea>
+        ${ACCOUNT.canAttach ? `<div class="fb-attach"><label class="btn small">📷 사진 첨부 (최대 ${ACCOUNT.FB_MAX_IMG}장)<input type="file" id="fb-file" accept="image/*" multiple hidden></label><div class="fb-thumbs">${fbFiles.map((f, i) => `<span class="fb-thumb"><img src="${f.url}" alt=""><button data-fbx="${i}" aria-label="빼기">✕</button></span>`).join('')}</div></div>` : ''}
         <label class="fb-where"><input type="checkbox" id="fb-env" checked> 현재 화면(${esc(where || '-')}) · 기기 정보 함께 보내기</label>
         <button class="btn primary" id="fb-send">보내기</button>
       </div>
       <h4 class="fb-mine-title">내가 보낸 글 <small>${mine.length}건</small></h4>
-      <div class="fb-mine">${mine.slice(0, 20).map((r, i) => `<div class="fb-item st-${esc(r.status)}"><div class="fb-head"><span class="chip fb-${r.fbType === 'bug' ? 'bug' : 'idea'}">${r.fbType === 'bug' ? '버그' : '건의'}</span><b data-fbt-i="${i}"></b><span class="chip st">${ST[r.status] || esc(r.status || '')}</span><span class="req-time">${new Date(r.at || 0).toLocaleDateString('ko-KR')}</span></div>${r.reply ? `<p class="fb-reply-view" data-fbr-i="${i}"></p>` : ''}</div>`).join('') || '<p class="empty-note">아직 보낸 글이 없습니다.</p>'}</div>`);
+      <div class="fb-mine">${mine.slice(0, 20).map((r, i) => `<div class="fb-item st-${esc(r.status)}"><div class="fb-head"><span class="chip fb-${r.fbType === 'bug' ? 'bug' : 'idea'}">${r.fbType === 'bug' ? '버그' : '건의'}</span><b data-fbt-i="${i}"></b><span class="chip st">${ST[r.status] || esc(r.status || '')}</span><span class="req-time">${new Date(r.at || 0).toLocaleDateString('ko-KR')}</span></div>${(r.imgs || []).length ? `<small class="fb-meta">사진 ${r.imgs.length}장</small>` : ''}${r.reply ? `<p class="fb-reply-view" data-fbr-i="${i}"></p>` : ''}</div>`).join('') || '<p class="empty-note">아직 보낸 글이 없습니다.</p>'}</div>`);
     const body = $('#modal-body');
     body.querySelector('#fb-title').value = fbDraft.title;
     body.querySelector('#fb-body').value = fbDraft.body;
@@ -450,6 +512,13 @@
       const rp = body.querySelector(`[data-fbr-i="${i}"]`); if (rp) rp.textContent = '관리자 답변: ' + r.reply;
     });
     const keep = () => { fbDraft = { title: body.querySelector('#fb-title').value, body: body.querySelector('#fb-body').value }; };
+    const fileIn = body.querySelector('#fb-file');
+    if (fileIn) fileIn.addEventListener('change', () => {
+      keep();
+      for (const f of [...fileIn.files].filter((x) => x.type.startsWith('image/'))) if (fbFiles.length < ACCOUNT.FB_MAX_IMG) fbFiles.push({ file: f, url: URL.createObjectURL(f) });
+      openFeedback(from || current);
+    });
+    body.querySelectorAll('[data-fbx]').forEach((b) => b.addEventListener('click', () => { keep(); const [x] = fbFiles.splice(+b.dataset.fbx, 1); URL.revokeObjectURL(x.url); openFeedback(from || current); }));
     body.querySelectorAll('[data-fbt]').forEach((b) => b.addEventListener('click', () => { keep(); fbType = b.dataset.fbt; openFeedback(from || current); }));
     body.querySelector('#fb-send').addEventListener('click', async (e) => {
       keep();
@@ -457,8 +526,10 @@
       e.target.disabled = true;
       const env = body.querySelector('#fb-env').checked ? `${window.innerWidth}×${window.innerHeight} · ${(navigator.userAgent.match(/(iPhone|iPad|Android|Windows|Macintosh|Linux)/) || ['기타'])[0]} · ${(navigator.userAgent.match(/(Chrome|Safari|Firefox|Edg)\/[\d.]+/) || [''])[0]}` : '';
       try {
-        await ACCOUNT.sendFeedback({ type: fbType, title: fbDraft.title.trim() || fbDraft.body.trim().slice(0, 40), body: fbDraft.body.trim(), where: body.querySelector('#fb-env').checked ? where : '', env });
+        const files = ACCOUNT.canAttach ? await Promise.all(fbFiles.map((f) => shrinkImage(f.file))) : [];
+        await ACCOUNT.sendFeedback({ files, type: fbType, title: fbDraft.title.trim() || fbDraft.body.trim().slice(0, 40), body: fbDraft.body.trim(), where: body.querySelector('#fb-env').checked ? where : '', env });
         fbDraft = { title: '', body: '' };
+        fbFiles.forEach((f) => URL.revokeObjectURL(f.url)); fbFiles = [];
         toast('보냈습니다. 고마워요!');
         openFeedback(from || current);
       } catch (err) { console.warn(err); toast('보내지 못했습니다'); e.target.disabled = false; }
@@ -576,9 +647,9 @@
     $('#detail-race').textContent = `${o.race} · ${o.faction || cls.name}`;
     $('#detail-profile').innerHTML = profileHTML(base);
     $('#detail-quote').textContent = `“${o.quote}”`;
-    const isA = save.assistant === o.id;
-    $('#detail-assist').textContent = !owned(o.id) ? '미보유 오퍼레이터' : isA ? '현재 비서' : '비서로 지정';
-    $('#detail-assist').disabled = isA || !owned(o.id);
+    const inL = save.assistants.includes(o.id), only = inL && save.assistants.length <= 1;
+    $('#detail-assist').textContent = !owned(o.id) ? '미보유 오퍼레이터' : only ? '현재 비서' : inL ? `비서에서 빼기 (${save.assistants.length}/${ASST_MAX})` : `비서 추가 (${save.assistants.length}/${ASST_MAX})`;
+    $('#detail-assist').disabled = only || !owned(o.id);
   };
   // ---------- 육성: 레벨 · 정예화 ----------
   const itemCircle = (k, top, bottom, cls = '') => `<div class="tv-item ${cls}"><span class="tv-ring">${`<i class="ri ${esc(k)} big"></i>`}<b>${top}</b></span><small>${bottom}</small></div>`;
@@ -744,6 +815,16 @@
   $('#detail-prev').addEventListener('click', () => stepDetail(-1));
   $('#detail-next').addEventListener('click', () => stepDetail(1));
   $('#detail-assist').addEventListener('click', () => {
+    const l = save.assistants;
+    if (l.includes(detailId)) {
+      save.assistants = l.filter((id) => id !== detailId);
+      if (save.assistant === detailId) save.assistant = save.assistants[0];
+      writeSave(); RENDER.detail();
+      toast(`${OPS[detailId].name}을(를) 비서에서 뺐습니다`);
+      return;
+    }
+    if (l.length >= ASST_MAX) { toast(`비서는 ${ASST_MAX}명까지 지정할 수 있습니다`); return; }
+    l.push(detailId);
     save.assistant = detailId;
     writeSave();
     RENDER.detail();

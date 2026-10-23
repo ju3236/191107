@@ -482,8 +482,9 @@
     const flat = cols.flat();
     for (const t of ['shop', 'mission', 'expedition']) flat.filter((x) => x.type === t).slice(1).forEach((x) => { x.type = 'event'; });
     if (!flat.some((x) => x.type === 'shop')) pick(cols[ncols - 1]).type = 'shop';
-    // 열쇠가 필요한 길 (원작: 잠긴 노드)
-    for (const x of flat) if (x.type !== 'shop' && x.type !== 'boss' && x.type !== 'gate' && cols.findIndex((c) => c.includes(x)) >= 2 && Math.random() < 0.12) x.locked = true;
+    // 열쇠가 필요한 길: 같은 칸 안의 위아래 노드를 잇는 통로 (앞으로 가는 길은 열쇠 없이)
+    const vlinks = [];
+    for (let c = 1; c < ncols; c++) for (let i = 0; i < cols[c].length - 1; i++) if (Math.random() < 0.4) vlinks.push([cols[c][i].id, cols[c][i + 1].id]);
     const used = r ? r.used : [];
     for (const node of flat) assignNode(node, F, f, used);
     // 연결: 다음 칸에서 가까운 노드 1~2개, 들어오는 길이 없는 노드는 가장 가까운 노드와 연결
@@ -501,7 +502,7 @@
         edges[a.id].push(b.id);
       }
     }
-    return { floor: f, cols, edges, cur: null, done: [] };
+    return { floor: f, cols, edges, vlinks, cur: null, done: [] };
   }
   function assignNode(node, F, f, used) {
     if (node.type === 'battle' || node.type === 'emergency') {
@@ -517,10 +518,16 @@
   }
   const findNode = (id, m = R().map) => m.cols.flat().find((x) => x.id === id);
   const colOf = (id, m = R().map) => m.cols.findIndex((c) => c.some((x) => x.id === id));
+  // 지금 노드에서 열쇠를 써서 갈 수 있는 위아래 노드
+  function keyMoves() {
+    const m = R().map;
+    if (!m.cur) return [];
+    return (m.vlinks || []).filter((l) => l.includes(m.cur)).map((l) => (l[0] === m.cur ? l[1] : l[0])).filter((id) => !m.done.includes(id));
+  }
   function reachable() {
     const m = R().map;
     if (!m.cur) return m.cols[0].map((x) => x.id);
-    return m.edges[m.cur] || [];
+    return [...(m.edges[m.cur] || []), ...keyMoves()];
   }
 
   // =====================================================================
@@ -682,7 +689,7 @@
   }
   const COLW = 300;
   function renderMap() {
-    const r = R(), m = r.map, can = new Set(reachable());
+    const r = R(), m = r.map, can = new Set(reachable()), keyed = new Set(keyMoves());
     const nc = m.cols.length, wrap = $('#is-map').parentElement;
     const H = Math.max(200, wrap.clientHeight || 420), small = H < 320, cw = small ? 200 : COLW, half = small ? 60 : 95;
     const W = 140 + (nc - 1) * cw + 220;
@@ -695,21 +702,28 @@
       const sx = x1 + half, ex = x2 - half, mx = (sx + ex) / 2;
       lines += `<path d="M${sx} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${ex} ${y2}" class="${on ? 'on' : walked ? 'walked' : ''}" marker-end="url(#is-arrow)"/>`;
     })));
+    // 위아래 통로 (열쇠 필요)
+    let vkeys = '';
+    for (const [a, b] of m.vlinks || []) {
+      const c = colOf(a), na = findNode(a), nb = findNode(b), [x, y1] = pos(c, na.y), [, y2] = pos(c, nb.y);
+      const on = m.cur === a || m.cur === b;
+      lines += `<path d="M${x} ${y1 + (small ? 34 : 52)} L${x} ${y2 - (small ? 30 : 46)}" class="vkey ${on ? 'on' : ''}"/>`;
+      vkeys += `<img class="is-vkey ${on ? 'on' : ''}" src="${UI_IMG}need_key.png" alt="열쇠 필요" style="left:${x}px;top:${(y1 + y2) / 2}px">`;
+    }
     const nodes = m.cols.map((col, c) => col.map((x) => {
       const [lx, ty] = pos(c, x.y);
       const shown = x.fog && !x.entered ? 'unknown' : x.type;
       const st = m.done.includes(x.id) ? 'done' : can.has(x.id) ? 'open' : 'locked';
       const sub = x.battle && D.battles[x.battle] && shown !== 'unknown' ? D.battles[x.battle].name : nodeName(shown);
-      const keyed = x.locked && !x.unlocked;
       const big = shown === 'boss';
       const tag = NODE_TAG[shown];
       return `<button class="is-node t-${shown} ${st} ${m.cur === x.id ? 'cur' : ''} ${big ? 'big' : ''}" style="left:${lx}px;top:${ty}px" data-node="${x.id}" ${st === 'open' ? '' : 'tabindex="-1"'} title="${esc(nodeName(shown))} — ${esc(nodeDesc(shown))}">
-        <span class="nd-card">${big ? `<img class="nd-boss" src="${UI_IMG}${r.floor >= D.floors.length - 1 ? 'n_final' : 'n_boss'}.png" alt="">` : `<img class="nd-ico" src="${UI_IMG}${NODE_IMG[shown]}.png" alt="">`}${keyed ? `<img class="nd-key" src="${UI_IMG}need_key.png" alt="열쇠 필요">` : ''}</span>
+        <span class="nd-card">${big ? `<img class="nd-boss" src="${UI_IMG}${r.floor >= D.floors.length - 1 ? 'n_final' : 'n_boss'}.png" alt="">` : `<img class="nd-ico" src="${UI_IMG}${NODE_IMG[shown]}.png" alt="">`}${keyed.has(x.id) ? `<img class="nd-key" src="${UI_IMG}need_key.png" alt="열쇠 필요">` : ''}</span>
         <span class="nd-tag">${tag ? `<img src="${UI_IMG}tag_${tag}.png" alt="">` : `<em>${esc(NODE[shown].en)}</em>`}<b>✕ ${esc(sub)}</b></span></button>`;
     }).join('')).join('');
     const el = $('#is-map');
     el.style.width = W + 'px';
-    el.innerHTML = `<svg class="is-lines" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><marker id="is-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 L3 5 Z" fill="#fff"/></marker></defs>${lines}</svg>${nodes}`;
+    el.innerHTML = `<svg class="is-lines" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><marker id="is-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 L3 5 Z" fill="#fff"/></marker></defs>${lines}</svg>${vkeys}${nodes}`;
     // 진행 중인 칸이 보이도록 스크롤
     const ci = m.cur ? colOf(m.cur) : -1;
     wrap.scrollLeft = Math.max(0, pos(Math.max(0, ci), 0)[0] - 160);
@@ -720,10 +734,10 @@
     const b = e.target.closest('[data-node]');
     if (!b || !b.classList.contains('open')) return;
     const r = R(), node = findNode(b.dataset.node);
-    if (node.locked && !node.unlocked) {
-      if (r.key < 1) { toast('열쇠가 필요한 길입니다'); return; }
-      r.key--; node.unlocked = true; track('keyUse');
-      toast('열쇠를 써서 길을 열었습니다');
+    if (keyMoves().includes(node.id)) {
+      if (r.key < 1) { toast('위아래로 옮겨 가려면 열쇠가 필요합니다'); return; }
+      r.key--; track('keyUse');
+      toast('열쇠를 써서 옆 길로 옮겨 갔습니다');
     }
     r.at = b.dataset.node;
     save();
