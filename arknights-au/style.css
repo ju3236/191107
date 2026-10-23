@@ -2397,3 +2397,13 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .boss .bs-slide ul { margin: 0; padding-left: 1.2em; font-size: clamp(12px, 1.8vw, 20px); line-height: 1.9; }
 .boss .bs-foot { flex: none; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #323639; color: #bbb; font-size: 12px; }
 .boss .bs-page { color: #ddd; font-size: 12px; padding: 4px 8px; background: transparent; }
+
+/* 통합전략 편성: 스킬 발동 방식 · 모집권 랭크 상승 */
+.fm-skrow .fm-trig { display: flex; gap: 4px; margin: 3px 0 4px; font-style: normal; }
+.fm-skrow .fm-trig i { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 2px; }
+.fm-skrow .fm-trig .man { background: #ffc93a; color: #1a1205; }
+.fm-skrow .fm-trig .auto { background: #4a5563; color: #fff; }
+.fm-skrow .fm-trig .sp { background: #2f6b3a; color: #e6ffe9; }
+.is-promo-head { margin: 10px 0 6px; font-weight: 900; color: #ffcf3a; }
+.is-promo-head small { margin-left: 6px; font-weight: 400; color: var(--muted); font-size: 12px; }
+.is-cand.promo { border-color: #ffcf3a; }

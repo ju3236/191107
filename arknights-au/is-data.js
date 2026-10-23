@@ -84,8 +84,10 @@ const IS_DATA = {
     const t = {};
     for (const [c, n] of Object.entries(CL)) {
       t[c] = { name: `${n} 모집권`, classes: [c], desc: `${n} 오퍼레이터 1명 모집` };
-      t[c + '_sp'] = { name: `고급 ${n} 모집권`, classes: [c], temp: 4, desc: `${n} 오퍼레이터 1명 모집 (4성 임시 모집 확정 등장)` };
-      t[c + '_vip'] = { name: `정예 ${n} 모집권`, classes: [c], temp: 5, desc: `${n} 오퍼레이터 1명 모집 (5성 임시 모집 확정 등장)` };
+      // 임시 모집 확정 모집권은 알아보기 쉽게 「n성 ○○ 모집권」 (원작: 고급 = 4성, 정예 = 5성 / 6성은 우리 게임 추가)
+      t[c + '_sp'] = { name: `4성 ${n} 모집권`, classes: [c], temp: 4, desc: `${n} 오퍼레이터 1명 모집 (4성 임시 모집 확정 등장)` };
+      t[c + '_vip'] = { name: `5성 ${n} 모집권`, classes: [c], temp: 5, desc: `${n} 오퍼레이터 1명 모집 (5성 임시 모집 확정 등장)` };
+      t[c + '_6'] = { name: `6성 ${n} 모집권`, classes: [c], temp: 6, desc: `${n} 오퍼레이터 1명 모집 (6성 임시 모집 확정 등장)` };
     }
     Object.assign(t, {
       d_assault: { name: '돌격 협의 모집권', classes: ['vanguard', 'guard'], desc: '뱅가드 또는 가드 오퍼레이터 1명 모집' },
@@ -96,7 +98,10 @@ const IS_DATA = {
       q_ranged: { name: '후방 협조 모집권', classes: ['medic', 'sniper', 'supporter', 'caster'], desc: '메딕, 스나이퍼, 서포터 또는 캐스터 오퍼레이터 1명 모집' },
       all: { name: '고급 인사배치서한', classes: null, desc: '임의의 오퍼레이터 1명 모집' },
       star5: { name: '인사배치서한', classes: null, maxRarity: 5, desc: '임의의 5성 이하 오퍼레이터 1명 모집' },
-      premium: { name: '특별 인사배치서한', classes: null, temp: 'promoted', desc: '임의의 오퍼레이터 1명 모집 (랭크 상승한 임시 모집 오퍼레이터 확정 등장)' },
+      premium: { name: '5·6성 승급 모집권', classes: null, temp: 'promoted', desc: '임의의 오퍼레이터 1명 모집 (랭크 상승한 5성 또는 6성 임시 모집 확정 등장)' },
+      // 원작 「5성/6성 랜덤 승급 임시 모집권」: 모집 화면 없이 랭크 상승한 임시 모집 오퍼레이터 1명 바로 합류
+      up5: { name: '5성 승급 임시 모집권', classes: null, temp: 'up5', direct: true, desc: '랭크 상승한 5성 임시 모집 오퍼레이터 1명 무작위 합류 (희망 0)' },
+      up6: { name: '6성 승급 임시 모집권', classes: null, temp: 'up6', direct: true, desc: '랭크 상승한 6성 임시 모집 오퍼레이터 1명 무작위 합류 (희망 0)' },
     });
     return t;
   })(),

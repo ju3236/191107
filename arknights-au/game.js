@@ -1294,13 +1294,12 @@
     return list.slice(0, n);
   }
 
-  // 자동 발동 조건: 'ready'면 SP가 차는 즉시, 'enemy'면 공격할 적이 있을 때.
-  // 정하지 않았으면 코스트 · 자기 회복 · 보호막만 있는 스킬은 바로 켬
-  const SUPPORT_ONLY = new Set(['dp', 'heal', 'regen', 'shield']);
+  // 자동 발동 조건: 실장 화면에서 정했으면 그대로('ready' 바로 / 'enemy' 적이 있을 때).
+  // 정하지 않았으면 SP가 차는 즉시 켬. 단 강타(다음 공격 강화 · 한 번에 몰아치는 연타)는 공격할 적이 있을 때
   function autoReady(sk) {
     if (sk.autoWhen) return sk.autoWhen === 'ready';
-    const ks = Object.keys(sk.effect || {});
-    return ks.length > 0 && ks.every((k) => SUPPORT_ONLY.has(k));
+    const ef = sk.effect || {};
+    return !(ef.nextHit || (ef.hits && !sk.duration));
   }
   function hasWork(op) {
     const ef = op.skill.effect || {};
