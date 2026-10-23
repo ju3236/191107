@@ -714,15 +714,16 @@ const OPERATORS = [
   },
   // ================= 컬럼비아 비공개 연구시설에서 구출된 두 사람 =================
   {
-    id: 'turner', name: '터너', class: 'sniper', archetype: 'besieger', race: '우르수스', color: '#3f6fd8',
+    id: 'turner', name: '터너', class: 'sniper', archetype: 'marksman', race: '우르수스', color: '#3f6fd8',
     en: 'Turner', rarity: 6, tags: ['원거리', '화력', '범위 공격'], faction: '로도스 아일랜드',
     partner: 'clownfish',
     image: 'img/turner.png',
     profile: '본명 리안 터너. 24세, 187cm / 82kg. 거대한 오리지늄 아츠 탄환을 생성해 원거리에서 적을 격파하는 사수. 정의감이 강하고 침착하지만, 때로는 자신의 한계를 인정하지 못한다. 컬럼비아의 비공개 연구시설에서 구출된 이후 로도스에 합류했다.\n\n특수 사출장치로 오리지늄 아츠를 증폭시킨 뒤 푸른 에너지 탄환을 만들어 쏜다. 탄환의 크기와 형태를 바꿀 수 있어서, 작은 탄환은 빠르고 커다란 탄환은 강력하게 폭발한다. 전술적 계산이 뛰어난 편은 아니지만, 눈앞의 아군을 지키고 위협적인 적을 제거하는 판단만큼은 망설이지 않는다.',
     quote: '명령이 없어도, 내가 해야 할 일은 알고 있어.',
     cost: 22, redeploy: 70, block: 1,
-    hp: 1850, atk: 1080, def: 140, res: 0, interval: 2.4,
-    range: [[2, -2], [2, -1], [2, 0], [2, 1], [2, 2], [3, -2], [3, -1], [3, 0], [3, 1], [3, 2], [4, -1], [4, 0], [4, 1]],  // 원작 범위 4-3
+    // 명사수: 공격 간격 1.0초(스킬의 공격 속도 상승도 이 간격 기준), 명사수 범위
+    hp: 1850, atk: 1080, def: 140, res: 0, interval: 1.0,
+    range: area(0, 3, -1, 1),
     talents: [
       { name: '푸른 탄도', desc: '무게 3 이상인 적을 공격할 때 방어력 30% 무시. 같은 적을 연속 공격할 때마다 그 적에게 주는 대미지 +8% (최대 3회 중첩)', effect: { blueShot: { weight: 3, ignore: 0.3, step: 0.08, max: 3 } } },
       { name: '정해지지 않은 선택', desc: '공격 범위 안에 HP 50% 이하인 아군이 있으면 공격 속도 +30. 처음 이 조건을 만족하면 즉시 SP +10', effect: { choice: { below: 0.5, aspd: 30, sp: 10 } } },
@@ -1036,7 +1037,7 @@ const OPERATORS = [
         effect: { atk: 2.5, aspd: 35, hits: { count: 2, mul: 1 }, chain: { step: 0.06, max: 5 }, blockedCut: 0.25, antiAir: true } },
       { name: '주여, 용서하소서!', desc: '30초간 공격 범위 확대, 공격력 +220%, 저지 수 +1, 범위 안 적(공중 포함) 최대 5명 동시 공격, 목표의 방어력 35% 무시. 발동 즉시 범위 안 모든 적에게 공격력의 350% 물리 피해, 3초간 기절. 지속 중 공격 속도 +30, 상태 이상 저항. 종료 후 3초간 기절',
         sp: 40, initSp: 15, duration: 30, trigger: 'manual', voice: '주여, 용서하소서! ……이제 정말 참지 않겠습니다!!',
-        effect: { range: [[0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1], [2, 0]], atk: 3.2, block: 1, targets: 5, ignoreDef: 0.35, rangeStrike: { mul: 3.5, stun: 3 }, aspd: 30, statusRes: 0.5, endStun: 3, antiAir: true } },
+        effect: { range: [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [2, -1], [2, 0], [2, 1], [3, 0]], atk: 3.2, block: 1, targets: 5, ignoreDef: 0.35, rangeStrike: { mul: 3.5, stun: 3 }, aspd: 30, statusRes: 0.5, endStun: 3, antiAir: true } },
     ],
     voice: {
       obtain: '처음 뵙겠습니다. 마태오라고 합니다. 코드네임은 안드레아입니다. 라테라노에서 성직자로 일하고 있으며, 필요에 따라 전투 임무에도 참여하고 있습니다. ……부디 평화로운 협력 관계가 이어지기를 바랍니다.',

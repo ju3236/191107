@@ -2522,7 +2522,16 @@
     const bw = T * 0.72, bx = X - bw / 2, by = Y + T * 0.1;
     bar(bx, by, bw, Math.max(3, T * 0.055), op.hp / op.maxHp, '#4cd964');
     const spRatio = op.skillT > 0 ? (op.skillT === Infinity ? 1 : op.skillT / sk.duration) : !sk.sp ? 0 : sk.stock && op.sp < spCap(sk) ? (op.sp % sk.sp) / sk.sp : op.sp / sk.sp;
-    bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
+    const ammo = op.skillT > 0 && op.charges > 0 && (sk.effect || {}).charges;
+    if (ammo) {
+      // 탄약형 스킬(아스트라 · 헤이비스 등): 남은 탄약을 칸으로 표시
+      const n = sk.effect.charges, gap = Math.max(1, bw * 0.012), cw = (bw - gap * (n - 1)) / n, ch = Math.max(3, T * 0.05), cy2 = by + Math.max(4, T * 0.075);
+      ctx.fillStyle = 'rgba(0,0,0,.85)'; ctx.fillRect(bx - 1, cy2 - 1, bw + 2, ch + 2);
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = i < op.charges ? '#ffe066' : '#3a3f47';
+        ctx.fillRect(bx + i * (cw + gap), cy2, cw, ch);
+      }
+    } else bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
     if (op.neural > 0) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), op.neural / 1000, '#c77dff');
     // 해방자: 공격력 충전 게이지
     if (op.def.archetype === 'librator' && !(op.skillT > 0)) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), (op.libT || 0) / 40, '#ffd86b');
