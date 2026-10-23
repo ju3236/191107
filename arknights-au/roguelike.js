@@ -421,10 +421,11 @@
     const r = {
       v: 4, band: bandId, diff: diffId, floor: 0, life: S0.life, maxLife: S0.life, shield: 0, ingot: S0.ingot, hope: S0.hope, exp: 0, level: 1,
       key: S0.key, dice: S0.dice, light: S0.light, virtues: [], flags: {}, away: [], stat: {},
-      relics: [], ops: [], tickets: [], freePromotes: [], recruitNow: true, needGroup: true, needStart: true, squadBonus: 0, offer: null, stacks: {}, lineup: null,
+      relics: [], ops: [], tickets: [], freePromotes: [], recruitNow: true, needGroup: true, needStart: !!rec().bonusNext, squadBonus: 0, offer: null, stacks: {}, lineup: null,
       map: null, at: null, pending: null, used: [], score: { battles: 0, perfect: 0, bosses: 0 }, started: Date.now(),
     };
     P().is = r;
+    rec().bonusNext = false;   // 지난 탐색의 추가 보상은 이번 탐색에서 한 번만
     const g = gradeOf(r);
     if (g >= 6) r.light -= 15;
     if (g >= 10) r.light -= 15;
@@ -758,10 +759,10 @@
     if (r.result) { showEnd(); return; }
     if (r.pending && r.pending.kind === 'reward') { showReward(); return; }
     if (r.pending && r.pending.kind === 'dice') { showDice(); return; }
+    if (r.needStart) { showStartBuff(); return; }
     if (r.needGroup) { showGroupPick(); return; }
     if (r.purify && r.ops.some((o) => o.mut && !o.evo)) { showPurify(); return; }
     if (r.tickets.length && (useTicket || !r.ops.length || r.recruitNow)) { showRecruit(); return; }
-    if (r.needStart) { showStartBuff(); return; }
     if (r.task && r.task.done && !r.task.claimed) { showTaskReward(); return; }
     if (r.at) { enterNode(findNode(r.at)); return; }
     hidePanel();
@@ -779,8 +780,9 @@
   function showStartBuff() {
     const r = R(), S0 = X2.start;
     if (!r.startOpts) { r.startOpts = shuffle([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, 3); save(); }
-    panel(`<div class="isp-head"><small>PREPARATION</small><b>${esc(S0.title)}</b></div>
+    panel(`<div class="isp-head"><small>PREPARATION · 지난 탐색 보상</small><b>${esc(S0.title)}</b></div>
       <p class="isp-text story">${esc(S0.text)}</p>
+      <p class="isp-text">지난 탐색에서 3층 이상 도달 — 하나를 골라 이번 탐색을 시작합니다.</p>
       <div class="is-cardsel">${r.startOpts.map((i) => `<button class="is-cardpick" data-act="startbuff" data-k="${i}"><img src="${UI_IMG}init_${['shield', 'population', 'gold', 'unknown', 'unknown', 'hp', 'unknown', 'dice'][i]}.png" alt=""><b>${esc(S0.choices[i].label)}</b><span>${esc(S0.choices[i].desc)}</span></button>`).join('')}</div>`, 'wide ispcards', S0.bg);
   }
 
@@ -1573,7 +1575,7 @@
         <span class="fm-cls">${UI.icon(def.class)}</span><span class="fm-lv"><small>LV</small>${pg.level}</span>
         <span class="fm-art">${def.image ? `<img src="${esc(def.image)}" alt="">` : `<b>${esc(def.name[0])}</b>`}</span>
         <span class="fm-stars">${'★'.repeat(def.rarity || 3)}</span>
-        ${sk ? `<span class="fm-sk"><img src="${UI.skillIcon(sk, Math.max(0, (def.skills || []).findIndex((x) => x.name === sk.name)), def)}" alt=""><i>${pg.slv}</i></span>` : ''}
+        ${sk ? `<span class="fm-sk" data-fm="skill" data-id="${esc(id)}" title="스킬 변경"><img src="${UI.skillIcon(sk, Math.max(0, (def.skills || []).findIndex((x) => x.name === sk.name)), def)}" alt=""><i>${pg.slv}</i></span>` : ''}
         ${o.promoted ? '<span class="fm-pro">랭크 상승</span>' : ''}${o.mut && !o.evo ? '<span class="fm-mut">거부반응</span>' : ''}
         <span class="fm-name">${esc(def.name)}</span></button>`;
     };
@@ -1595,6 +1597,16 @@
     el.innerHTML = `<div class="fm-pick-box"><b>편성할 오퍼레이터</b><div class="is-cands">${cand.map((o) => `<button class="is-cand" data-fm="pick" data-id="${esc(o.id)}">${cardHTML(OPS[o.id], 'small')}<small class="is-cand-st">${eliteText(progFor(o))}${o.promoted ? ' · 랭크 상승' : ''}</small></button>`).join('') || '<p class="empty-note">편성할 수 있는 오퍼레이터가 없습니다.</p>'}</div><button class="btn" data-fm="pick-close">닫기</button></div>`;
     el.classList.remove('hidden');
   }
+  // 편성 화면: 스킬 고르기 (랭크 상승 전에는 1차 정예화까지 열린 스킬)
+  function formSkill(id) {
+    const r = R(), o = r.ops.find((x) => x.id === id), def = OPS[id], pg = progFor(o);
+    const skills = TRAIN.trained(def, pg).skills || [], cur = Math.min(o.skill ?? skills.length - 1, skills.length - 1);
+    const el = $('#fm-pick');
+    el.innerHTML = `<div class="fm-pick-box"><b>${esc(def.name)} — 스킬 선택</b><div class="fm-skills">${skills.map((sk, k) => `<button class="fm-skrow ${k === cur ? 'on' : ''}" data-fm="setskill" data-id="${esc(id)}" data-k="${k}">
+      <img src="${UI.skillIcon(sk, k, def)}" alt=""><div><b>S${k + 1} ${esc(sk.name)} <small>Lv.${pg.slv}${pg.mst && pg.mst[k] ? ` 특화 ${pg.mst[k]}` : ''}</small></b><span>${esc(sk.desc || '')}</span><small>SP ${sk.sp}${sk.initSp ? ` · 초기 ${sk.initSp}` : ''}${sk.duration > 0 ? ` · ${sk.duration}초` : ''}</small></div></button>`).join('')}</div>
+      ${skills.length < (def.skills || []).length ? `<p class="muted small">${o.promoted ? '' : '랭크 상승하면 '}남은 스킬은 정예화 단계가 오르면 열립니다.</p>` : ''}<button class="btn" data-fm="pick-close">닫기</button></div>`;
+    el.classList.remove('hidden');
+  }
   $('#is-form').addEventListener('click', (e) => {
     const b = e.target.closest('[data-fm]');
     if (!b) return;
@@ -1603,6 +1615,8 @@
     if (k === 'close') { $('#is-form').classList.add('hidden'); refresh(); return; }
     if (k === 'add') { formPick(); return; }
     if (k === 'pick-close') { $('#fm-pick').classList.add('hidden'); return; }
+    if (k === 'skill') { formSkill(b.dataset.id); return; }
+    if (k === 'setskill') { const o = r.ops.find((x) => x.id === b.dataset.id); if (o) { o.skill = +b.dataset.k; sfx('select'); } }
     if (k === 'pick') { if (l.length < cap) r.lineup = [...l, b.dataset.id]; sfx('select'); }
     if (k === 'del') { r.lineup = l.filter((x) => x !== b.dataset.id); sfx('select'); }
     if (k === 'clear') r.lineup = [];
@@ -1647,6 +1661,8 @@
     for (const o of r.ops) if (ACCOUNT.owns(o.id)) save2.trust[o.id] = Math.min(200, (save2.trust[o.id] || 0) + 5 + floors * 3);
     const rc = rec();
     rc.best = Math.max(rc.best, score);
+    // 원작: 3층(구역) 이상 도달하면 다음 탐색 시작 시 추가 보상 선택
+    rc.bonusNext = r.floor + 1 >= 3;
     if (win) {
       rc.wins++;
       // 난이도 · 분대 해금 (원작 해금 조건)
