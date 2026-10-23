@@ -53,6 +53,9 @@
     feedback: '<path d="M4 4h16v12H9l-5 4z"/><path d="M12 7v4M12 13.5v.5"/>',
     fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
     shrink: '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>',
+    wrench: '<path d="M14.5 4.5a4.5 4.5 0 0 0-5.8 5.8L3 16l5 5 5.7-5.7a4.5 4.5 0 0 0 5.8-5.8l-3 3-3-1-1-3z"/>',
+    flag: '<path d="M5 21V4h13l-3 4.5 3 4.5H5"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   };
   // 원작 직군 아이콘 (img/ui/pro_<직군>.png, 흰색 그림)
   const PRO_IMG = new Set(['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist']);
@@ -305,11 +308,6 @@
   tickClock();
   setInterval(tickClock, 10000);
 
-  function openSynopsis() {
-    openModal(`<div class="modal-title">${esc(GAME_INFO.title)}</div>
-      <div class="modal-sub">${esc(GAME_INFO.subtitle)}</div>
-      <p class="modal-text">${esc(GAME_INFO.synopsis)}</p>`);
-  }
   function openArchive() {
     const rows = STAGES.map((st, i) => {
       if (!unlocked(i)) return `<div class="arc-row locked"><b>${st.code}</b><span>???</span></div>`;
@@ -359,7 +357,70 @@
   $('#btn-notice').innerHTML = icon('mail');
   $('#btn-archive').innerHTML = icon('book');
   $('#btn-settings').addEventListener('click', openSettings);
-  $('#btn-notice').addEventListener('click', openSynopsis);
+  $('#btn-notice').addEventListener('click', () => openNotice());
+
+  // ---------- 공지 (원작 로비 공지 창 · 패치 내역) ----------
+  const NT_TABS = [['patch', '패치 내역', 'wrench'], ['event', '이벤트 공지', 'flag'], ['info', '정보 공지', 'info']];
+  const NT_SEEN = 'akau-notice-seen', NT_AUTO = 'akau-notice-auto';
+  const ntList = () => (typeof NOTICES !== 'undefined' ? NOTICES : []);
+  const ntSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(NT_SEEN) || '[]')); } catch { return new Set(); } };
+  function ntMark(id) {
+    const s = ntSeen(); if (s.has(id)) return;
+    s.add(id); try { localStorage.setItem(NT_SEEN, JSON.stringify([...s])); } catch { /* 저장 불가 */ }
+  }
+  const ntArt = (a) => (!a ? '' : a.includes('/') ? a : ((OPERATORS.find((o) => o.id === a) || {}).image || ''));
+  function ntDot() {
+    const seen = ntSeen();
+    $('#btn-notice').classList.toggle('has-new', ntList().some((n) => !seen.has(n.id)));
+  }
+  let ntTab = 'patch', ntSel = null;
+  function openNotice(tab, id) {
+    const all = ntList();
+    if (id) { const n = all.find((x) => x.id === id); if (n) tab = n.tab; }
+    ntTab = tab || ntTab;
+    const list = all.filter((n) => n.tab === ntTab);
+    ntSel = (id && list.find((n) => n.id === id)) || list.find((n) => n.id === (ntSel && ntSel.id)) || list[0] || null;
+    const seen = ntSeen();
+    const el = $('#notice');
+    el.querySelector('.nt-tabs').innerHTML = NT_TABS.map(([k, name, ic]) => {
+      const nw = all.some((n) => n.tab === k && !seen.has(n.id));
+      return `<button class="nt-tab ${k === ntTab ? 'on' : ''}" data-ntt="${k}">${icon(ic)}<span>${name}</span>${nw ? '<i class="nt-dot"></i>' : ''}</button>`;
+    }).join('');
+    el.querySelector('.nt-list').innerHTML = list.map((n) => {
+      const [, m, d] = n.date.split('-').map(Number);
+      return `<button class="nt-item ${n === ntSel ? 'on' : ''}" data-nti="${esc(n.id)}"><span class="nt-date"><b>${d}</b><small>${m}월</small></span><span class="nt-short">${esc(n.short).replace(/\n/g, '<br>')}</span>${seen.has(n.id) ? '' : '<img class="nt-new" src="img/ui/ann_new.png" alt="NEW">'}</button>`;
+    }).join('') || '<p class="empty-note">공지가 없습니다.</p>';
+    const v = el.querySelector('.nt-view');
+    if (ntSel) {
+      const n = ntSel, art = ntArt(n.art);
+      const body = n.world
+        ? `<p>${esc(GAME_INFO.synopsis).replace(/\n/g, '<br>')}</p>`
+        : (n.body || []).map((b) => `${b.h ? `<h4>${esc(b.h)}</h4>` : ''}${b.p ? `<p>${esc(b.p)}</p>` : ''}${b.li ? `<ul>${b.li.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}`).join('');
+      v.innerHTML = `<div class="nt-banner" style="background-image:url('${esc(n.bg || 'img/ui/home_bg.webp')}')">${art ? `<img class="nt-art ${n.art.includes('/') ? 'wide' : ''}" src="${esc(art)}" alt="">` : ''}<b>${esc(n.banner || '공지사항')}</b></div>
+        <div class="nt-title">${esc(n.title)}</div>
+        <div class="nt-body"><div class="nt-meta">${n.date.replace(/-/g, '.')}</div>${body}</div>`;
+      v.scrollTop = 0;
+      ntMark(n.id);
+      const it = el.querySelector(`[data-nti="${CSS.escape(n.id)}"] .nt-new`); if (it) it.remove();
+    } else v.innerHTML = '';
+    el.classList.remove('hidden');
+    ntDot();
+  }
+  $('#notice').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-ntt]'); if (t) { ntSel = null; openNotice(t.dataset.ntt); return; }
+    const i = e.target.closest('[data-nti]'); if (i) { openNotice(null, i.dataset.nti); return; }
+    if (e.target.closest('.nt-close') || e.target.id === 'notice') $('#notice').classList.add('hidden');
+  });
+  ntDot();
+  // 새 패치 내역이 있으면 접속 때 한 번 자동으로 열기 (원작처럼)
+  {
+    const latest = ntList().find((n) => n.tab === 'patch');
+    let auto = null; try { auto = localStorage.getItem(NT_AUTO); } catch { /* 저장 불가 */ }
+    if (latest && auto !== latest.id && !ntSeen().has(latest.id)) {
+      try { localStorage.setItem(NT_AUTO, latest.id); } catch { /* 저장 불가 */ }
+      setTimeout(() => { if (current === 'home' && $('#modal').classList.contains('hidden')) openNotice('patch', latest.id); }, 900);
+    }
+  }
   $('#btn-archive').addEventListener('click', openArchive);
   $('#btn-feedback').innerHTML = icon('feedback');
   $('#btn-feedback').addEventListener('click', () => openFeedback());

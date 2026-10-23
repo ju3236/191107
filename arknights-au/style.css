@@ -2259,3 +2259,66 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .fb-reply-view { margin: 6px 0 0; font-size: 13px; color: #ffd27a; }
 .fb-act { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; } .fb-act .fb-reply { flex: 1 1 200px; width: auto; padding: 6px 8px; }
 .fb-filter { display: flex; gap: 6px; margin-bottom: 10px; }
+
+/* =====================================================================
+   공지 창 (원작 로비 공지)
+   ===================================================================== */
+#btn-notice { position: relative; }
+#btn-notice.has-new::after { content: ""; position: absolute; top: 2px; right: 0; width: 10px; height: 10px; border-radius: 50%; background: #e3342f; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
+.notice { z-index: 31; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.nt-win { position: relative; width: min(1100px, 100%); height: min(620px, 100%); display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #111 0 96px, #2c2c2c 96px), #2c2c2c; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+.nt-win::before { content: "RHODES ISLAND"; position: absolute; left: 6px; bottom: 6px; font: 700 34px var(--f-en); letter-spacing: -.02em; color: rgba(255,255,255,.07); pointer-events: none; }
+.nt-close { position: absolute; top: -18px; right: -18px; width: 48px; height: 48px; border-radius: 50%; background: #555; color: #eee; font-size: 22px; border: 2px solid #777; z-index: 2; }
+.nt-close:hover { background: #666; }
+.nt-tabs { height: 96px; display: flex; align-items: flex-end; justify-content: center; gap: 14px; padding-left: 180px; flex: none; }
+.nt-tab { position: relative; width: 206px; height: 57px; background: url(img/ui/ann_tab_off.png) 0 0 / 100% 100% no-repeat; color: #eee; display: flex; align-items: center; gap: 10px; padding: 0 16px 0 14px; font-size: 19px; font-weight: 700; }
+.nt-tab .ico { width: 34px; height: 34px; opacity: .55; }
+.nt-tab.on { height: 68px; margin-bottom: -11px; padding-bottom: 11px; background-image: url(img/ui/ann_tab_on.png); color: #222; }
+.nt-tab.on .ico { opacity: .8; }
+.nt-dot { position: absolute; top: 8px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #e3342f; }
+.nt-main { flex: 1; min-height: 0; display: flex; gap: 32px; padding: 30px 46px 30px 36px; }
+.nt-list { width: 280px; flex: none; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 16px; scrollbar-width: none; }
+.nt-list::-webkit-scrollbar { display: none; }
+.nt-item { position: relative; width: 256px; height: 67px; flex: none; background: url(img/ui/ann_item_off.png) 0 0 / 100% 100% no-repeat; color: #f2f2f2; display: flex; align-items: center; text-align: center; }
+.nt-item.on { width: 269px; height: 66px; background-image: url(img/ui/ann_item_on.png); color: #222; }
+.nt-date { position: relative; width: 50px; height: 50px; margin-left: 9px; flex: none; color: #fff; text-align: left; }
+.nt-date b { position: absolute; left: 4px; top: 4px; font: 700 21px/1 var(--f-en); }
+.nt-date small { position: absolute; right: 3px; bottom: 3px; font-size: 11px; }
+.nt-short { flex: 1; padding: 0 12px 0 14px; font-size: 18px; font-weight: 700; line-height: 1.2; }
+.nt-item.on .nt-short { padding-right: 25px; }
+.nt-new { position: absolute; top: -8px; right: -6px; width: 34px; }
+.nt-view { flex: 1; min-width: 0; overflow-y: auto; background: #cfcfcf; border: 3px solid #e2e2e2; padding: 24px 24px 30px; color: #222; scrollbar-width: thin; }
+.nt-banner { position: relative; height: 180px; background: #4a6a80 center / cover no-repeat; overflow: hidden; display: flex; align-items: flex-end; }
+.nt-banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,30,45,.55), rgba(10,30,45,0) 55%); }
+.nt-art { position: absolute; right: 4%; top: -6%; height: 190%; object-fit: contain; object-position: top; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+.nt-art.wide { right: 0; top: 0; height: 100%; width: 55%; object-fit: cover; object-position: center; -webkit-mask-image: linear-gradient(90deg, transparent, #000 35%); mask-image: linear-gradient(90deg, transparent, #000 35%); filter: none; }
+.nt-banner b { position: relative; padding: 0 0 12px 16px; font-size: 40px; font-weight: 900; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+.nt-title { margin: 22px 0 0; padding: 10px 12px; background: #2d2d2d repeating-linear-gradient(-55deg, transparent 0 6px, rgba(255,255,255,.04) 6px 8px); color: #fff; font-size: 24px; font-weight: 700; }
+.nt-body { padding: 16px 6px 0; font-size: 16px; line-height: 1.75; }
+.nt-meta { font: 600 13px var(--f-en); color: #666; margin-bottom: 8px; }
+.nt-body h4 { margin: 18px 0 6px; padding-left: 10px; border-left: 4px solid #2d2d2d; font-size: 17px; }
+.nt-body p { margin: 0 0 10px; }
+.nt-body ul { margin: 0 0 10px; padding-left: 22px; }
+.nt-body li { margin-bottom: 4px; }
+@media (max-height: 560px), (max-width: 900px) {
+  .nt-win { background: linear-gradient(180deg, #111 0 62px, #2c2c2c 62px), #2c2c2c; }
+  .nt-close { top: 6px; right: 6px; width: 38px; height: 38px; font-size: 18px; }
+  .nt-tabs { height: 62px; gap: 8px; padding-left: 0; }
+  .nt-tab { width: 150px; height: 42px; font-size: 14px; gap: 6px; padding: 0 10px; }
+  .nt-tab .ico { width: 24px; height: 24px; }
+  .nt-tab.on { height: 50px; margin-bottom: -8px; padding-bottom: 8px; }
+  .nt-main { gap: 14px; padding: 14px 14px 14px 12px; }
+  .nt-list { width: 196px; gap: 8px; padding-right: 8px; }
+  .nt-item { width: 180px; height: 47px; }
+  .nt-item.on { width: 190px; height: 47px; }
+  .nt-date { width: 35px; height: 35px; margin-left: 6px; }
+  .nt-date b { font-size: 15px; left: 3px; top: 2px; }
+  .nt-date small { font-size: 9px; }
+  .nt-short { font-size: 13px; padding: 0 8px; }
+  .nt-view { padding: 12px 12px 18px; }
+  .nt-banner { height: 120px; }
+  .nt-banner b { font-size: 28px; }
+  .nt-title { margin-top: 12px; font-size: 17px; padding: 8px 10px; }
+  .nt-body { font-size: 14px; }
+}

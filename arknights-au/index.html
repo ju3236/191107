@@ -18,7 +18,7 @@
 
     <div class="home-icons">
       <button class="icon-btn" id="btn-settings" aria-label="설정"></button>
-      <button class="icon-btn" id="btn-notice" aria-label="세계관 소개"></button>
+      <button class="icon-btn" id="btn-notice" aria-label="공지" title="공지"></button>
       <button class="icon-btn" id="btn-archive" aria-label="기록"></button>
       <button class="icon-btn" id="btn-feedback" aria-label="버그 신고 · 건의" title="버그 신고 · 건의"></button>
       <button class="icon-btn hidden" id="btn-fullscreen" aria-label="전체 화면"></button>
@@ -400,6 +400,13 @@
     </div>
   </div>
 
+  <div id="notice" class="overlay center notice hidden">
+    <div class="nt-win">
+      <button class="nt-close" aria-label="닫기">✕</button>
+      <div class="nt-tabs"></div>
+      <div class="nt-main"><div class="nt-list"></div><div class="nt-view"></div></div>
+    </div>
+  </div>
   <div id="modal" class="overlay center hidden">
     <div class="panel modal-panel">
       <button class="modal-close" id="modal-close" aria-label="닫기">✕</button>
@@ -419,6 +426,7 @@
 <script src="is-data.js"></script>
 <script src="is-relics.js"></script>
 <script src="is-ro2.js"></script>
+<script src="notice.js"></script>
 <script src="sfx.js"></script>
 <script src="account.js"></script>
 <script src="train.js"></script>
