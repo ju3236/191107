@@ -50,6 +50,7 @@
     depot: '<path d="M3 8 12 3l9 5v10l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v10"/>',
     admin: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    feedback: '<path d="M4 4h16v12H9l-5 4z"/><path d="M12 7v4M12 13.5v.5"/>',
     fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
     shrink: '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>',
   };
@@ -360,6 +361,49 @@
   $('#btn-settings').addEventListener('click', openSettings);
   $('#btn-notice').addEventListener('click', openSynopsis);
   $('#btn-archive').addEventListener('click', openArchive);
+  $('#btn-feedback').innerHTML = icon('feedback');
+  $('#btn-feedback').addEventListener('click', () => openFeedback());
+  // ---------- 버그 신고 · 건의 ----------
+  const SCREEN_NAME = { home: '메인 화면', operators: '오퍼레이터', detail: '오퍼레이터 상세', squad: '편성', ops: '작전', battle: '전투', is: '통합전략', isrun: '통합전략 탐색', store: '구매센터', headhunt: '헤드헌팅', base: '기반시설', depot: '창고', admin: '관리자' };
+  let fbType = 'bug', fbDraft = { title: '', body: '' };
+  function openFeedback(from) {
+    const where = SCREEN_NAME[from || current] || from || current || '';
+    const mine = ACCOUNT.myFeedback || [];
+    const ST = { open: '접수됨', doing: '확인 중', done: '반영 완료', rejected: '보류' };
+    openModal(`<div class="modal-title">버그 신고 · 건의</div>
+      <div class="modal-sub">보낸 글은 관리자가 보고 하나씩 고칩니다${ACCOUNT.mode === 'online' ? '' : ' · 오프라인이라 이 브라우저에만 저장됩니다'}</div>
+      <div class="fb-form">
+        <div class="fb-types"><button class="btn small ${fbType === 'bug' ? 'primary' : ''}" data-fbt="bug">🐞 버그 신고</button><button class="btn small ${fbType === 'idea' ? 'primary' : ''}" data-fbt="idea">💡 건의</button></div>
+        <input id="fb-title" maxlength="80" placeholder="${fbType === 'bug' ? '무엇이 잘못됐나요? (예: 통합전략 상점에서 구매가 안 됨)' : '어떤 걸 바꾸면 좋을까요?'}">
+        <textarea id="fb-body" maxlength="2000" rows="6" placeholder="${fbType === 'bug' ? '언제 · 어디서 · 무엇을 했더니 · 어떻게 됐는지 적어 주세요' : '자세한 내용을 적어 주세요'}"></textarea>
+        <label class="fb-where"><input type="checkbox" id="fb-env" checked> 현재 화면(${esc(where || '-')}) · 기기 정보 함께 보내기</label>
+        <button class="btn primary" id="fb-send">보내기</button>
+      </div>
+      <h4 class="fb-mine-title">내가 보낸 글 <small>${mine.length}건</small></h4>
+      <div class="fb-mine">${mine.slice(0, 20).map((r, i) => `<div class="fb-item st-${esc(r.status)}"><div class="fb-head"><span class="chip fb-${r.fbType === 'bug' ? 'bug' : 'idea'}">${r.fbType === 'bug' ? '버그' : '건의'}</span><b data-fbt-i="${i}"></b><span class="chip st">${ST[r.status] || esc(r.status || '')}</span><span class="req-time">${new Date(r.at || 0).toLocaleDateString('ko-KR')}</span></div>${r.reply ? `<p class="fb-reply-view" data-fbr-i="${i}"></p>` : ''}</div>`).join('') || '<p class="empty-note">아직 보낸 글이 없습니다.</p>'}</div>`);
+    const body = $('#modal-body');
+    body.querySelector('#fb-title').value = fbDraft.title;
+    body.querySelector('#fb-body').value = fbDraft.body;
+    mine.slice(0, 20).forEach((r, i) => {
+      const t = body.querySelector(`[data-fbt-i="${i}"]`); if (t) t.textContent = r.title || '(제목 없음)';
+      const rp = body.querySelector(`[data-fbr-i="${i}"]`); if (rp) rp.textContent = '관리자 답변: ' + r.reply;
+    });
+    const keep = () => { fbDraft = { title: body.querySelector('#fb-title').value, body: body.querySelector('#fb-body').value }; };
+    body.querySelectorAll('[data-fbt]').forEach((b) => b.addEventListener('click', () => { keep(); fbType = b.dataset.fbt; openFeedback(from || current); }));
+    body.querySelector('#fb-send').addEventListener('click', async (e) => {
+      keep();
+      if (!fbDraft.title.trim() && !fbDraft.body.trim()) { toast('내용을 적어 주세요'); return; }
+      e.target.disabled = true;
+      const env = body.querySelector('#fb-env').checked ? `${window.innerWidth}×${window.innerHeight} · ${(navigator.userAgent.match(/(iPhone|iPad|Android|Windows|Macintosh|Linux)/) || ['기타'])[0]} · ${(navigator.userAgent.match(/(Chrome|Safari|Firefox|Edg)\/[\d.]+/) || [''])[0]}` : '';
+      try {
+        await ACCOUNT.sendFeedback({ type: fbType, title: fbDraft.title.trim() || fbDraft.body.trim().slice(0, 40), body: fbDraft.body.trim(), where: body.querySelector('#fb-env').checked ? where : '', env });
+        fbDraft = { title: '', body: '' };
+        toast('보냈습니다. 고마워요!');
+        openFeedback(from || current);
+      } catch (err) { console.warn(err); toast('보내지 못했습니다'); e.target.disabled = false; }
+    });
+  }
+  $('#pause-feedback').addEventListener('click', () => openFeedback('battle'));
 
   // 전체 화면: 주소창과 claude.ai 상단 바를 가림. 브라우저·앱이 허용할 때만 버튼을 보여 줌
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
@@ -1410,7 +1454,7 @@
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    skillIcon, openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    openFeedback, skillIcon, openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
   };
   RENDER.home();

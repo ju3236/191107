@@ -440,23 +440,28 @@
   // =====================================================================
   //  관리자
   // =====================================================================
-  const ADMIN_TABS = [['requests', '결제 요청'], ['grant', '재화 지급'], ['ops', '오퍼레이터 실장'], ['banner', '헤드헌팅 배너']];
+  const ADMIN_TABS = [['requests', '결제 요청'], ['feedback', '건의 · 버그'], ['grant', '재화 지급'], ['ops', '오퍼레이터 실장'], ['banner', '헤드헌팅 배너']];
   let adminTab = 'requests', editing = null, bnEdit = null;
-  const A = { requests: [], players: [], grants: [], names: {}, subscribed: false };
+  const A = { requests: [], feedback: [], players: [], grants: [], names: {}, subscribed: false };
   function subscribeAdmin() {
     if (A.subscribed || !ACCOUNT.isAdmin) return;
     A.subscribed = true;
     const re = () => { if (UI.current === 'admin' && !editing) RENDER.admin(); };
-    ACCOUNT.admin.watch('requests', (l) => { A.requests = l.sort((a, b) => (b.at || 0) - (a.at || 0)); notifyPending(); re(); });
+    ACCOUNT.admin.watch('requests', (l) => {
+      l.sort((a, b) => (b.at || 0) - (a.at || 0));
+      A.requests = l.filter((r) => r.kind !== 'feedback');
+      A.feedback = l.filter((r) => r.kind === 'feedback');
+      notifyPending(); re();
+    });
     ACCOUNT.admin.watch('players', (l) => { A.players = l; re(); });
     ACCOUNT.admin.watch('grants', (l) => { A.grants = l; re(); });
   }
   let lastPending = -1;
   function notifyPending() {
-    const n = A.requests.filter((r) => r.status === 'pending').length;
+    const n = A.requests.filter((r) => r.status === 'pending').length + A.feedback.filter((r) => r.status === 'open').length;
     const tile = $('#tile-admin');
     if (tile) tile.dataset.badge = n ? String(n) : '';
-    if (lastPending >= 0 && n > lastPending) toast(`새 결제 요청이 ${n - lastPending}건 들어왔습니다`);
+    if (lastPending >= 0 && n > lastPending) toast(`새 결제 요청 · 건의가 ${n - lastPending}건 들어왔습니다`);
     lastPending = n;
   }
   ACCOUNT.on('mode', () => { if (ACCOUNT.isAdmin) subscribeAdmin(); });
@@ -489,7 +494,7 @@
     }
     subscribeAdmin();
     $('#admin-tabs').innerHTML = ADMIN_TABS.map(([k, n]) => {
-      const badge = k === 'requests' ? A.requests.filter((r) => r.status === 'pending').length : 0;
+      const badge = k === 'requests' ? A.requests.filter((r) => r.status === 'pending').length : k === 'feedback' ? A.feedback.filter((r) => r.status === 'open').length : 0;
       return `<button class="${k === adminTab ? 'on' : ''}" data-atab="${k}">${n}${badge ? `<span class="badge">${badge}</span>` : ''}</button>`;
     }).join('');
     const main = $('#admin-main');
@@ -506,6 +511,26 @@
       const fill = (sel, list) => main.querySelectorAll(sel + ' .req-who').forEach((el, i) => { el.textContent = names[list[i].uid] || '박사'; });
       fill('#req-pend', pend);
       fill('#req-done', done);
+    } else if (adminTab === 'feedback') {
+      const names = await nameMap(A.feedback.map((r) => r.uid));
+      const ST = [['open', '새 글'], ['doing', '확인 중'], ['done', '반영 완료'], ['rejected', '보류']];
+      const list = A.feedback.filter((r) => fbFilter === 'all' || (fbFilter === 'open' ? r.status === 'open' || r.status === 'doing' : r.status === fbFilter));
+      main.innerHTML = `<h3>건의 · 버그 신고 <small>새 글 ${A.feedback.filter((r) => r.status === 'open').length}건 · 전체 ${A.feedback.length}건</small></h3>
+        <div class="fb-filter">${[['open', '처리 전'], ['done', '반영 완료'], ['rejected', '보류'], ['all', '전체']].map(([k, n]) => `<button class="btn small ${fbFilter === k ? 'primary' : ''}" data-fbf="${k}">${n}</button>`).join('')}</div>
+        <div class="fb-admin">${list.map((r) => `<div class="fb-item st-${esc(r.status)}" data-fbid="${esc(r.id)}">
+          <div class="fb-head"><span class="chip fb-${r.fbType === 'bug' ? 'bug' : 'idea'}">${r.fbType === 'bug' ? '버그' : '건의'}</span><b class="fb-title"></b><span class="fb-who"></span><span class="req-time">${timeText(r.at)}</span></div>
+          <p class="fb-body"></p><small class="fb-meta"></small>
+          <div class="fb-act">${ST.map(([k, n]) => `<button class="btn small ${r.status === k ? 'primary' : ''}" data-fbset="${k}">${n}</button>`).join('')}
+            <input class="fb-reply" maxlength="500" placeholder="답변 (보낸 사람에게 보입니다)"><button class="btn small" data-fbreply>답변 저장</button></div></div>`).join('') || '<p class="empty-note">글이 없습니다.</p>'}</div>`;
+      // 사용자 입력은 textContent로
+      main.querySelectorAll('.fb-item').forEach((el) => {
+        const r = A.feedback.find((x) => x.id === el.dataset.fbid);
+        el.querySelector('.fb-title').textContent = r.title || '(제목 없음)';
+        el.querySelector('.fb-who').textContent = names[r.uid] || '박사';
+        el.querySelector('.fb-body').textContent = r.body || '';
+        el.querySelector('.fb-meta').textContent = [r.where && `화면: ${r.where}`, r.env].filter(Boolean).join(' · ');
+        el.querySelector('.fb-reply').value = r.reply || '';
+      });
     } else if (adminTab === 'grant') {
       const names = await nameMap(A.players.map((p) => p.id));
       const opts = [...Object.keys(ITEMS).map((k) => `<option value="${k}">${esc(ITEMS[k].name)}</option>`),
@@ -571,9 +596,20 @@
     const b = e.target.closest('[data-atab]');
     if (b) { adminTab = b.dataset.atab; editing = null; bnEdit = null; RENDER.admin(); }
   });
-  let delArmed = null, bnDelArmed = null;
+  let delArmed = null, bnDelArmed = null, fbFilter = 'open';
   $('#admin-main').addEventListener('click', async (e) => {
     const t = e.target;
+    const fbf = t.closest('[data-fbf]');
+    if (fbf) { fbFilter = fbf.dataset.fbf; RENDER.admin(); return; }
+    const fbs = t.closest('[data-fbset]'), fbr = t.closest('[data-fbreply]');
+    if (fbs || fbr) {
+      const item = t.closest('[data-fbid]');
+      try {
+        if (fbs) await ACCOUNT.admin.setFeedback(item.dataset.fbid, { status: fbs.dataset.fbset });
+        else { await ACCOUNT.admin.setFeedback(item.dataset.fbid, { reply: item.querySelector('.fb-reply').value.trim() }); toast('답변을 저장했습니다'); }
+      } catch (err) { console.warn(err); toast('저장하지 못했습니다'); }
+      return;
+    }
     const ap = t.closest('[data-approve]'), rj = t.closest('[data-reject]');
     if (ap || rj) {
       const req = A.requests.find((r) => r.id === (ap || rj).dataset[ap ? 'approve' : 'reject']);

@@ -335,6 +335,23 @@
     });
   }
 
+  // ---------- 버그 신고 · 건의 ----------
+  // 온라인: 공용 데이터의 requests에 kind 'feedback'으로 저장 (관리자 화면 「건의 · 버그」 탭에서 확인)
+  // 오프라인: 이 브라우저에만 저장
+  const FB_LOCAL = 'akau-feedback';
+  const localFb = () => { try { return JSON.parse(localStorage.getItem(FB_LOCAL) || '[]'); } catch { return []; } };
+  async function sendFeedback(fb) {
+    const doc = { kind: 'feedback', fbType: fb.type === 'bug' ? 'bug' : 'idea', title: str(fb.title, 80), body: str(fb.body, 2000), where: str(fb.where, 60), env: str(fb.env, 160), status: 'open', at: Date.now() };
+    if (mode !== 'online') {
+      const l = localFb(); l.unshift({ id: 'local' + doc.at, uid: 'local', ...doc });
+      try { localStorage.setItem(FB_LOCAL, JSON.stringify(l.slice(0, 50))); } catch { /* 저장 못 해도 계속 */ }
+      emit('requests');
+      return 'local';
+    }
+    await db.collection('requests').add({ uid, ...doc });
+    return 'online';
+  }
+
   // ---------- 관리자 ----------
   const admin = {
     watch(path, fn) {
@@ -363,6 +380,12 @@
       if (!assets) throw new Error('no_assets');
       return assets.upload(file);
     },
+    async setFeedback(id, patch) {
+      const p = {};
+      if (patch.status) p.status = str(patch.status, 20);
+      if (patch.reply != null) p.reply = str(patch.reply, 500);
+      await db.doc('requests/' + id).update({ ...p, by: uid, doneAt: Date.now() });
+    },
     async setBanners(list) {
       await db.doc('config/banner').set({ list: list.slice(0, MAX_BANNERS).map(cleanBanner), by: uid, at: Date.now() });
     },
@@ -372,7 +395,8 @@
   window.ACCOUNT = {
     player, save, on, emit, normalize, freshPlayer,
     get mode() { return mode; }, get uid() { return uid; }, get isAdmin() { return isAdmin && mode === 'online'; },
-    get canUpload() { return !!assets; }, get myRequests() { return myRequests; },
+    get canUpload() { return !!assets; }, get myRequests() { return myRequests.filter((r) => r.kind !== 'feedback'); },
+    get myFeedback() { return mode === 'online' ? myRequests.filter((r) => r.kind === 'feedback') : localFb(); }, sendFeedback,
     bal, canPay, spend, earn, owns, obtain, potOf,
     sanity, useSanity, addSanity, refillSanity, nextSanityMs, SANITY_MAX,
     banner, cleanBanner, MAX_BANNERS, RANGE_PRESETS, requestPurchase, admin,
