@@ -234,7 +234,7 @@
     }).filter((t) => t.name);
     const archetype = ARCHETYPES[d.archetype] ? d.archetype : undefined;
     return {
-      id: 'c_' + docId, docId, custom: true, creator: str(d.creator, 80),
+      id: 'c_' + docId, docId, custom: true, creator: str(d.creator, 80), isOnly: d.isOnly === true,
       name: str(d.name, 20) || '이름 없음', en: str(d.en, 30), class: cls, archetype,
       race: str(d.race, 20), faction: str(d.faction, 40), rarity: num(d.rarity, 5, 1, 6),
       color: /^#[0-9a-fA-F]{6}$/.test(d.color) ? d.color : '#8899aa',

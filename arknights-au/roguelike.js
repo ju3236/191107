@@ -690,6 +690,7 @@
   const COLW = 300;
   function renderMap() {
     const r = R(), m = r.map, can = new Set(reachable()), keyed = new Set(keyMoves());
+    if (UI.current === 'isrun' && window.SFX && SFX.bgm) SFX.bgm(r.floor >= DEEP ? 'isdeep' : 'ismap');
     const nc = m.cols.length, wrap = $('#is-map').parentElement;
     const H = Math.max(200, wrap.clientHeight || 420), small = H < 320, cw = small ? 200 : COLW, half = small ? 60 : 95;
     const W = 140 + (nc - 1) * cw + 220;
@@ -807,7 +808,8 @@
     const pool = OPERATORS.filter((o) => !o.summoned && !have.has(o.id) && (!tk.classes || tk.classes.includes(o.class)) && (!tk.maxRarity || (o.rarity || 3) <= tk.maxRarity));
     if (!pool.length) return [];
     const byRar = (n) => pool.filter((o) => (o.rarity || 3) === n);
-    const pickRar = (n) => { for (const k of [n, n + 1, n - 1, 6, 5, 4, 3]) { const l = byRar(k); if (l.length) return pick(l); } return pick(pool); };
+    // 통합전략 전용 오퍼레이터(관리자 실장)는 같은 등급이면 절반 확률로 우선
+    const pickRar = (n) => { for (const k of [n, n + 1, n - 1, 6, 5, 4, 3]) { const l = byRar(k), iso = l.filter((o) => o.isOnly); if (iso.length && Math.random() < 0.5) return pick(iso); if (l.length) return pick(l); } return pick(pool); };
     // 전술 분대: 해당 직군의 승급(랭크 상승한) 임시 모집 출현 확률 대폭 상승
     const tu = hasFx('tempUp', r), upCls = tu ? tu.tempUp : [];
     const promoted = (x) => maxElite(x) >= 2 && upCls.includes(x.class) && Math.random() < 0.6;
@@ -1720,5 +1722,5 @@
   homeIS();
   ACCOUNT.on('player', homeIS);
 
-  window.IS = { newRun, genFloor, runDef, stageFor, statFor, battleMods, applyGain, endRun, mutate, addVirtue, get run() { return R(); } };
+  window.IS = { DEEP, newRun, genFloor, runDef, stageFor, statFor, battleMods, applyGain, endRun, mutate, addVirtue, get run() { return R(); } };
 })();

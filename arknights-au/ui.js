@@ -261,7 +261,9 @@
     if (RENDER[name]) RENDER[name](arg, opts);
   }
   // 화면별 BGM (전투는 game.js에서 정함)
-  const screenBgm = (name) => ({ store: 'shop', headhunt: 'shop', base: 'base', is: 'is' }[name] || 'home');
+  // 통합전략: 로비 「海愿」, 지도 「深蓝之树」 · 심해(3층~) 「族群歌谣」 (원작 미즈키 통합전략)
+  const isMapBgm = () => (window.IS && IS.run && IS.run.floor >= IS.DEEP ? 'isdeep' : 'ismap');
+  const screenBgm = (name) => (name === 'isrun' ? isMapBgm() : { store: 'shop', headhunt: 'shop', base: 'base', is: 'is' }[name] || 'home');
   function back() {
     const prev = history.pop() || 'home';
     go(prev, undefined, { back: true });

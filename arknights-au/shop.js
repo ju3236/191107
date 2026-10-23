@@ -221,7 +221,8 @@
     list.push({ key: 'standard', name: GACHA.standardName, featured: [], tag: '상시' });
     return list;
   }
-  const pool = () => OPERATORS;
+  // 통합전략 전용 오퍼레이터는 헤드헌팅에 나오지 않음
+  const pool = () => OPERATORS.filter((o) => !o.isOnly);
   function payFor(n) {
     const b = (k) => ACCOUNT.bal(k);
     if (n === 1) {
@@ -561,7 +562,7 @@
       const names = await nameMap(custom.map((o) => o.creator));
       main.innerHTML = `<div class="ops-head"><h3>실장한 오퍼레이터 <small>${custom.length}명</small></h3><button class="btn primary" id="op-new">＋ 새 오퍼레이터</button></div>
         <p class="hint-text">여기서 만든 오퍼레이터는 두 관리자 모두 수정할 수 있고, 헤드헌팅에 바로 등장합니다. 기본 오퍼레이터는 data.js에서 수정합니다.</p>
-        <div class="admin-ops">${custom.map((o) => `<div class="admin-op">${cardHTML(o, 'small')}<div class="ao-meta"><b>${esc(o.name)}</b><small class="ao-by" data-by="${esc(o.creator)}"></small>
+        <div class="admin-ops">${custom.map((o) => `<div class="admin-op">${cardHTML(o, 'small')}<div class="ao-meta"><b>${esc(o.name)}</b>${o.isOnly ? '<span class="chip">통합전략 전용</span>' : ''}<small class="ao-by" data-by="${esc(o.creator)}"></small>
           <div><button class="btn small" data-edit="${esc(o.docId)}">수정</button> <button class="btn small danger" data-del="${esc(o.docId)}">삭제</button></div></div></div>`).join('') || '<p class="empty-note">아직 없습니다. 「새 오퍼레이터」로 자캐를 실장해 보세요.</p>'}</div>
         <h3>기본 오퍼레이터 (data.js)</h3><div class="admin-ops builtin">${OPERATORS.filter((o) => !o.custom).map((o) => `<div class="admin-op">${cardHTML(o, 'small')}</div>`).join('')}</div>`;
       main.querySelectorAll('.ao-by').forEach((el) => { el.textContent = '실장: ' + (names[el.dataset.by] || '관리자'); });
@@ -569,7 +570,7 @@
       const list = bannerSource();
       if (bnEdit) {
         const b = bnEdit.data;
-        const cands = OPERATORS.filter((o) => (o.rarity || 3) >= 5);
+        const cands = OPERATORS.filter((o) => (o.rarity || 3) >= 5 && !o.isOnly);
         main.innerHTML = `<h3>${bnEdit.index < 0 ? '새 배너' : '배너 수정'}</h3>
           <p class="hint-text">확률 UP 오퍼레이터(6성·5성)를 고르세요. 해당 등급이 나오면 50% 확률로 확률 UP 오퍼레이터가 나옵니다. 6성 확정 카운트(천장)는 모든 배너가 함께 씁니다.</p>
           <div class="bn-form">
@@ -703,7 +704,7 @@
     return {
       name: '', en: '', rarity: 6, class: 'guard', archetype: '', race: '', faction: '로도스 아일랜드', color: '#6fa8dc', tags: '',
       imageId: '', cost: 15, redeploy: 40, block: 2, hp: 2500, atk: 600, def: 350, res: 0, interval: 1.2, range: 'melee1',
-      profile: '', quote: '', voices: '',
+      profile: '', quote: '', voices: '', isOnly: false,
       talents: [{ name: '', desc: '', fx: {} }, { name: '', desc: '', fx: {} }],
       skills: [0, 1, 2].map(() => ({ name: '', desc: '', spType: 'time', trigger: 'manual', sp: 30, initSp: 10, duration: 15, fx: {} })),
       creator: '',
@@ -715,7 +716,7 @@
       ...b, name: o.name, en: o.en, rarity: o.rarity, class: o.class, archetype: o.archetype || '', race: o.race, faction: o.faction,
       color: o.color, tags: (o.tags || []).join(', '), imageId: o.imageId || '', cost: o.cost, redeploy: o.redeploy, block: o.block,
       hp: o.hp, atk: o.atk, def: o.def, res: o.res, interval: o.interval, range: o.rangeKey, profile: o.profile, quote: o.quote,
-      voices: (o.voices || []).join('\n'), creator: o.creator,
+      voices: (o.voices || []).join('\n'), creator: o.creator, isOnly: !!o.isOnly,
       talents: [0, 1].map((i) => (o.talents[i] ? { name: o.talents[i].name, desc: o.talents[i].desc, fx: { ...o.talents[i].fx } } : b.talents[i])),
       skills: [0, 1, 2].map((i) => (o.skills[i] && o.skills[i].name !== '기본 공격' ? { ...b.skills[i], ...o.skills[i], fx: { ...o.skills[i].fx } } : { ...b.skills[i], name: '' })),
     };
@@ -733,7 +734,7 @@
         <div><button class="btn" id="ed-cancel">취소</button> <button class="btn primary" id="ed-save">저장</button></div></div>
       <section><h4>기본 정보</h4><div class="form-grid">
         ${inp('ed-name', '이름', d.name, 'text', 'maxlength="20"')}${inp('ed-en', '영문 이름', d.en, 'text', 'maxlength="30"')}
-        ${sel('ed-rarity', '레어도', d.rarity, [6, 5, 4, 3, 2, 1].map((r) => [r, '★' + r]))}
+        ${sel('ed-rarity', '레어도', d.rarity, [6, 5, 4, 3, 2, 1].map((r) => [r, '★' + r]))}${sel('ed-isonly', '용도', d.isOnly ? 1 : 0, [[0, '일반 (헤드헌팅 · 보유)'], [1, '통합전략 전용 (임시 모집만)']])}
         ${sel('ed-class', '직군', d.class, Object.entries(CLASSES).map(([k, c]) => [k, c.name]))}
         ${sel('ed-arch', '세부 직군 특성', d.archetype, [['', '없음 (직군 기본 특성)'], ...Object.entries(ARCHETYPES).map(([k, a]) => [k, `${a.name} — ${a.trait}`])])}
         ${inp('ed-race', '종족', d.race, 'text', 'maxlength="20"')}${inp('ed-faction', '소속', d.faction, 'text', 'maxlength="40"')}
@@ -786,6 +787,7 @@
     const n = (id) => +v(id);
     const fx = (prefix, list) => { const o = {}; for (const [k] of list) { const x = v(`${prefix}-${k}`); if (x !== '' && Number.isFinite(+x) && +x !== 0) o[k] = +x; } return o; };
     return {
+      isOnly: v('ed-isonly') === '1',
       name: v('ed-name').trim(), en: v('ed-en').trim(), rarity: n('ed-rarity'), class: v('ed-class'), archetype: v('ed-arch'),
       race: v('ed-race').trim(), faction: v('ed-faction').trim(), color: v('ed-color'),
       tags: v('ed-tags').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 4),

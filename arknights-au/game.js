@@ -93,7 +93,9 @@
       const boss = st.waves.some((w) => { const e = (opts.enemies && opts.enemies[w.enemy]) || ENEMIES[w.enemy]; return e && e.boss; });
       const ch = typeof st.chapter === 'number' ? st.chapter : 1, isRun = typeof idx === 'object' && !opts.practice;
       // 장마다 다른 전투곡 (1장 기본 · 2장 체르노보그 · 3장 용문 · 4장 일반 전투), 보스는 1~2장 프로스트노바 · 3장~ 용문 보스, 통합전략은 따로
-      SFX.bgm(boss ? (ch <= 2 && !isRun ? 'boss2' : 'boss') : isRun ? 'isbattle' : ({ 2: 'battle2', 3: 'battle3', 4: 'battle4' }[ch] || 'battle'));
+      // 통합전략은 원작 미즈키 전투곡: 일반 「沉溺浅洋」 · 심해 「跌坠海渊」 · 보스 「大群之殇」
+      const deep = isRun && window.IS && IS.run && IS.run.floor >= IS.DEEP;
+      SFX.bgm(isRun ? (boss ? 'isboss' : deep ? 'isbattle2' : 'isbattle') : boss ? (ch <= 2 ? 'boss2' : 'boss') : ({ 2: 'battle2', 3: 'battle3', 4: 'battle4' }[ch] || 'battle'));
     }
     if (typeof idx === 'object') idx = -1;
     const map = st.map.map((r) => r.split(''));
@@ -1214,8 +1216,19 @@
     // 해방자: 스킬이 끝나면 공격력 충전 초기화 / 인내의 기도 초기화
     if (op.def.archetype === 'librator') op.libT = 0;
     if (op.tal.patience) { op.patience = 0; op.patSnap = 0; }
-    // 만복을 비나이다를 끄면 설치된 부적 · 진법이 모두 사라짐
-    if (ef.clearCharms && S.charms) { for (const [k, c] of S.charms) if (c.owner === op) S.charms.delete(k); addText(op.x + 0.5, op.y - 0.2, '진법 해제', '#9aa1ab', 1, true); }
+    // 만복을 비나이다를 끄면 설치된 부적이 모두 터지며(부적마다 주변 적에게 마법 피해 · 속박) 진법이 사라짐
+    if (ef.clearCharms && S.charms) {
+      const burst = ef.charmBurst, atk = op.def.atk * op.tal.atk * (ef.atk || 1);
+      for (const [k, c] of S.charms) {
+        if (c.owner !== op) continue;
+        S.charms.delete(k);
+        if (!burst || !op.alive) continue;
+        addFx({ type: 'ring', x: c.x + 0.5, y: c.y + 0.5, life: 0.5, color: '#ff5a5a', r: 0.8 });
+        for (const e of S.enemies) if (e.alive && Math.hypot(e.x - (c.x + 0.5), e.y - (c.y + 0.5)) <= burst.radius) { hitEnemy(e, atk * burst.mul, 'arts', false, op, 0, true); if (e.alive) bindEnemy(e, burst.bind); }
+      }
+      if (burst && op.alive) { sfx('strike'); S.shake = Math.max(S.shake, 0.25); }
+      addText(op.x + 0.5, op.y - 0.2, burst && op.alive ? '부적 폭발' : '진법 해제', burst && op.alive ? '#ff7a7a' : '#9aa1ab', 1, true);
+    }
     if (ef.hpMul) { op.maxHp /= ef.hpMul; op.hp = Math.min(op.hp, op.maxHp); }
     if (ef.endHeal) healOp(op, op.maxHp * ef.endHeal);
     if (ef.endStun) { op.stun = ef.endStun; addText(op.x + 0.5, op.y - 0.1, '기절', '#9aa1ab', 1, true); }
