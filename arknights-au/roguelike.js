@@ -1583,7 +1583,7 @@
       return `<div class="is-op ${o.promoted ? 'promoted' : ''} ${isAway(o.id) ? 'away' : ''}">
         ${cardHTML(def, 'small')}
         <div class="is-op-meta">
-          <b>${esc(def.name)} <small>${o.temp ? '임시 모집 · ' : ''}${isAway(o.id) ? '긴급 수송 중 · ' : ''}${o.promoted ? '랭크 상승 완료' : canRankUp(o).ok ? '<em class="rk-up">▲ 랭크 상승 가능</em>' : '랭크 상승 전'} · ${eliteText(pg)} · 스킬 Lv.${pg.slv}${pg.mst && pg.mst[cur] ? ` 특화 ${pg.mst[cur]}` : ''}</small></b>
+          <b>${esc(def.name)} <small>${o.temp ? '임시 모집 · ' : ''}${isAway(o.id) ? '긴급 수송 중 · ' : ''}${o.promoted ? '랭크 상승 완료' : '랭크 상승 전'} · ${eliteText(pg)} · 스킬 Lv.${pg.slv}${pg.mst && pg.mst[cur] ? ` 특화 ${pg.mst[cur]}` : ''}</small></b>
           <span>HP ${d.hp} · 공격 ${d.atk} · 방어 ${d.def} · 코스트 ${d.cost}</span>
           ${mi ? `<span class="is-mut"><img src="${mi.icon}" alt="">거부반응 「${esc(mi.name)}」 — ${esc(mi.desc)}</span>` : ''}${ev ? `<span class="is-mut evo"><img src="${ev.icon}" alt="">「${esc(ev.name)}」 — ${esc(ev.desc)}</span>` : ''}
           <div class="is-skills">${skills.map((sk, k) => `<button class="btn small ${cur === k ? 'primary' : ''}" data-sq="skill" data-i="${i}" data-k="${k}" title="${esc(sk.desc || '')}">S${k + 1} ${esc(sk.name)}</button>`).join('')}</div>
@@ -1624,7 +1624,7 @@
         <span class="fm-art">${def.image ? `<img src="${esc(def.image)}" alt="">` : `<b>${esc(def.name[0])}</b>`}</span>
         <span class="fm-stars">${'★'.repeat(def.rarity || 3)}</span>
         ${sk ? `<span class="fm-sk" data-fm="skill" data-id="${esc(id)}" title="스킬 변경"><img src="${UI.skillIcon(sk, Math.max(0, (def.skills || []).findIndex((x) => x.name === sk.name)), def)}" alt=""><i>${pg.slv}</i></span>` : ''}
-        ${o.promoted ? '<span class="fm-pro">랭크 상승</span>' : canRankUp(o).ok ? '<span class="fm-pro can">▲ 상승 가능</span>' : ''}${o.mut && !o.evo ? '<span class="fm-mut">거부반응</span>' : ''}
+        ${o.promoted ? '<span class="fm-pro">랭크 상승</span>' : ''}${o.mut && !o.evo ? '<span class="fm-mut">거부반응</span>' : ''}
         <span class="fm-name">${esc(def.name)}</span></button>`;
     };
     const slots = Array.from({ length: MAX_SQUAD }, (_, i) => (i < cap ? slot(l[i]) : '<div class="fm-slot off"></div>'));
@@ -1642,7 +1642,7 @@
     const r = R(), l = lineup();
     const cand = r.ops.filter((o) => !isAway(o.id) && !l.includes(o.id));
     const el = $('#fm-pick');
-    el.innerHTML = `<div class="fm-pick-box"><b>편성할 오퍼레이터</b><div class="is-cands">${cand.map((o) => `<button class="is-cand" data-fm="pick" data-id="${esc(o.id)}">${cardHTML(OPS[o.id], 'small')}<small class="is-cand-st">${eliteText(progFor(o))}${o.promoted ? ' · 랭크 상승' : canRankUp(o).ok ? ' · <em class="rk-up">▲ 랭크 상승 가능</em>' : ''}</small></button>`).join('') || '<p class="empty-note">편성할 수 있는 오퍼레이터가 없습니다.</p>'}</div><button class="btn" data-fm="pick-close">닫기</button></div>`;
+    el.innerHTML = `<div class="fm-pick-box"><b>편성할 오퍼레이터</b><div class="is-cands">${cand.map((o) => `<button class="is-cand" data-fm="pick" data-id="${esc(o.id)}">${cardHTML(OPS[o.id], 'small')}<small class="is-cand-st">${eliteText(progFor(o))}${o.promoted ? ' · 랭크 상승' : ''}</small></button>`).join('') || '<p class="empty-note">편성할 수 있는 오퍼레이터가 없습니다.</p>'}</div><button class="btn" data-fm="pick-close">닫기</button></div>`;
     el.classList.remove('hidden');
   }
   // 편성 화면: 스킬 고르기 (랭크 상승 전에는 1차 정예화까지 열린 스킬)

@@ -502,9 +502,13 @@
   // 적의 무게 (값이 없으면 보스 4 · 정예 3 · 중장갑 2 · 그 외 1로 봄)
   const wOf = (e) => e.def.weight || (e.def.boss ? 4 : e.def.elite ? 3 : e.def.def >= 400 ? 2 : 1);
   const opAtk = (op) => op.def.atk * op.tal.atk * (eff(op).atk || 1) * (1 + B(op, 'atk'));
+  // 위장: 저지 중이 아니면 적의 원거리 공격 대상이 되지 않음 (아스트라 은신 준비 · 2스킬)
+  const isCamo = (op) => op.alive && ((op.tal.stealth && op.sready) || (eff(op).camoIdle != null && S.time - (op.lastAtkAt ?? -99) >= eff(op).camoIdle));
+  // 별흔 (아스트라): 이 오퍼레이터가 붙인 별흔이 남아 있는 적
+  const starOf = (e, op) => e.starUntil > S.time && e.starBy === op;
   const phalanxIdle = (op) => op.def.archetype === 'phalanx' && !(op.skillT > 0);
   const opDef = (op) => op.def.def * (phalanxIdle(op) ? 3 : 1) * op.tal.def * (eff(op).def || 1) * (1 + (op.auraDef || 0)) * (op.brand ? 0.7 : 1) * (1 + B(op, 'def')) + B(op, 'defFlat');
-  const opInterval = (op) => op.def.interval * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op) / Math.max(0.1, 1 + B(op, 'aspd') / 100);
+  const opInterval = (op) => (op.def.interval + (eff(op).intervalAdd || 0)) * op.tal.speed * (eff(op).interval || 1) * (op.chill > 0 ? 1.5 : 1) * partnerMul(op) / Math.max(0.1, 1 + B(op, 'aspd') / 100);
   const opRes = (op) => (op.def.res || 0) + (phalanxIdle(op) ? 20 : 0) + (op.resT > 0 ? op.resBuff : 0) + B(op, 'res');
   const inSquad = (id) => S.squadIds.includes(id);
   const isDebuffed = (e) => e.analysis > 0 || e.slowT > 0 || e.stun > 0;
@@ -1242,7 +1246,7 @@
       const a = S.ops.filter((o) => o.alive && Math.abs(o.x - op.x) + Math.abs(o.y - op.y) <= 2).sort((p, q) => p.hp / p.maxHp - q.hp / q.maxHp)[0];
       if (a) { a.guardT = ef.endGuard.dur; a.guardCut = ef.endGuard.cut; addText(a.x + 0.5, a.y - 0.2, '받는 피해 감소', '#7fd8ff', 0.9, true); }
     }
-    if (ef.endCost) { op.hp = Math.max(1, op.hp - op.maxHp * ef.endCost.hp); op.fatigueT = ef.endCost.dur; op.fatigueAspd = ef.endCost.aspd; addText(op.x + 0.5, op.y - 0.1, '어지러워……', '#9aa1ab', 1, true); }
+    if (ef.endCost) { op.hp = Math.max(1, op.hp - op.maxHp * ef.endCost.hp); op.fatigueT = ef.endCost.dur; op.fatigueAspd = ef.endCost.aspd; addText(op.x + 0.5, op.y - 0.1, ef.endCost.text || '어지러워……', '#9aa1ab', 1, true); }
     if (ef.proofBlast) {
       const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
       const proven = S.enemies.filter((e) => e.alive && e.proof);
@@ -1283,8 +1287,10 @@
     if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord' && !eff(op).antiAir))));
-    const prio = eff(op).priority;
+    const prio = eff(op).priority || (op.def.archetype === 'deadeye' ? 'lowDef' : null);
+    const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0);
     list.sort((a, b) =>
+      stb(b) - stb(a) ||
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
       (prio === 'proof' ? !!b.proof - !!a.proof : 0) ||
       (op.def.archetype === 'besieger' ? wOf(b) - wOf(a) : 0) ||
@@ -1312,6 +1318,9 @@
     const sk = op.skill, ef = sk.effect || {};
     op.flash = Math.max(0, op.flash - dt);
     op.chill = Math.max(0, op.chill - dt);
+    // 사람 없는 곳이 좋아요: 공격받지 않고 일정 시간이 지나면 은신 준비
+    const stl = op.tal.stealth;
+    if (stl && !op.sready && S.time >= (op.srBlock ?? op.born + stl.idle)) { op.sready = true; addText(op.x + 0.5, op.y - 0.1, '은신 준비', '#bfe3ff', 0.7, true); }
     if (op.resT > 0) op.resT -= dt;
     if (op.surviveT > 0) op.surviveT -= dt;
     op.brand = onBrand(op.x, op.y);
@@ -1462,6 +1471,10 @@
     }
     const ignOf = (t) => (bs && wOf(t) >= bs.weight ? Math.min(1, ignore + bs.ignore) : ignore);
     if (op.firstStrike) { mul *= op.tal.firstStrike; op.firstStrike = false; addText(cx, op.y + 0.1, '발도!', '#ffcf3a', 0.8, true); }
+    // 은신 준비: 다음 공격 강화 후 해제
+    const wasReady = !!(op.tal.stealth && op.sready);
+    if (wasReady) { mul *= 1 + op.tal.stealth.bonus; op.sready = false; op.srBlock = S.time + op.tal.stealth.again; }
+    const charged = !!op.charge;
     if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } nsplash = (op.skill.effect || {}).nextSplash || 0; op.zoneBoost = (op.skill.effect || {}).nextZone; }
     const fin = eff(op).finisher;
     const finish = fin && ++op.finN % fin.every === 0;
@@ -1487,7 +1500,18 @@
         const e2 = own && op.def.trained && op.def.trained.elite >= 2;
         const ptIgn = !anal ? 0 : own ? pt.ignore + (e2 ? pt.ignore2 || 0 : 0) : pt.schoolIgnore;
         const anaMul = !anal ? 1 : own ? 1 + (eff(op).analyzedAmp || 0) : 1 + pt.schoolAmp;
-        hitEnemy(t, atk * crit * lordMul * anaMul * (t === targets[0] ? bsMul : 1), type, crit > 1, op, Math.min(1, ignOf(t) + ptIgn));
+        // 별흔: 피해 증가 · 저지된 적 방어 무시 / 3스킬: 아군이 저지한 적 피해 증가
+        const starred = starOf(t, op), sm = op.tal.starMark, ef0 = eff(op);
+        const starMul = starred ? 1 + (sm ? sm.amp : 0) + (ef0.starAmp || 0) : 1;
+        const starIgn = starred ? (sm && t.blockedBy ? sm.ignore : 0) + (ef0.starIgnore || 0) : 0;
+        const blkMul = ef0.blockedMul && t.blockedBy ? ef0.blockedMul : 1;
+        const dmg = atk * crit * lordMul * anaMul * starMul * blkMul * (t === targets[0] ? bsMul : 1), ign = Math.min(1, ignOf(t) + ptIgn + starIgn);
+        S.noDodge = charged && wasReady && !!(op.skill.effect || {}).starHit;
+        hitEnemy(t, dmg, type, crit > 1, op, ign);
+        S.noDodge = false;
+        if (i === 0 && t.alive && charged && starred && (op.skill.effect || {}).starHit) { const sh = op.skill.effect.starHit; hitEnemy(t, opAtk(op) * sh.mul, 'phys', false, op, ign, true); if (t.alive) stunEnemy(t, sh.stun); }
+        if (i === 0 && t.alive && ef0.extraShot && Math.random() < ef0.extraShot) { attackFx(op, t, 1, type, true, cx, cy); hitEnemy(t, dmg, type, false, op, ign, true); }
+        if ((sm || ef0.starEach) && t.alive) { if (!starred) addText(t.x, t.y - 0.45, '별흔', '#bfe3ff', 0.6); t.starUntil = S.time + (sm ? sm.dur : 8); t.starBy = op; }
         if (pt && t.alive) {
           if (anal) {
             t.analyzedT = pt.dur;
@@ -1588,6 +1612,7 @@
 
   function afterAttack(op) {
     const sk = op.skill;
+    op.lastAtkAt = S.time;
     if (sk.spType === 'attack' && op.skillT <= 0) op.sp = Math.min(spCap(sk), op.sp + 1);
     if (op.charges > 0 && --op.charges === 0 && op.skillT > 0) endSkill(op);
     op.atkCd = opInterval(op);
@@ -1637,6 +1662,7 @@
     const X = S.mods;
     if (type === 'phys' && Math.random() < opDodge(op)) { onDodge(op, src); return; }
     if (type === 'arts' && Math.random() < opArtsDodge(op)) { onDodge(op, src); return; }
+    if (op.tal.stealth) { op.sready = false; op.srBlock = Math.max(op.srBlock || 0, S.time + op.tal.stealth.idle); }
     const eg = src && src.blockedBy === op && op.tal.easygoing;
     if (eg && Math.random() < eg.nullify) { addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); return; }
     if (op.immune > 0) { op.immune--; addText(op.x + 0.5, op.y + 0.25, '무효', '#7fd8ff', 0.5); if (X.dodgeNext) op.charge = Math.max(op.charge || 0, 1 + X.dodgeNext); return; }
@@ -1760,7 +1786,7 @@
   function hitEnemy(e, atk, type, crit, src, ignore = 0, extra = false) {
     if (!e.alive) return;
     const X = S.mods;
-    if (e.def.dodge && Math.random() < e.def.dodge) { addText(e.x, e.y - 0.25, '회피', '#cfd3d6', 0.4); return; }
+    if (e.def.dodge && !S.noDodge && Math.random() < e.def.dodge) { addText(e.x, e.y - 0.25, '회피', '#cfd3d6', 0.4); return; }
     const hd = e.def.harden && e.hp / e.maxHp < e.def.harden.below ? e.def.harden.def : 1;
     if (src && src.def && X.ignoreDef && X.ignoreDef.classes.includes(src.def.class)) ignore = Math.min(1, ignore + X.ignoreDef.v);
     if (src && src.def && src.def.evo) ignore = Math.min(1, ignore + 0.35);
@@ -1823,6 +1849,12 @@
     }
     e.alive = false;
     S.killed++;
+    // 별흔이 있는 적이 쓰러지면 범위 안 HP 비율이 가장 낮은 적에게 옮겨 감
+    const sb = e.starUntil > S.time && e.starBy;
+    if (sb && sb.alive && sb.tal.starMark) {
+      const nx = S.enemies.filter((o) => o.alive && o !== e && sb.range.has(key(Math.floor(o.x), Math.floor(o.y)))).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      if (nx) { nx.starUntil = S.time + sb.tal.starMark.dur; nx.starBy = sb; addText(nx.x, nx.y - 0.45, '별흔', '#bfe3ff', 0.7, true); }
+    }
     if (src && src.def && src.tal) onOpKill(src);
     if (e.unluckyT > 0) zoneKill(e);
     relicKill(e);
@@ -1959,7 +1991,7 @@
     }
 
     let target = e.blockedBy;
-    const inRange = e.def.range > 0 ? S.ops.filter((op) => Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y) <= e.def.range) : [];
+    const inRange = e.def.range > 0 ? S.ops.filter((op) => Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y) <= e.def.range && !(isCamo(op) && !op.blocked.length)) : [];
     if (!target && inRange.length) {
       const dist = (op) => Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y);
       inRange.sort((a, b) => (e.def.lowHp ? a.hp / a.maxHp - b.hp / b.maxHp : 0) || dist(a) - dist(b));
@@ -2448,6 +2480,10 @@
   }
 
   function drawOp(op) {
+    if (isCamo(op)) { ctx.save(); ctx.globalAlpha = 0.5; drawOpBody(op); ctx.restore(); return; }
+    drawOpBody(op);
+  }
+  function drawOpBody(op) {
     const h = tileH(op.x, op.y);
     const [X, Y, s] = proj(op.x + 0.5, op.y + 0.58, h);
     const T = P.T * s, sk = op.skill;
@@ -2562,6 +2598,7 @@
     }
     const bw = T * (e.def.boss ? 0.8 : 0.5);
     bar(X - bw / 2, headY - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
+    if (e.starUntil > S.time) { ctx.font = `900 ${T * 0.22}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfe3ff'; ctx.fillText('★', X + bw / 2 + T * 0.1, headY - T * 0.1); }
     if (e.analysis > 0 && e.ana) {
       // 분석 스택 표시
       const st = Math.floor(e.analysis), done = e.analysis >= e.ana.max, pw = T * 0.07;

@@ -41,6 +41,7 @@ const DAILY_ARTS = {
 // 세부 직군(원작의 아키타입). 특성 효과는 게임 엔진에 구현되어 있습니다.
 const ARCHETYPES = {
   marksman:  { name: '명사수', trait: '공중 유닛 우선 공격' },
+  deadeye:   { name: '저격수', trait: '공격 범위 내 방어력이 가장 낮은 적을 우선 공격' },
   guardian:  { name: '가디언', trait: '스킬로 아군 유닛 HP 회복' },
   executor:  { name: '처형자', trait: '재배치 시간 대폭 감소' },
   centurion: { name: '공격수', trait: '저지하고 있는 모든 적 동시에 공격' },
@@ -125,8 +126,8 @@ function area(x0, x1, y0, y1) {
 const OPERATORS = [
   // ================= 행동대 「등대」 (박사님의 자캐) =================
   {
-    id: 'byeol', name: '아스트라', class: 'sniper', archetype: 'marksman', race: '산크타', color: '#8fc9f0',
-    en: 'Astra', rarity: 6, tags: ['원거리', '대공', '화력'], faction: '로도스 아일랜드 · 행동대 등대',
+    id: 'byeol', name: '아스트라', class: 'sniper', archetype: 'deadeye', race: '산크타', color: '#8fc9f0',
+    en: 'Astra', rarity: 6, tags: ['원거리', '화력', '단일 목표', '엄호'], faction: '로도스 아일랜드 · 행동대 등대',
     voice: {
       obtain: '아, 안녕하세요…… 천사별이라고 합니다. 스나이퍼 오퍼레이터로 배속되었어요. ……사격 실력은 걱정하지 않으셔도 돼요. 아, 물론 아직 부족한 점도 많지만요…….',
       assistant: '여기 앉아 있어도 될까요……? 아, 조용히 있을게요. ……저기, 혹시 인터넷 연결은…… 아, 아무것도 아니에요.',
@@ -150,17 +151,25 @@ const OPERATORS = [
     image: 'img/byeol.png',
     profile: '코드네임 아스트라, 본명 천사별. 라테라노 출신 산크타 저격수. 말수가 적고 수줍음이 많지만, 어릴 때부터 총을 다뤄 온 만큼 사격 실력만큼은 확실하다. 전투에 들어가면 오히려 침착해진다. 안심해와는 학창 시절부터 알던 사이.',
     quote: '시야 확보했어요.',
-    cost: 13, redeploy: 35, block: 1,
-    hp: 1673, atk: 540, def: 161, res: 0, interval: 1.0,
-    range: area(0, 3, -1, 1),
+    // 저격수(원작 deadeye): 원작 저격수 범위 3-9, 공격 간격 2.7초
+    cost: 21, redeploy: 70, block: 1,
+    hp: 1750, atk: 1500, def: 170, res: 0, interval: 2.7,
+    range: [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [2, -2], [2, -1], [2, 0], [2, 1], [2, 2], [3, -1], [3, 0], [3, 1], [4, 0]],
     talents: [
-      { name: '별빛 장전', desc: '공격 속도 +15%', effect: { speed: 0.87 } },
-      { name: '천사의 가호', desc: '공격력 +8%, 최대 HP +13%', effect: { atk: 1.08, hp: 1.13 } },
+      { name: '사람 없는 곳이 좋아요', desc: '적에게 공격받지 않은 채 5초가 지나면 「은신 준비」 상태가 된다. 은신 준비 중에는 위장(저지 중이 아니면 적의 원거리 공격 대상이 되지 않음)하고 다음 공격의 공격력 +35%. 강화 공격을 하면 은신 준비가 풀리고, 공격 후 4초 동안 공격받지 않으면 다시 은신 준비 상태가 된다. 공격받으면 은신 준비가 풀린다',
+        effect: { stealth: { idle: 5, again: 4, bonus: 0.35 } } },
+      { name: '작은 별의 좌표', desc: '공격이 명중한 적에게 8초간 「별흔」 부여. 별흔이 있는 적에게 주는 피해 +20%. 별흔이 있는 적이 아군에게 저지되어 있으면 우선 공격하고 방어력 25% 무시. 별흔이 있는 적이 쓰러지면 공격 범위 안 HP 비율이 가장 낮은 적에게 별흔이 옮겨 간다',
+        effect: { starMark: { dur: 8, amp: 0.2, ignore: 0.25 } } },
     ],
     skills: [
-      { name: '트윙클 샷', desc: '다음 공격이 3연발 사격이 되며, 한 발마다 공격력의 145% 물리 대미지', sp: 4, initSp: 0, duration: 0, spType: 'attack', trigger: 'auto', effect: { hits: { count: 3, mul: 1.45 } } },
-      { name: '유성우', desc: '15초간 공격이 4연발 사격이 되며, 한 발마다 공격력의 125% 물리 대미지', sp: 35, initSp: 25, duration: 15, trigger: 'manual', effect: { hits: { count: 4, mul: 1.25 } } },
-      { name: '별이 쏟아지는 밤', desc: '15초간 공격이 5연발 사격이 되고 공격 간격 감소, 공격력 +10%', sp: 30, initSp: 20, duration: 15, trigger: 'auto', effect: { hits: { count: 5, mul: 1 }, interval: 0.8, atk: 1.1 } },
+      { name: '조용히, 하나만……', desc: '다음 공격이 공격력의 240% 물리 피해. 대상이 별흔 상태면 추가로 공격력의 60% 물리 피해를 주고 2초간 기절. 은신 준비 상태에서 발동하면 대상의 물리 회피를 무시',
+        sp: 4, initSp: 0, duration: 0, spType: 'attack', trigger: 'auto', voice: '……아, 맞힐 수 있을 것 같아요.', effect: { nextHit: 2.4, starHit: { mul: 0.6, stun: 2 } } },
+      { name: '방해하지 말아 주세요……', desc: '지속 시간 무한. 공격력 +85%, 공격 간격 +0.3초. 공격하지 않는 동안 위장(공격 후 1초 뒤 다시 위장). 별흔이 있는 적을 공격할 때 방어력 15% 추가 무시. 적을 처치하면 최대 HP의 8% 회복',
+        sp: 55, initSp: 20, duration: -1, trigger: 'auto', voice: '……여기라면, 아무도 안 보겠죠……?', effect: { atk: 1.85, intervalAdd: 0.3, camoIdle: 1, starIgnore: 0.15, killHeal: 0.08 } },
+      { name: '당신에게 닿는 별빛', desc: '탄약 12발. 공격 범위 확대, 공격력 +130%, 공격 속도 +35. 공격할 때마다 목표에게 별흔 부여, 별흔이 있는 적에게 주는 피해 +25% 추가. 아군이 저지하고 있는 적을 공격하면 피해 1.4배. 공격할 때마다 25% 확률로 추가 탄환 1발(탄약 소모 없음). 탄약을 모두 쓰면 종료, 수동 종료 가능. 종료 후 8초간 공격 속도 -30',
+        sp: 45, initSp: 25, duration: -1, trigger: 'manual', voice: '……당신에게, 닿을 거예요.',
+        effect: { charges: 12, atk: 2.3, aspd: 35, starEach: true, starAmp: 0.25, blockedMul: 1.4, extraShot: 0.25, cancelable: true, endCost: { hp: 0, dur: 8, aspd: -30, text: '……숨 좀 고를게요' },
+          range: [[0, -3], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [0, 3], [1, -3], [1, -2], [1, -1], [1, 0], [1, 1], [1, 2], [1, 3], [2, -3], [2, -2], [2, -1], [2, 0], [2, 1], [2, 2], [2, 3], [3, -2], [3, -1], [3, 0], [3, 1], [3, 2], [4, -1], [4, 0], [4, 1], [5, 0]] } },
     ],
   },
   {

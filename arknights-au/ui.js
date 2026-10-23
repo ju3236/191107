@@ -1051,7 +1051,10 @@
     const startW = startBtn.classList.contains('hidden') ? 0 : startBtn.offsetWidth + 18;
     const byW = ((body.clientWidth - startW - gap * 5) / 6) * 8 / 5;
     const byH = (body.clientHeight - gap) / 2;
-    grid.style.setProperty('--slot-h', Math.floor(Math.max(60, Math.min(byW, byH))) + 'px');
+    const h = Math.floor(Math.max(60, Math.min(byW, byH)));
+    grid.style.setProperty('--slot-h', h + 'px');
+    // 아이패드 사파리는 높이 기준 비율로 칸 너비를 계산하지 못해 칸이 납작해지므로 너비도 직접 지정
+    grid.style.setProperty('--slot-w', Math.floor(h * 5 / 8) + 'px');
   }
   window.addEventListener('resize', () => { if (current === 'formation') fitSlots(); });
 
