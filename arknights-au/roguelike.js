@@ -635,58 +635,85 @@
     refresh();
     resumePanel();
   };
+  // 원작 지도 리소스: 구역 배경 · 노드 아이콘 · 노드 태그 (img/is/ui)
+  const UI_IMG = 'img/is/ui/';
+  const MAP_BG = [1, 2, 4, 5];   // 층별 원작 구역 배경
+  const NODE_IMG = { battle: 'n_battle', emergency: 'n_elite', event: 'n_incident', shop: 'n_shop', rest: 'n_rest', unknown: 'n_unknown', wish: 'n_wish', ent: 'n_ent', sacrifice: 'n_sacrifice', expedition: 'n_expedition', mission: 'n_mission', gate: 'n_elite' };
+  const NODE_TAG = { battle: 'battle', emergency: 'elite', event: 'incident', shop: 'shop', rest: 'rest', unknown: 'unknown', wish: 'treasure', ent: 'entertainment', sacrifice: 'sacafri', expedition: 'exped', gate: 'elite', boss: 'boss' };
   function renderTop() {
     const r = R(), F = D.floors[r.floor];
     const next = D.levels[r.level] && D.levels[r.level].exp;
     const vi = r.vari && X2.variations.find((v) => v.id === r.vari);
+    $('#screen-isrun .is-bg').style.backgroundImage = `url(${UI_IMG}map_${MAP_BG[r.floor] || 1}.webp)`;
     $('#is-top').innerHTML = `
-      <div class="ist-floor"><small>${r.floor + 1}층 · ${esc(F.en)}${r.floor >= DEEP ? ' · 심해' : ''}</small><b>${esc(F.name)}</b></div>
+      <div class="ist-left">
+        <button class="ist-exit" id="isb-exit" title="나가기"></button>
+        <div class="ist-hp"><img src="${UI_IMG}init_hp.png" alt=""><div><small>목표 HP</small><b>${r.life}</b><i>/${r.maxLife}</i>${r.shield ? `<em title="실드">+${r.shield}</em>` : ''}</div></div>
+        <div class="ist-lv"><span class="lvc"><small>LV</small><b>${r.level}</b></span><div><small>지휘 레벨</small><b>${next ? Math.round(r.exp * 10) / 10 : 'MAX'}</b>${next ? `<i>/${next}</i>` : ''}</div></div>
+      </div>
+      <div class="ist-zone"><img src="${UI_IMG}zone_${MAP_BG[r.floor] || 1}.png" alt=""><b>${esc(F.name)}</b><small>${r.floor + 1}층 · ${esc(F.en)}${r.floor >= DEEP ? ' · 심해' : ''}${vi ? ` · 메아리: ${esc(vi.name)}` : ''}</small></div>
       <div class="ist-res">
-        <span class="ist-life" title="목표 HP">♥ <b>${r.life}</b><small>/${r.maxLife}</small></span>
-        ${r.shield ? `<span class="ist-shield" title="실드">⛨ <b>${r.shield}</b></span>` : ''}
-        <span class="ist-ingot" title="오리지늄각뿔">◆ <b>${r.ingot}</b></span>
-        <span class="ist-hope" title="희망">✦ <b>${r.hope}</b></span>
-        <span class="ist-light l${lightState()}" title="등불">🕯 <b>${r.light}</b><small>${LIGHT_NAME[lightState()]}</small></span>
+        <span class="ist-hope" title="희망"><img src="${UI_IMG}init_population.png" alt=""><b>${r.hope}</b></span>
+        <span class="ist-ingot" title="오리지늄각뿔"><img src="${UI_IMG}ut_gold.png" alt=""><b>${r.ingot}</b></span>
         <span class="ist-key" title="열쇠"><img src="img/is/key.png" alt=""><b>${r.key}</b></span>
-        <span class="ist-dice" title="주사위 (d${diceFace()})">🎲 <b>${r.dice}</b></span>
-        <span class="ist-lv" title="지휘 레벨">Lv.<b>${r.level}</b><small>${next ? `${r.exp}/${next}` : 'MAX'}</small></span>
-        ${vi ? `<span class="ist-vari" title="${esc(vi.desc)}"><img src="${vi.icon}" alt="">${esc(vi.name)}</span>` : ''}
       </div>`;
   }
   function renderBottom() {
-    const r = R();
+    const r = R(), cap = squadCap(), n = lineup().length;
     const mutN = r.ops.filter((o) => o.mut && !o.evo).length;
+    const st = lightState();
     $('#is-bottom').innerHTML = `
-      <button class="btn" id="isb-squad">분대 <b>${r.ops.length}</b><small>/${squadCap()}</small>${r.freePromotes.length ? ` <span class="badge">랭크 상승권 ${r.freePromotes.length}</span>` : ''}${mutN ? ` <span class="badge bad">거부반응 ${mutN}</span>` : ''}</button>
-      <button class="btn" id="isb-relic">소장품 <b>${r.relics.length}</b>${r.virtues.length ? ` · 계시 <b>${r.virtues.length}</b>` : ''}</button>
-      ${r.task ? `<button class="btn" id="isb-task">의뢰 ${esc(r.task.name)} <b>${r.task.prog || 0}/${r.task.goal}</b>${r.task.done ? ' <span class="badge">완료</span>' : ''}</button>` : ''}
-      ${r.tickets.length ? `<button class="btn primary pulse" id="isb-ticket">모집권 ${r.tickets.length}장 사용</button>` : ''}
-      <button class="btn" id="isb-exit">나가기</button>`;
+      <div class="isb-left">
+        <button class="isb-light l${st}" id="isb-light" title="등불 &lt;${LIGHT_NAME[st]}&gt;"><i style="--v:${r.light}"></i><b>${r.light}</b><small>${LIGHT_NAME[st]}</small></button>
+        <button class="isb-dice" id="isb-dice" title="주사위"><img src="${UI_IMG}init_dice.png" alt=""><small>REMAIN</small><b>${r.dice}</b><span>주사위</span></button>
+        <button class="isb-relic" id="isb-relic"><img src="${UI_IMG}ut_relic.png" alt=""><b>${r.relics.length}</b><span>소장품${r.virtues.length ? ` · 계시 ${r.virtues.length}` : ''}</span></button>
+      </div>
+      <div class="isb-mid">
+        ${r.task ? `<button class="btn small" id="isb-task">의뢰 ${esc(r.task.name)} ${r.task.prog || 0}/${r.task.goal}${r.task.done ? ' · 완료' : ''}</button>` : ''}
+        ${r.tickets.length ? `<button class="btn small primary pulse" id="isb-ticket">모집권 ${r.tickets.length}장 사용</button>` : ''}
+        ${r.freePromotes.length ? `<span class="isb-tag">랭크 상승권 ${r.freePromotes.length}</span>` : ''}${mutN ? `<span class="isb-tag bad">거부반응 ${mutN}</span>` : ''}
+      </div>
+      <div class="isb-right">
+        <button class="isb-ops" id="isb-squad"><span>오퍼레이터</span><b>${r.ops.length}</b></button>
+        <button class="isb-form" id="isb-form"><span>편성</span></button>
+        <div class="isb-cap" title="편성 ${n}/${cap}">${Array.from({ length: MAX_SQUAD }, (_, i) => `<i class="${i < n ? 'on' : i < cap ? '' : 'off'}"></i>`).join('')}</div>
+      </div>`;
   }
+  const COLW = 300;
   function renderMap() {
     const r = R(), m = r.map, can = new Set(reachable());
-    const nc = m.cols.length;
-    const pos = (c, y) => [((c + 0.5) / nc) * 100, y * 100];
+    const nc = m.cols.length, wrap = $('#is-map').parentElement;
+    const H = Math.max(200, wrap.clientHeight || 420), small = H < 320, cw = small ? 200 : COLW, half = small ? 60 : 95;
+    const W = 140 + (nc - 1) * cw + 220;
+    const pos = (c, y) => [110 + c * cw, (small ? 10 : 30) + y * (H - (small ? 20 : 90))];
     let lines = '';
     m.cols.forEach((col, c) => col.forEach((a) => (m.edges[a.id] || []).forEach((bid) => {
       const b = findNode(bid), [x1, y1] = pos(c, a.y), [x2, y2] = pos(c + 1, b.y);
-      const on = m.cur === a.id && can.has(bid);
+      const on = (m.cur ? m.cur === a.id : false) && can.has(bid);
       const walked = m.done.includes(a.id) && m.done.includes(bid);
-      lines += `<line x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%" class="${on ? 'on' : walked ? 'walked' : ''}"/>`;
+      const sx = x1 + half, ex = x2 - half, mx = (sx + ex) / 2;
+      lines += `<path d="M${sx} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${ex} ${y2}" class="${on ? 'on' : walked ? 'walked' : ''}" marker-end="url(#is-arrow)"/>`;
     })));
     const nodes = m.cols.map((col, c) => col.map((x) => {
       const [lx, ty] = pos(c, x.y);
-      // 자욱한 안개: 들어가기 전까지 정체를 모름
       const shown = x.fog && !x.entered ? 'unknown' : x.type;
-      const t = NODE[shown];
       const st = m.done.includes(x.id) ? 'done' : can.has(x.id) ? 'open' : 'locked';
-      const sub = x.battle && D.battles[x.battle] && shown !== 'unknown' ? D.battles[x.battle].name : '';
+      const sub = x.battle && D.battles[x.battle] && shown !== 'unknown' ? D.battles[x.battle].name : nodeName(shown);
       const keyed = x.locked && !x.unlocked;
-      return `<button class="is-node t-${shown} ${st} ${m.cur === x.id ? 'cur' : ''} ${keyed ? 'keyed' : ''}" style="left:${lx}%;top:${ty}%" data-node="${x.id}" ${st === 'open' ? '' : 'tabindex="-1"'} title="${esc(nodeDesc(shown))}">
-        <i>${t.ico}</i><b>${esc(nodeName(shown))}</b><small>${keyed ? '열쇠 필요' : st === 'locked' && x.type !== 'gate' && x.type !== 'boss' ? '' : esc(sub)}</small></button>`;
+      const big = shown === 'boss';
+      const tag = NODE_TAG[shown];
+      return `<button class="is-node t-${shown} ${st} ${m.cur === x.id ? 'cur' : ''} ${big ? 'big' : ''}" style="left:${lx}px;top:${ty}px" data-node="${x.id}" ${st === 'open' ? '' : 'tabindex="-1"'} title="${esc(nodeName(shown))} — ${esc(nodeDesc(shown))}">
+        <span class="nd-card">${big ? `<img class="nd-boss" src="${UI_IMG}${r.floor >= D.floors.length - 1 ? 'n_final' : 'n_boss'}.png" alt="">` : `<img class="nd-ico" src="${UI_IMG}${NODE_IMG[shown]}.png" alt="">`}${keyed ? `<img class="nd-key" src="${UI_IMG}need_key.png" alt="열쇠 필요">` : ''}</span>
+        <span class="nd-tag">${tag ? `<img src="${UI_IMG}tag_${tag}.png" alt="">` : `<em>${esc(NODE[shown].en)}</em>`}<b>✕ ${esc(sub)}</b></span></button>`;
     }).join('')).join('');
-    $('#is-map').innerHTML = `<svg class="is-lines" preserveAspectRatio="none">${lines}</svg>${nodes}`;
+    const el = $('#is-map');
+    el.style.width = W + 'px';
+    el.innerHTML = `<svg class="is-lines" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><marker id="is-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 L3 5 Z" fill="#fff"/></marker></defs>${lines}</svg>${nodes}`;
+    // 진행 중인 칸이 보이도록 스크롤
+    const ci = m.cur ? colOf(m.cur) : -1;
+    wrap.scrollLeft = Math.max(0, pos(Math.max(0, ci), 0)[0] - 160);
   }
+  window.addEventListener('resize', () => { if (UI.current === 'isrun' && R()) renderMap(); });
 
   $('#is-map').addEventListener('click', (e) => {
     const b = e.target.closest('[data-node]');
@@ -702,13 +729,15 @@
     sfx('select');
     resumePanel();
   });
+  $('#is-top').addEventListener('click', (e) => { if (e.target.closest('#isb-exit')) go('is'); });
   $('#is-bottom').addEventListener('click', (e) => {
     const t = e.target;
     if (t.closest('#isb-squad')) openSquad();
+    else if (t.closest('#isb-form')) openForm(null);
     else if (t.closest('#isb-relic')) openRelics();
     else if (t.closest('#isb-task')) openTask();
     else if (t.closest('#isb-ticket')) { resumePanel(true); }
-    else if (t.closest('#isb-exit')) go('is');
+    else if (t.closest('#isb-light') || t.closest('#isb-dice')) openLightInfo();
   });
 
   // ---------- 패널 (닫을 수 없는 진행 창) ----------
@@ -740,9 +769,10 @@
 
   // ---------- 초기 모집 조합 (원작: 선수필승 · 차근차근 · 상호보완 · 원하는 대로) ----------
   function showGroupPick() {
-    panel(`<div class="isp-head"><small>INITIAL RECRUITMENT</small><b>초기 모집</b></div>
-      <p class="isp-text">탐색을 시작할 모집권 조합을 고르세요. 희망 <b>${R().hope}</b> 보유 · 분대 「${esc(bandOf().name)}」</p>
-      <div class="is-choices">${D.recruitGroups.map((g) => `<button class="is-choice" data-act="group" data-k="${g.id}"><b>${esc(g.name)}</b><span>${esc(g.desc)}</span></button>`).join('')}</div>`);
+    const img = { g1: 'grp_1', g2: 'grp_2', g3: 'grp_3', random: 'grp_random' };
+    panel(`<div class="isp-head"><small>INITIAL RECRUITMENT</small><b>모집 조합 선택</b></div>
+      <p class="isp-text">희망 <b>${R().hope}</b> 보유 · 분대 「${esc(bandOf().name)}」</p>
+      <div class="is-cardsel">${D.recruitGroups.map((g) => `<button class="is-cardpick" data-act="group" data-k="${g.id}"><img src="${UI_IMG}${img[g.id]}.png" alt=""><b>${esc(g.name)}</b><span>${esc(g.desc)}</span></button>`).join('')}</div>`, 'wide ispcards');
   }
   // ---------- 출발 전 준비 (원작 8종 중 3종) ----------
   const START_GAIN = [{ shield: 3 }, { hope: 2 }, { ingot: 5 }, 'allIngotRelic', 'hopeRelic', { relic: 'ro2_grace_21' }, { key: 1 }, { dice: 2 }];
@@ -751,7 +781,7 @@
     if (!r.startOpts) { r.startOpts = shuffle([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, 3); save(); }
     panel(`<div class="isp-head"><small>PREPARATION</small><b>${esc(S0.title)}</b></div>
       <p class="isp-text story">${esc(S0.text)}</p>
-      <div class="is-choices">${r.startOpts.map((i) => `<button class="is-choice" data-act="startbuff" data-k="${i}"><b>${esc(S0.choices[i].label)}</b><span>${esc(S0.choices[i].desc)}</span></button>`).join('')}</div>`, '', S0.bg);
+      <div class="is-cardsel">${r.startOpts.map((i) => `<button class="is-cardpick" data-act="startbuff" data-k="${i}"><img src="${UI_IMG}init_${['shield', 'population', 'gold', 'unknown', 'unknown', 'hp', 'unknown', 'dice'][i]}.png" alt=""><b>${esc(S0.choices[i].label)}</b><span>${esc(S0.choices[i].desc)}</span></button>`).join('')}</div>`, 'wide ispcards', S0.bg);
   }
 
   // ---------- 모집 ----------
@@ -969,16 +999,12 @@
       ${node.type === 'emergency' || node.hard ? '<p class="isp-text warn">긴급 작전: 적이 더 많고 강하지만, 보상으로 소장품을 고를 수 있습니다.</p>' : ''}
       ${node.type === 'boss' ? `<p class="isp-text warn">${esc(nodeDesc('boss'))}</p>` : ''}
       <p class="isp-text">목표 HP <b>${r.life}</b>${r.shield ? ` · 실드 ${r.shield}` : ''} · 편성 ${lineup().length}/${squadCap()}명 · 배치 가능 인원 ${st.deployLimit + bm.deployLimit} · 시작 코스트 ${st.startDp + bm.startDp} · 등불 ${r.light}</p>
-      ${r.ops.length > squadCap() ? `<div class="is-lineup"><b>편성 — 작전에 데려갈 오퍼레이터를 고르세요 (${lineup().length}/${squadCap()})</b><div>${r.ops.filter((o) => !isAway(o.id)).map((o) => {
-        const d = OPS[o.id], on = lineup().includes(o.id);
-        return d ? `<button class="btn small ${on ? 'primary' : ''}" data-act="lineup" data-id="${esc(o.id)}">${esc(d.name)}</button>` : '';
-      }).join('')}</div></div>` : ''}
       <div class="enemy-list is-enemies">${UI.enemyRowsHTML(st.waves, enemies)}</div>
       <div class="panel-btns">
         <button class="btn" data-act="map-preview">맵 보기</button>
         <button class="btn" data-act="squad">분대</button>
         ${node.fromEvent ? '' : '<button class="btn" data-act="back">돌아가기</button>'}
-        <button class="btn primary big" data-act="fight">작전 개시</button>
+        <button class="btn primary big" data-act="form">편성 · 작전 개시</button>
       </div>`, 'wide');
   }
   // 이번 작전에 데려갈 오퍼레이터 (편성 가능 인원수까지, 긴급 수송 중인 오퍼레이터 제외)
@@ -1331,6 +1357,7 @@
     }
     if (act === 'back') { r.at = null; save(); hidePanel(); refresh(); return; }
     if (act === 'fight') { startBattle(node); return; }
+    if (act === 'form') { openForm(node); return; }
     if (act === 'squad') { openSquad(); return; }
     if (act === 'map-preview') { UI.openMap(stageFor(node).st); return; }
     if (act === 'lineup') {
@@ -1532,6 +1559,68 @@
       refresh();
       openSquad();
     }));
+  }
+  // ---------- 편성 (원작 편성 화면) ----------
+  let formNode = null;
+  function openForm(node) {
+    formNode = node;
+    const r = R(), cap = squadCap(), l = lineup();
+    const slot = (id) => {
+      if (!id) return '<button class="fm-slot empty" data-fm="add"><span>＋</span></button>';
+      const o = r.ops.find((x) => x.id === id), def = OPS[id], d = runDef(o), pg = progFor(o);
+      const sk = d.skills[0];
+      return `<button class="fm-slot" data-fm="del" data-id="${esc(id)}" style="--c:${def.color}">
+        <span class="fm-cls">${UI.icon(def.class)}</span><span class="fm-lv"><small>LV</small>${pg.level}</span>
+        <span class="fm-art">${def.image ? `<img src="${esc(def.image)}" alt="">` : `<b>${esc(def.name[0])}</b>`}</span>
+        <span class="fm-stars">${'★'.repeat(def.rarity || 3)}</span>
+        ${sk ? `<span class="fm-sk"><img src="${UI.skillIcon(sk, Math.max(0, (def.skills || []).findIndex((x) => x.name === sk.name)), def)}" alt=""><i>${pg.slv}</i></span>` : ''}
+        ${o.promoted ? '<span class="fm-pro">랭크 상승</span>' : ''}${o.mut && !o.evo ? '<span class="fm-mut">거부반응</span>' : ''}
+        <span class="fm-name">${esc(def.name)}</span></button>`;
+    };
+    const slots = Array.from({ length: MAX_SQUAD }, (_, i) => (i < cap ? slot(l[i]) : '<div class="fm-slot off"></div>'));
+    const colsHTML = [slots.slice(0, 4), slots.slice(4, 9), slots.slice(9)].map((c, i) => `<div class="fm-col c${i}">${c.join('')}</div>`).join('');
+    $('#is-form').innerHTML = `
+      <div class="fm-top"><button class="nav-btn" data-fm="close" aria-label="뒤로"></button><span class="fm-title">편성</span>
+        <button class="fm-quick" data-fm="quick"><b>++</b>빠른 편성</button><button class="fm-clear" data-fm="clear" title="편성 비우기">🗑</button></div>
+      <div class="fm-grid">${colsHTML}</div>
+      <div class="fm-bottom"><span class="fm-cap"><small>편성 가능 인원수</small><b>${l.length}/${cap}</b></span>
+        ${node ? '<button class="fm-start" data-fm="start"><small>MISSION START</small>작전 개시</button>' : '<button class="btn primary big" data-fm="close">확인</button>'}</div>
+      <div class="fm-pick hidden" id="fm-pick"></div>`;
+    $('#is-form').classList.remove('hidden');
+  }
+  function formPick() {
+    const r = R(), l = lineup();
+    const cand = r.ops.filter((o) => !isAway(o.id) && !l.includes(o.id));
+    const el = $('#fm-pick');
+    el.innerHTML = `<div class="fm-pick-box"><b>편성할 오퍼레이터</b><div class="is-cands">${cand.map((o) => `<button class="is-cand" data-fm="pick" data-id="${esc(o.id)}">${cardHTML(OPS[o.id], 'small')}<small class="is-cand-st">${eliteText(progFor(o))}${o.promoted ? ' · 랭크 상승' : ''}</small></button>`).join('') || '<p class="empty-note">편성할 수 있는 오퍼레이터가 없습니다.</p>'}</div><button class="btn" data-fm="pick-close">닫기</button></div>`;
+    el.classList.remove('hidden');
+  }
+  $('#is-form').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fm]');
+    if (!b) return;
+    const r = R(), k = b.dataset.fm, cap = squadCap();
+    let l = lineup();
+    if (k === 'close') { $('#is-form').classList.add('hidden'); refresh(); return; }
+    if (k === 'add') { formPick(); return; }
+    if (k === 'pick-close') { $('#fm-pick').classList.add('hidden'); return; }
+    if (k === 'pick') { if (l.length < cap) r.lineup = [...l, b.dataset.id]; sfx('select'); }
+    if (k === 'del') { r.lineup = l.filter((x) => x !== b.dataset.id); sfx('select'); }
+    if (k === 'clear') r.lineup = [];
+    if (k === 'quick') r.lineup = r.ops.filter((o) => !isAway(o.id)).map((o) => o.id).slice(0, cap);
+    if (k === 'start') {
+      if (!lineup().length) { toast('편성된 오퍼레이터가 없습니다'); return; }
+      $('#is-form').classList.add('hidden');
+      startBattle(formNode);
+      return;
+    }
+    save();
+    openForm(formNode);
+  });
+  function openLightInfo() {
+    const r = R(), st = lightState();
+    openModal(`<div class="modal-title">등불 · 주사위</div><div class="modal-sub">등불 ${r.light} &lt;${LIGHT_NAME[st]}&gt; · 주사위 ${r.dice}개 (d${diceFace()})</div>
+      <div class="modal-text is-help">${X2.san.map((x, i) => `<p class="${i === st ? 'on' : 'muted'}"><b>${['100', '50~99', '1~49', '0'][i]}</b> ${esc(x.desc)}</p>`).join('')}
+      <p>완벽한 작전이 아니거나 작전 후 목표 HP가 최대 목표 HP 절반 미만이면 등불이 줄어듭니다. 심해(${DEEP + 1}층부터)에 들어갈 때마다 등불 상태에 따라 주사위를 굴려 계시를 얻거나 거부반응이 일어납니다. 주사위는 다시 굴리기 · 조우 · 소원성취 · 상인 흥정에 씁니다.</p></div>`);
   }
   function openRelics() {
     const r = R();
