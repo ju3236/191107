@@ -9,10 +9,13 @@
   const { esc, toast, go, openModal, closeModal, cardHTML, RENDER, OPS, skillsOf } = UI;
   const sfx = (n) => window.SFX && SFX.play(n);
   const P = () => ACCOUNT.player;
-  const R = () => { const r = P().is || null; if (r && r.v !== 2) fixRun(r); return r; };
-  // 이전 버전 탐색 데이터 고치기 (임시 소장품 → 삭제, 새 자원 추가)
+  const R = () => { const r = P().is || null; if (r && r.v !== 3) fixRun(r); return r; };
+  // 이전 버전 탐색 데이터 고치기 (임시 소장품 → 삭제, 새 자원 추가, 모집권 → 원작 모집권)
   function fixRun(r) {
-    r.v = 2;
+    r.v = 3;
+    r.tickets = (r.tickets || []).map((k) => (D.tickets[k] ? k : 'all'));
+    if (r.pending && r.pending.items) for (const it of r.pending.items) if (it.type === 'ticket') it.choices = it.choices.map((k) => (D.tickets[k] ? k : 'all'));
+    r.squadBonus = r.squadBonus || 0;
     r.freePromotes = r.freePromotes || Array(r.freePromote || 0).fill(null);
     delete r.freePromote;
     r.maxLife = r.maxLife ?? Math.max(r.life, D.start.life);
@@ -33,7 +36,16 @@
   const CLASS_NAME = (c) => (CLASSES[c] ? CLASSES[c].name : c);
   const isMelee = (def) => CLASSES[def.class] && (def.tile || CLASSES[def.class].tile) === 'ground';
   const rec = () => (P().isRec = P().isRec || { runs: 0, wins: 0, best: 0, seen: [] });
-  const PAIRS = ['vs', 'gs', 'dm', 'sc'];
+  const CLASS_IDS = ['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist'];
+  // 무작위 모집권: 대부분 직군 모집권, 가끔 협의 · 고급 · 정예 모집권 (good: 긴급 작전·관문 보상)
+  function randTicket(good) {
+    const c = pick(CLASS_IDS), x = Math.random();
+    if (good && x < 0.25) return c + '_vip';
+    if (good && x < 0.6) return c + '_sp';
+    if (x < 0.15) return pick(['d_assault', 'd_defense', 'd_ranged', 'd_destroy']);
+    if (x < 0.2) return pick(['q_melee', 'q_ranged']);
+    return c;
+  }
 
   // ---------- 소장품·분대 효과 합산 ----------
   function fxList(r = R()) {
@@ -42,7 +54,7 @@
   }
   const sumFx = (key, r = R()) => fxList(r).reduce((s, fx) => s + (typeof fx[key] === 'number' ? fx[key] : 0), 0);
   const hasFx = (key, r = R()) => fxList(r).find((fx) => fx[key]);
-  const squadCap = (r = R()) => Math.min(MAX_SQUAD, BASE_SQUAD + sumFx('squadCap', r));
+  const squadCap = (r = R()) => Math.min(MAX_SQUAD, BASE_SQUAD + sumFx('squadCap', r) + (r.squadBonus || 0));
   const setCount = (set, r = R()) => r.relics.filter((id) => relicById(id) && relicById(id).set === set).length;
   // 소장품 효과가 이 오퍼레이터에게 해당하는지
   function fits(f, def, o) {
@@ -121,33 +133,58 @@
   }
   const shopPrice = (p) => Math.max(1, Math.round(p * (1 - Math.min(0.5, sumFx('shopDiscount')))));
 
-  // 탐색용 오퍼레이터 정의: 랭크 상승 전에는 능력치가 낮고 1스킬만 씀
+  // ---------- 원작 랭크 상승 규칙 ----------
+  // 계정 육성 상태를 따르되, 랭크 상승 전에는 1차 정예화(스킬 레벨 7, 특화 없음)까지만 적용.
+  // 임시 모집 오퍼레이터는 계정과 관계없이 정해진 상태(D.tempProg)로 합류
+  const maxElite = (def) => ((def.rarity || 3) >= 4 ? 2 : (def.rarity || 3) === 3 ? 1 : 0);
+  function progFor(o) {
+    if (o.temp) return { ...D.tempProg[o.promoted ? 1 : 0] };
+    const p = TRAIN.prog(o.id);
+    if (o.promoted) return p;
+    return p.elite >= 2 ? { elite: 1, level: TRAIN.maxLevel(1), slv: Math.min(7, p.slv), mst: [0, 0, 0] } : { ...p, mst: [0, 0, 0] };
+  }
+  // 랭크 상승 가능 여부: 4성 이상이고, 임시 모집이 아니면 계정에서 2차 정예화를 마쳐야 함
+  function canRankUp(o) {
+    const def = OPS[o.id];
+    if (!def || o.promoted) return { ok: false };
+    if (maxElite(def) < 2) return { ok: false, why: '3성 이하 오퍼레이터는 랭크 상승할 수 없습니다' };
+    if (!o.temp && TRAIN.prog(o.id).elite < 2) return { ok: false, why: '계정에서 2차 정예화를 마쳐야 랭크 상승할 수 있습니다' };
+    return { ok: true };
+  }
+  const eliteText = (p) => `${p.elite}정 Lv.${p.level}`;
+  // 탐색용 오퍼레이터 정의 (육성 상태 + 분대·소장품 효과)
   function runDef(o, r = R()) {
-    const base = OPS[o.id];
-    if (!base) return null;
-    const m = statFor(base, r, o), p = o.promoted ? 1 : D.unpromoted;
-    const skills = skillsOf(base);
-    let sk = o.promoted ? skills[o.skill ?? skills.length - 1] || skills[skills.length - 1] : skills[0];
+    const raw = OPS[o.id];
+    if (!raw) return null;
+    const base = TRAIN.trained(raw, progFor(o));
+    const m = statFor(base, r, o);
+    const skills = base.skills || [];
+    let sk = skills[Math.min(o.skill ?? skills.length - 1, skills.length - 1)];
     if (sk && (m.spCost || m.spInit)) sk = { ...sk, sp: Math.max(1, Math.round(sk.sp * (1 + m.spCost))), initSp: Math.min(sk.sp, (sk.initSp || 0) + m.spInit) };
     const gy = hasFx('gyesim', r);
     return {
       ...base,
-      hp: Math.round(base.hp * p * Math.max(0.1, 1 + m.hp)), atk: Math.round(base.atk * p * Math.max(0.1, 1 + m.atk)),
-      def: Math.round(base.def * p * Math.max(0, 1 + m.def) + m.defFlat), res: Math.min(95, (base.res || 0) + m.res),
+      hp: Math.round(base.hp * Math.max(0.1, 1 + m.hp)), atk: Math.round(base.atk * Math.max(0.1, 1 + m.atk)),
+      def: Math.round(base.def * Math.max(0, 1 + m.def) + m.defFlat), res: Math.min(95, (base.res || 0) + m.res),
       dodge: m.dodge, artsDodge: m.artsDodge, block: base.block + m.block,
       interval: base.interval / Math.max(0.1, 1 + m.aspd / 100),
       cost: Math.max(0, Math.round(base.cost * (1 + m.costMul)) + m.cost), redeploy: Math.max(5, base.redeploy * Math.max(0.1, 1 + m.redeploy)),
       skills: sk ? [sk] : [], skill: undefined, promoted: !!o.promoted,
       gyesimDp: gy && o.promoted ? gy.gyesim.dp * ((r.stacks && r.stacks.gyesim) || 0) : 0,
-      talents: o.promoted ? base.talents : (base.talents || []).slice(0, 1),
     };
   }
   const hopeCost = (def) => D.hopeCost[def.rarity || 3] ?? 0;
-  // 분대가 비어 있는데 희망이 모자라면 막히지 않도록 무료
-  const recruitCost = (def, r = R()) => (!r.ops.length && r.hope < hopeCost(def) ? 0 : hopeCost(def));
+  // 분대가 비어 있는데 희망이 모자라면 막히지 않도록 첫 1명은 무료
+  const recruitCost = (def, r = R(), temp = false) => (temp ? 0 : !r.ops.length && r.hope < hopeCost(def) ? 0 : hopeCost(def));
   const promoteCost = (def) => D.promoteCost[def.rarity || 3] ?? 0;
-  // 무료 랭크 상승: 직군 지정이 있으면 그 직군만
-  const freeFor = (def, r = R()) => (r.freePromotes || []).findIndex((c) => !c || c === def.class);
+  // 쓸 수 있는 랭크 상승권: 직군 랭크 상승권 > 임시 물자배급권(5성 이하) > 고급 물자배급권 순
+  function freeFor(def, r = R()) {
+    const t = r.freePromotes || [];
+    let i = t.indexOf(def.class);
+    if (i < 0 && (def.rarity || 3) <= 5) i = t.indexOf('star5');
+    if (i < 0) i = t.findIndex((k) => !k || k === 'all');
+    return i;
+  }
 
   // ---------- 획득 처리 ----------
   function randomRelic(kind) {
@@ -189,10 +226,14 @@
   function addExp(n) {
     const r = R(), out = [];
     r.exp += n;
-    while (r.level < D.levelExp.length && r.exp >= D.levelExp[r.level]) {
+    while (r.level < D.levels.length && r.exp >= D.levels[r.level].exp) {
+      const L = D.levels[r.level];
       r.level++;
-      r.hope++;
-      out.push(`지휘 레벨 ${r.level} (희망 +1)`);
+      const parts = [];
+      if (L.hope) { r.hope += L.hope; parts.push(`희망 +${L.hope}`); }
+      if (L.squad) { r.squadBonus = (r.squadBonus || 0) + L.squad; parts.push(`편성 가능 인원수 +${L.squad}`); }
+      if (L.maxLife) { r.maxLife += L.maxLife; r.life += L.maxLife; parts.push(`최대 목표 HP +${L.maxLife}`); }
+      out.push(`지휘 레벨 ${r.level}${parts.length ? ` (${parts.join(', ')})` : ''}`);
       const k = hasFx('level10ingot', r);
       if (k && r.level === 10) { r.ingot += k.level10ingot; out.push(`오리지늄각뿔 +${k.level10ingot}`); }
     }
@@ -204,17 +245,18 @@
     const sign = (v) => (v > 0 ? '+' : '') + v;
     if (g.ingot) { r.ingot = Math.max(0, r.ingot + g.ingot); out.push(`오리지늄각뿔 ${sign(g.ingot)}`); }
     if (g.hope) { r.hope = Math.max(0, r.hope + g.hope); out.push(`희망 ${sign(g.hope)}`); }
-    if (g.maxLife) { r.maxLife += g.maxLife; r.life += g.maxLife; out.push(`최대 목표 HP ${sign(g.maxLife)}`); }
+    // 전투 밖에서는 목표 HP가 1 아래로 내려가지 않음 (소장품 · 조우로 탐색이 끝나지 않도록)
+    if (g.maxLife) { r.maxLife = Math.max(1, r.maxLife + g.maxLife); r.life = Math.max(1, Math.min(r.maxLife, r.life + g.maxLife)); out.push(`최대 목표 HP ${sign(g.maxLife)}`); }
     if (g.life) {
       const before = r.life;
-      r.life = g.life > 0 ? Math.max(r.life, Math.min(r.maxLife, r.life + g.life)) : r.life + g.life;
+      r.life = g.life > 0 ? Math.max(r.life, Math.min(r.maxLife, r.life + g.life)) : Math.max(Math.min(1, r.life), r.life + g.life);
       out.push(`목표 HP ${sign(r.life - before || g.life)}`);
     }
     if (g.shield) { r.shield = Math.max(0, r.shield + g.shield); out.push(`실드 ${sign(g.shield)}`); }
     if (g.exp) out.push(`지휘 경험치 +${g.exp}`, ...addExp(g.exp));
-    if (g.ticket) { for (let i = 0; i < g.ticket; i++) r.tickets.push(pick(PAIRS)); out.push(`모집권 ${g.ticket}장`); }
-    if (g.promote) { for (let i = 0; i < g.promote; i++) r.freePromotes.push(null); out.push(`무료 랭크 상승 ${g.promote}회`); }
-    if (g.promoteClass) { r.freePromotes.push(g.promoteClass); out.push(`[${CLASS_NAME(g.promoteClass)}] 무료 랭크 상승`); }
+    if (g.ticket) { for (let i = 0; i < g.ticket; i++) { const k = randTicket(); r.tickets.push(k); out.push(D.tickets[k].name); } }
+    if (g.promote) { for (let i = 0; i < g.promote; i++) r.freePromotes.push('all'); out.push(`${D.upgradeName('all')} ${g.promote}장`); }
+    if (g.promoteClass) { r.freePromotes.push(g.promoteClass); out.push(D.upgradeName(g.promoteClass)); }
     if (g.double) {
       const k = pick(['ingot', 'hope', 'shield']);
       r[k] *= 2;
@@ -233,8 +275,8 @@
   // ---------- 탐색 시작 ----------
   function newRun(squadId) {
     const r = {
-      v: 2, squad: squadId, floor: 0, life: D.start.life, maxLife: D.start.life, shield: 0, ingot: D.start.ingot, hope: D.start.hope, exp: 0, level: 1,
-      relics: [], ops: [], tickets: shuffle(PAIRS).slice(0, D.start.tickets), freePromotes: [], recruitNow: true, stacks: {}, lineup: null,
+      v: 3, squad: squadId, floor: 0, life: D.start.life, maxLife: D.start.life, shield: 0, ingot: D.start.ingot, hope: D.start.hope, exp: 0, level: 1,
+      relics: [], ops: [], tickets: [], freePromotes: [], recruitNow: true, needGroup: true, squadBonus: 0, offer: null, stacks: {}, lineup: null,
       map: null, at: null, pending: null, used: [], score: { battles: 0, perfect: 0, bosses: 0 }, started: Date.now(),
     };
     P().is = r;
@@ -377,8 +419,9 @@
   function openHelp() {
     openModal(`<div class="modal-title">진행 방법</div><div class="modal-sub">통합전략</div>
       <div class="modal-text is-help">
-        <p><b>분대</b>를 고르고 <b>모집권</b>으로 오퍼레이터를 모집해 탐색을 시작합니다. 모집에는 <b>희망</b>이 듭니다 (6성 ${D.hopeCost[6]}, 5성 ${D.hopeCost[5]}, 4성 ${D.hopeCost[4]}).</p>
-        <p>모집한 오퍼레이터는 <b>랭크 상승 전</b>이라 능력치가 ${Math.round(D.unpromoted * 100)}%이고 1스킬과 1재능만 씁니다. 분대 화면에서 희망을 써서 <b>랭크 상승</b>하면 모든 능력치와 재능, 원하는 스킬을 쓸 수 있습니다.</p>
+        <p><b>분대</b>와 <b>초기 모집 조합</b>을 고르고 <b>모집권</b>으로 오퍼레이터를 모집해 탐색을 시작합니다. 모집에는 <b>희망</b>이 듭니다 (6성 ${D.hopeCost[6]}, 5성 ${D.hopeCost[5]}, 4성 ${D.hopeCost[4]}, 3성 이하 0). 희망은 지휘 레벨이 오르거나 조우 · 안식처에서 얻습니다.</p>
+        <p>모집권을 쓸 때 가끔 <b>임시 모집</b> 오퍼레이터가 함께 나옵니다. 보유하지 않은 오퍼레이터도 나오며 <b>희망 없이</b> 모집하고, 계정 육성과 관계없이 정해진 상태로 합류합니다. 고급 · 정예 모집권은 4성 · 5성 임시 모집이 확정으로 나옵니다.</p>
+        <p>오퍼레이터는 <b>계정의 육성 상태</b>로 합류하지만 <b>랭크 상승 전</b>에는 1차 정예화(스킬 레벨 7)까지만 적용됩니다. 분대 화면에서 <b>랭크 상승</b>하면(희망 6성 ${D.promoteCost[6]}, 5성 ${D.promoteCost[5]}, 4성 ${D.promoteCost[4]}) 계정의 2차 정예화 상태 · 3스킬 · 특화를 씁니다. 계정에서 2차 정예화한 오퍼레이터만 랭크 상승할 수 있고, <b>랭크 상승권</b> · <b>물자배급권</b>이 있으면 희망 없이 랭크 상승합니다.</p>
         <p>작전에 데려갈 수 있는 인원은 <b>편성 가능 인원수</b>(기본 ${BASE_SQUAD}명, 최대 ${MAX_SQUAD}명)까지입니다. 분대가 더 많으면 작전 전에 고릅니다.</p>
         <p>층 지도에서 길을 골라 나아갑니다. 작전·긴급 작전·불온한 조우·교역소·안식처가 있고, 층 끝에는 관문 작전이나 보스가 기다립니다.</p>
         <p>작전에서 적이 방어 지점을 돌파하면 탐색 전체의 <b>목표 HP</b>가 줄어듭니다. <b>실드</b>가 있으면 실드가 먼저 깎입니다. 목표 HP가 0이 되면 탐색이 끝납니다.</p>
@@ -418,7 +461,7 @@
   };
   function renderTop() {
     const r = R(), F = D.floors[r.floor];
-    const next = D.levelExp[r.level];
+    const next = D.levels[r.level] && D.levels[r.level].exp;
     $('#is-top').innerHTML = `
       <div class="ist-floor"><small>${r.floor + 1}층 · ${esc(F.en)}</small><b>${esc(F.name)}</b></div>
       <div class="ist-res">
@@ -432,7 +475,7 @@
   function renderBottom() {
     const r = R();
     $('#is-bottom').innerHTML = `
-      <button class="btn" id="isb-squad">분대 <b>${r.ops.length}</b><small>/${squadCap()}</small>${r.freePromotes.length ? ` <span class="badge">랭크 상승 ${r.freePromotes.length}</span>` : ''}</button>
+      <button class="btn" id="isb-squad">분대 <b>${r.ops.length}</b><small>/${squadCap()}</small>${r.freePromotes.length ? ` <span class="badge">랭크 상승권 ${r.freePromotes.length}</span>` : ''}</button>
       <button class="btn" id="isb-relic">소장품 <b>${r.relics.length}</b></button>
       ${r.tickets.length ? `<button class="btn primary pulse" id="isb-ticket">모집권 ${r.tickets.length}장 사용</button>` : ''}
       <button class="btn" id="isb-exit">나가기</button>`;
@@ -490,26 +533,55 @@
     if (!r) return;
     if (r.result) { showEnd(); return; }
     if (r.pending && r.pending.kind === 'reward') { showReward(); return; }
+    if (r.needGroup) { showGroupPick(); return; }
     if (r.tickets.length && (useTicket || !r.ops.length || r.recruitNow)) { showRecruit(); return; }
     if (r.at) { enterNode(findNode(r.at)); return; }
     hidePanel();
   }
 
+  // ---------- 초기 모집 조합 (원작: 선수필승 · 차근차근 · 상호보완 · 원하는 대로) ----------
+  function showGroupPick() {
+    panel(`<div class="isp-head"><small>INITIAL RECRUITMENT</small><b>초기 모집</b></div>
+      <p class="isp-text">탐색을 시작할 모집권 조합을 고르세요. 희망 <b>${R().hope}</b> 보유</p>
+      <div class="is-choices">${D.recruitGroups.map((g) => `<button class="is-choice" data-act="group" data-k="${g.id}"><b>${esc(g.name)}</b><span>${esc(g.desc)}</span></button>`).join('')}</div>`);
+  }
   // ---------- 모집 ----------
-  function showRecruit() {
-    const r = R(), tk = D.tickets[r.tickets[0]];
+  // 임시 모집 후보 (모집권마다 한 번 정해서 저장 — 다시 열어도 바뀌지 않음)
+  function tempOffer(tk, r) {
     const have = new Set(r.ops.map((o) => o.id));
-    const cands = OPERATORS.filter((o) => ACCOUNT.owns(o.id) && !have.has(o.id) && (!tk.classes || tk.classes.includes(o.class)))
+    const pool = OPERATORS.filter((o) => !o.summoned && !have.has(o.id) && (!tk.classes || tk.classes.includes(o.class)) && (!tk.maxRarity || (o.rarity || 3) <= tk.maxRarity));
+    if (!pool.length) return [];
+    const byRar = (n) => pool.filter((o) => (o.rarity || 3) === n);
+    const pickRar = (n) => { for (const k of [n, n + 1, n - 1, 6, 5, 4, 3]) { const l = byRar(k); if (l.length) return pick(l); } return pick(pool); };
+    if (tk.temp === 'promoted') { const x = pickRar(Math.random() < 0.5 ? 6 : 5); return [{ id: x.id, promoted: maxElite(x) >= 2 }]; }
+    if (tk.temp) return [{ id: pickRar(tk.temp).id }];
+    if (Math.random() >= D.tempChance) return [];
+    const w = D.tempRarity, tot = Object.values(w).reduce((a, v) => a + v, 0);
+    let x = Math.random() * tot, rar = 4;
+    for (const [k, v] of Object.entries(w)) { if ((x -= v) < 0) { rar = +k; break; } }
+    return [{ id: pickRar(rar).id }];
+  }
+  function showRecruit() {
+    const r = R(), key = r.tickets[0], tk = D.tickets[key] || D.tickets.all;
+    if (!r.offer || r.offer.ticket !== key || r.offer.n !== r.tickets.length) { r.offer = { ticket: key, n: r.tickets.length, temps: tempOffer(tk, r) }; save(); }
+    const have = new Set(r.ops.map((o) => o.id));
+    const temps = r.offer.temps.filter((t) => OPS[t.id] && !have.has(t.id));
+    const tempIds = new Set(temps.map((t) => t.id));
+    const cands = OPERATORS.filter((o) => ACCOUNT.owns(o.id) && !o.summoned && !have.has(o.id) && !tempIds.has(o.id) && (!tk.classes || tk.classes.includes(o.class)) && (!tk.maxRarity || (o.rarity || 3) <= tk.maxRarity))
       .sort((a, b) => (b.rarity || 3) - (a.rarity || 3));
     const first = !r.ops.length;
+    const tempHTML = temps.map((t) => {
+      const o = OPS[t.id], pg = progFor({ id: t.id, temp: true, promoted: t.promoted });
+      return `<button class="is-cand temp" data-recruit="${esc(o.id)}" data-temp="1">${cardHTML(o, 'small')}<span class="cost">임시 모집 · 희망 0</span><small class="is-cand-st">${t.promoted ? '랭크 상승 · ' : ''}${eliteText(pg)}</small></button>`;
+    }).join('');
     panel(`<div class="isp-head"><small>RECRUIT · 남은 모집권 ${r.tickets.length}장</small><b>${esc(tk.name)}</b></div>
-      <p class="isp-text">${first ? '탐색을 함께할 오퍼레이터를 모집하세요. ' : ''}희망 <b>${r.hope}</b> 보유 · 모집한 오퍼레이터는 랭크 상승 전 상태로 합류합니다.</p>
-      <div class="is-cands">${cands.map((o) => {
-        const c = recruitCost(o), ok = r.hope >= c;
-        return `<button class="is-cand ${ok ? '' : 'no'}" data-recruit="${esc(o.id)}" ${ok ? '' : 'disabled'}>${cardHTML(o, 'small')}<span class="cost">희망 ${c}</span></button>`;
-      }).join('') || '<p class="empty-note">이 모집권으로 모집할 수 있는 보유 오퍼레이터가 없습니다.</p>'}</div>
+      <p class="isp-text">${first ? '탐색을 함께할 오퍼레이터를 모집하세요. ' : ''}${esc(tk.desc || '')} · 희망 <b>${r.hope}</b> 보유<br><small>보유 오퍼레이터는 계정 육성 상태로 합류합니다 (랭크 상승 전에는 1차 정예화까지)</small></p>
+      <div class="is-cands">${tempHTML}${cands.map((o) => {
+        const c = recruitCost(o), ok = r.hope >= c, pg = progFor({ id: o.id });
+        return `<button class="is-cand ${ok ? '' : 'no'}" data-recruit="${esc(o.id)}" ${ok ? '' : 'disabled'}>${cardHTML(o, 'small')}<span class="cost">희망 ${c}</span><small class="is-cand-st">${eliteText(pg)}</small></button>`;
+      }).join('') || (tempHTML ? '' : '<p class="empty-note">이 모집권으로 모집할 수 있는 오퍼레이터가 없습니다.</p>')}</div>
       <div class="panel-btns">
-        ${cands.length ? '' : '<button class="btn primary" data-recruit-swap>오리지늄각뿔 +3으로 바꾸기</button>'}
+        ${cands.length || tempHTML ? '' : '<button class="btn primary" data-recruit-swap>오리지늄각뿔 +3으로 바꾸기</button>'}
         <button class="btn" data-recruit-skip>모집 포기</button>
       </div>`, 'wide');
   }
@@ -518,25 +590,27 @@
     if (!r) return;
     const rc = t.closest('[data-recruit]');
     if (rc && !rc.disabled) {
-      const def = OPS[rc.dataset.recruit], c = recruitCost(def);
+      const def = OPS[rc.dataset.recruit], temp = !!rc.dataset.temp, c = recruitCost(def, r, temp);
       if (r.hope < c) return;
+      const tp = temp && r.offer && r.offer.temps.find((x) => x.id === def.id);
       r.hope -= c;
-      r.ops.push({ id: def.id, promoted: false });
+      r.ops.push({ id: def.id, promoted: !!(tp && tp.promoted), temp: temp || undefined });
       if (r.lineup && r.lineup.length < squadCap()) r.lineup.push(def.id);
       r.tickets.shift();
+      r.offer = null;
       UI.say(def, 'obtain');
       sfx('select');
       afterTicket();
       return;
     }
-    if (t.closest('[data-recruit-skip]')) { r.tickets.shift(); afterTicket(); return; }
-    if (t.closest('[data-recruit-swap]')) { r.tickets.shift(); r.ingot += 3; afterTicket(); return; }
+    if (t.closest('[data-recruit-skip]')) { r.tickets.shift(); r.offer = null; afterTicket(); return; }
+    if (t.closest('[data-recruit-swap]')) { r.tickets.shift(); r.offer = null; r.ingot += 3; afterTicket(); return; }
     const act = t.closest('[data-act]');
     if (act) onAct(act.dataset.act, act);
   });
   function afterTicket() {
     const r = R();
-    if (!r.ops.length && !r.tickets.length) { r.tickets.push('all'); toast('최소 1명은 모집해야 탐색을 시작할 수 있습니다'); }
+    if (!r.ops.length && !r.tickets.length) { r.tickets.push('all'); r.offer = null; toast('최소 1명은 모집해야 탐색을 시작할 수 있습니다'); }
     if (!r.tickets.length) r.recruitNow = false;
     save();
     refresh();
@@ -620,7 +694,7 @@
   function startBattle(node) {
     const r = R(), l = lineup();
     // 임연부: 층마다 첫 작전에 들어갈 때 모집권 1장
-    if (hasFx('floorTicket') && r.floorTicketAt !== r.floor) { r.floorTicketAt = r.floor; r.tickets.push(pick(PAIRS)); r.recruitNow = true; toast('임연부 — 모집권 1장 획득'); }
+    if (hasFx('floorTicket') && r.floorTicketAt !== r.floor) { r.floorTicketAt = r.floor; const k = randTicket(); r.tickets.push(k); r.recruitNow = true; toast(`임연부 — ${D.tickets[k].name} 획득`); }
     const defs = r.ops.filter((o) => l.includes(o.id)).map((o) => runDef(o)).filter(Boolean);
     if (!defs.length) { toast('분대에 오퍼레이터가 없습니다'); return; }
     const { st, enemies } = stageFor(node);
@@ -677,7 +751,13 @@
     if (kind === 'emergency') items.push({ type: 'relic', choices: relicChoices(3 + xr) });
     if (kind === 'gate') items.push({ type: 'relic', choices: relicChoices(2 + xr) });
     if (kind === 'boss') items.push({ type: 'relic', choices: relicChoices(3 + xr, 'rare') });
-    if (kind !== 'battle' || Math.random() < 0.6) items.push({ type: 'ticket', choices: [...shuffle(PAIRS), 'all'].slice(0, 2 + xt) });
+    // 모집권 보상: 무작위 모집권 중 하나 선택 (긴급 작전 · 관문 · 보스는 고급 · 정예 모집권이 잘 나옴)
+    if (kind !== 'battle' || Math.random() < 0.6) {
+      const ch = [];
+      for (let i = 0; i < 20 && ch.length < 3 + xt; i++) { const k = randTicket(kind !== 'battle'); if (!ch.includes(k)) ch.push(k); }
+      if (kind === 'boss') ch.push('premium');
+      items.push({ type: 'ticket', choices: ch });
+    }
     r.pending = { kind: 'reward', node: node.id, got, lost, perfect: !res.leaked, items };
     save();
     return {
@@ -756,15 +836,25 @@
     panel(`<div class="isp-head t-rest"><small>SAFEHOUSE</small><b>안식처</b></div>
       <p class="isp-text story">파도 소리가 멀게 들리는 동굴. 잠시 숨을 돌릴 수 있다. 하나를 고르세요.</p>
       <div class="is-choices">
-        <button class="is-choice" data-act="rest" data-k="life"><b>휴식</b><span>목표 HP +3</span></button>
-        <button class="is-choice" data-act="rest" data-k="promote"><b>훈련</b><span>오퍼레이터 1명 무료 랭크 상승</span></button>
-        <button class="is-choice" data-act="rest" data-k="hope"><b>정비</b><span>희망 +2</span></button>
+        <button class="is-choice" data-act="rest" data-k="life"><b>잠깐 휴식</b><span>최대 목표 HP +3</span></button>
+        <button class="is-choice" data-act="rest" data-k="promote"><b>훈련 강화</b><span>랭크 상승권 획득</span></button>
+        <button class="is-choice" data-act="rest" data-k="hope"><b>사기 진작</b><span>희망 +3</span></button>
+        <button class="is-choice" data-act="rest" data-k="squad"><b>재정비</b><span>편성 가능 인원수 +1</span></button>
       </div>`);
   }
 
   // ---------- 버튼 동작 ----------
   function onAct(act, el) {
     const r = R(), node = r.at && findNode(r.at);
+    if (act === 'group') {
+      const g = D.recruitGroups.find((x) => x.id === el.dataset.k);
+      if (!g) return;
+      if (g.random) { const cl = shuffle(CLASS_IDS).slice(0, g.random); r.tickets.push(cl[0] + '_sp', ...cl.slice(1)); } else r.tickets.push(...g.tickets);
+      r.needGroup = false; r.recruitNow = true; r.offer = null;
+      sfx('select');
+      save(); refresh(); resumePanel();
+      return;
+    }
     if (act === 'back') { r.at = null; save(); hidePanel(); refresh(); return; }
     if (act === 'fight') { startBattle(node); return; }
     if (act === 'squad') { openSquad(); return; }
@@ -807,7 +897,14 @@
     }
     if (act === 'rest') {
       const k = el.dataset.k;
-      toast(applyGain(k === 'life' ? { life: 3 } : k === 'hope' ? { hope: 2 } : { promote: 1 }).join(', '));
+      let txt;
+      if (k === 'squad') { r.squadBonus = (r.squadBonus || 0) + 1; txt = '편성 가능 인원수 +1'; }
+      else if (k === 'promote') {
+        // 랭크 상승권: 분대에 랭크 상승할 수 있는 오퍼레이터가 있는 직군 우선
+        const want = r.ops.filter((o) => canRankUp(o).ok).map((o) => OPS[o.id].class);
+        txt = applyGain({ promoteClass: want.length ? pick(want) : pick(CLASS_IDS) }).join(', ');
+      } else txt = applyGain(k === 'life' ? { maxLife: 3 } : { hope: 3 }).join(', ');
+      toast(txt);
       finishNode(node);
       if (k === 'promote') openSquad();
       return;
@@ -842,28 +939,33 @@
     const rows = r.ops.map((o, i) => {
       const def = OPS[o.id];
       if (!def) return '';
-      const d = runDef(o), skills = skillsOf(def), c = promoteCost(def);
-      const free = freeFor(def) >= 0;
+      const d = runDef(o), pg = progFor(o), skills = d ? TRAIN.trained(def, pg).skills || [] : [];
+      const cur = Math.min(o.skill ?? skills.length - 1, skills.length - 1);
+      const cr = canRankUp(o), fi = freeFor(def), c = promoteCost(def);
+      const btn = o.promoted ? '' : cr.ok
+        ? `<button class="btn small primary" data-sq="promote" data-i="${i}" ${fi >= 0 || r.hope >= c ? '' : 'disabled'}>${fi >= 0 ? `랭크 상승 · ${esc(D.upgradeName(r.freePromotes[fi]))}` : `랭크 상승 · 희망 ${c}`}</button>`
+        : `<span class="muted small">${esc(cr.why || '')}</span>`;
       return `<div class="is-op ${o.promoted ? 'promoted' : ''}">
         ${cardHTML(def, 'small')}
         <div class="is-op-meta">
-          <b>${esc(def.name)} <small>${o.promoted ? '랭크 상승 완료' : '랭크 상승 전'}</small></b>
+          <b>${esc(def.name)} <small>${o.temp ? '임시 모집 · ' : ''}${o.promoted ? '랭크 상승 완료' : '랭크 상승 전'} · ${eliteText(pg)} · 스킬 Lv.${pg.slv}${pg.mst && pg.mst[cur] ? ` 특화 ${pg.mst[cur]}` : ''}</small></b>
           <span>HP ${d.hp} · 공격 ${d.atk} · 방어 ${d.def} · 코스트 ${d.cost}</span>
-          ${o.promoted ? `<div class="is-skills">${skills.map((s, k) => `<button class="btn small ${(o.skill ?? skills.length - 1) === k ? 'primary' : ''}" data-sq="skill" data-i="${i}" data-k="${k}" title="${esc(s.desc || '')}">S${k + 1} ${esc(s.name)}</button>`).join('')}</div>`
-            : `<span class="muted">스킬: ${esc(skills[0] ? skills[0].name : '-')}</span>
-               <button class="btn small primary" data-sq="promote" data-i="${i}" ${free || r.hope >= c ? '' : 'disabled'}>${free ? '무료 랭크 상승' : `랭크 상승 · 희망 ${c}`}</button>`}
+          <div class="is-skills">${skills.map((sk, k) => `<button class="btn small ${cur === k ? 'primary' : ''}" data-sq="skill" data-i="${i}" data-k="${k}" title="${esc(sk.desc || '')}">S${k + 1} ${esc(sk.name)}</button>`).join('')}</div>
+          ${btn}
         </div></div>`;
     }).join('');
-    const fp = r.freePromotes.map((c) => (c ? CLASS_NAME(c) : '아무나')).join(', ');
-    openModal(`<div class="modal-title">분대</div><div class="modal-sub">${r.ops.length}명 · 편성 가능 인원수 ${squadCap()} · 희망 ${r.hope}${fp ? ` · 무료 랭크 상승: ${fp}` : ''} · 랭크 상승하면 모든 능력치와 재능, 고른 스킬을 씁니다</div>
+    const fp = r.freePromotes.map((k) => D.upgradeName(k)).join(', ');
+    openModal(`<div class="modal-title">분대</div><div class="modal-sub">${r.ops.length}명 · 편성 가능 인원수 ${squadCap()} · 희망 ${r.hope}${fp ? ` · 보유: ${esc(fp)}` : ''}<br>랭크 상승 전에는 1차 정예화까지, 랭크 상승하면 계정의 2차 정예화 상태(3스킬 · 특화)를 씁니다</div>
       <div class="is-ops">${rows || '<p class="empty-note">아직 모집한 오퍼레이터가 없습니다.</p>'}</div>`);
     $('#modal-body').querySelectorAll('[data-sq]').forEach((b) => b.addEventListener('click', () => {
       const o = r.ops[+b.dataset.i], def = OPS[o.id];
       if (b.dataset.sq === 'promote') {
+        if (!canRankUp(o).ok) return;
         const fi = freeFor(def);
         if (fi >= 0) r.freePromotes.splice(fi, 1);
         else { const c = promoteCost(def); if (r.hope < c) return; r.hope -= c; }
         o.promoted = true;
+        o.skill = undefined;   // 랭크 상승하면 기본으로 마지막(3) 스킬
         // 계심청령: 획득 후 랭크 상승할 때마다 중첩
         const gy = hasFx('gyesim');
         if (gy) { r.stacks = r.stacks || {}; r.stacks.gyesim = Math.min(gy.gyesim.max, (r.stacks.gyesim || 0) + 1); }

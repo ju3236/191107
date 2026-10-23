@@ -949,6 +949,9 @@ kbd { display: none; font-family: var(--f-en); font-size: 10px; font-weight: 500
 .is-cand .op-card { width: 100%; height: auto; }
 .is-cand .cost { font-size: 13px; color: #8ee6ff; text-align: center; }
 .is-cand:hover:not(:disabled) .op-card { outline: 3px solid #ffd27a; }
+.is-cand-st { font-size: 11px; color: #9aa1ab; text-align: center; }
+.is-cand.temp .op-card { outline: 2px solid #7fe08a; }
+.is-cand.temp .cost { color: #7fe08a; font-weight: 700; }
 .is-cand.no { opacity: .4; }
 .is-enemies { max-height: 40vh; overflow-y: auto; }
 .is-reward { background: rgba(0,0,0,.25); border: 1px solid #24506a; padding: 10px 12px; margin-bottom: 10px; }

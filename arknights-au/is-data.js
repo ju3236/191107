@@ -51,23 +51,64 @@ const IS_DATA = {
   en: 'THE SUNKEN BEACON',
   intro: '이베리아 앞바다에서 꺼진 지 오래인 등대의 불빛이 다시 깜박이기 시작했다. 로도스 아일랜드 행동대 「등대」는 신호의 근원을 찾아 바다 아래로 향한다. 물러설 길은 없다. 가라앉은 등대에 닿을 때까지.',
 
-  start: { life: 10, ingot: 10, hope: 8, tickets: 3 },
-  // 모집·랭크 상승에 드는 희망 (레어도별)
-  hopeCost: { 6: 3, 5: 2, 4: 1, 3: 0, 2: 0, 1: 0 },
+  // 원작(미즈키 & 카이룰라 아버) 기준: 초기 희망 6
+  start: { life: 10, ingot: 10, hope: 6 },
+  // 희망 — 원작과 같이 모집과 랭크 상승에 씀 (레어도별). 임시 모집 오퍼레이터는 모집 희망 0
+  hopeCost: { 6: 6, 5: 3, 4: 2, 3: 0, 2: 0, 1: 0 },
   promoteCost: { 6: 3, 5: 2, 4: 1, 3: 0, 2: 0, 1: 0 },
-  unpromoted: 0.8,                   // 랭크 상승 전 오퍼레이터 능력치 배율 (1스킬만 사용)
-  levelExp: [0, 3, 7, 12, 18, 25, 33, 42, 52, 63],   // 지휘 레벨 n이 되는 누적 경험치. 레벨이 오를 때마다 희망 +1
+  // 랭크 상승: 원작처럼 계정 육성 상태를 따르고, 랭크 상승 전에는 1차 정예화(스킬 레벨 7)까지만 적용.
+  // 랭크 상승하면 계정의 2차 정예화 상태(특화 포함)를 그대로 씀 → 계정에서 2차 정예화한 오퍼레이터만 랭크 상승 가능
+  // 임시 모집 오퍼레이터는 계정 육성과 관계없이 아래 상태로 합류 (원작 charUpgradeTable: 1정 스킬 7 / 2정 스킬 7 특화 3)
+  tempProg: [{ elite: 1, level: 55, slv: 7, mst: [0, 0, 0] }, { elite: 2, level: 40, slv: 7, mst: [3, 3, 3] }],
+  tempChance: 0.35,                  // 모집권을 쓸 때 임시 모집 오퍼레이터가 함께 나올 확률
+  tempRarity: { 6: 20, 5: 40, 4: 40 },
+  // 지휘 레벨 (exp: 그 레벨이 되는 누적 지휘 경험치). 보상은 원작 레벨표: hope 희망 / squad 편성 가능 인원수 / maxLife 최대 목표 HP
+  levels: [
+    { exp: 0 },
+    { exp: 3, hope: 4 },
+    { exp: 7, hope: 4, maxLife: 1 },
+    { exp: 12, hope: 5 },
+    { exp: 18, hope: 6 },
+    { exp: 25, hope: 6, squad: 1, maxLife: 1 },
+    { exp: 33, hope: 6 },
+    { exp: 42, hope: 7 },
+    { exp: 52, hope: 8, squad: 1, maxLife: 1 },
+    { exp: 63, hope: 8, squad: 1, maxLife: 1 },
+  ],
   floorScale: [0.6, 0.75, 0.9, 1.0], // 층마다 적 HP·공격력 배율
   emergencyScale: 1.25,              // 긴급 작전 적 능력치 추가 배율
 
-  // 모집권: 두 직군 중 보유한 오퍼레이터를 1명 모집
-  tickets: {
-    vs:  { name: '뱅가드·서포터 모집권', classes: ['vanguard', 'supporter'] },
-    gs:  { name: '가드·스페셜리스트 모집권', classes: ['guard', 'specialist'] },
-    dm:  { name: '디펜더·메딕 모집권', classes: ['defender', 'medic'] },
-    sc:  { name: '스나이퍼·캐스터 모집권', classes: ['sniper', 'caster'] },
-    all: { name: '전 직군 모집권', classes: null },
-  },
+  // 모집권 (원작 이름 그대로). classes: 모집할 수 있는 직군(null = 전 직군) / maxRarity / temp: 임시 모집 확정(4·5성, 'promoted' 랭크 상승한 임시 모집)
+  tickets: (() => {
+    const CL = { vanguard: '뱅가드', guard: '가드', defender: '디펜더', sniper: '스나이퍼', caster: '캐스터', medic: '메딕', supporter: '서포터', specialist: '스페셜리스트' };
+    const t = {};
+    for (const [c, n] of Object.entries(CL)) {
+      t[c] = { name: `${n} 모집권`, classes: [c], desc: `${n} 오퍼레이터 1명 모집` };
+      t[c + '_sp'] = { name: `고급 ${n} 모집권`, classes: [c], temp: 4, desc: `${n} 오퍼레이터 1명 모집 (4성 임시 모집 확정 등장)` };
+      t[c + '_vip'] = { name: `정예 ${n} 모집권`, classes: [c], temp: 5, desc: `${n} 오퍼레이터 1명 모집 (5성 임시 모집 확정 등장)` };
+    }
+    Object.assign(t, {
+      d_assault: { name: '돌격 협의 모집권', classes: ['vanguard', 'guard'], desc: '뱅가드 또는 가드 오퍼레이터 1명 모집' },
+      d_defense: { name: '방어 협의 모집권', classes: ['defender', 'supporter'], desc: '디펜더 또는 서포터 오퍼레이터 1명 모집' },
+      d_ranged: { name: '원거리 협의 모집권', classes: ['medic', 'sniper'], desc: '메딕 또는 스나이퍼 오퍼레이터 1명 모집' },
+      d_destroy: { name: '파괴 협의 모집권', classes: ['caster', 'specialist'], desc: '캐스터 또는 스페셜리스트 오퍼레이터 1명 모집' },
+      q_melee: { name: '전선 통합 모집권', classes: ['vanguard', 'guard', 'defender', 'specialist'], desc: '뱅가드, 가드, 디펜더 또는 스페셜리스트 오퍼레이터 1명 모집' },
+      q_ranged: { name: '후방 협조 모집권', classes: ['medic', 'sniper', 'supporter', 'caster'], desc: '메딕, 스나이퍼, 서포터 또는 캐스터 오퍼레이터 1명 모집' },
+      all: { name: '고급 인사배치서한', classes: null, desc: '임의의 오퍼레이터 1명 모집' },
+      star5: { name: '인사배치서한', classes: null, maxRarity: 5, desc: '임의의 5성 이하 오퍼레이터 1명 모집' },
+      premium: { name: '특별 인사배치서한', classes: null, temp: 'promoted', desc: '임의의 오퍼레이터 1명 모집 (랭크 상승한 임시 모집 오퍼레이터 확정 등장)' },
+    });
+    return t;
+  })(),
+  // 랭크 상승권 (희망 소모 없이 랭크 상승). 직군 id / 'all' 고급 물자배급권 / 'star5' 임시 물자배급권(5성 이하)
+  upgradeName: (k) => (k === 'all' || !k ? '고급 물자배급권' : k === 'star5' ? '임시 물자배급권' : `${{ vanguard: '뱅가드', guard: '가드', defender: '디펜더', sniper: '스나이퍼', caster: '캐스터', medic: '메딕', supporter: '서포터', specialist: '스페셜리스트' }[k] || k} 랭크 상승권`),
+  // 초기 모집 조합 (원작 그대로). random: 무작위 직군 모집권, 그중 1장은 4성 임시 모집 확정
+  recruitGroups: [
+    { id: 'g1', name: '선수필승', desc: '뱅가드, 스나이퍼, 스페셜리스트 모집권 각 1장', tickets: ['vanguard', 'sniper', 'specialist'] },
+    { id: 'g2', name: '차근차근', desc: '디펜더, 캐스터, 스나이퍼 모집권 각 1장', tickets: ['defender', 'caster', 'sniper'] },
+    { id: 'g3', name: '상호보완', desc: '가드, 서포터, 메딕 모집권 각 1장', tickets: ['guard', 'supporter', 'medic'] },
+    { id: 'random', name: '원하는 대로', desc: '랜덤 모집권 3장, 그중 1장은 4★ 임시 모집 확정 출현', random: 3 },
+  ],
 
   // 분대: 탐색 시작 시 하나 고름. fx는 소장품과 같은 형식
   squads: [
@@ -463,7 +504,7 @@ const IS_DATA = {
   // ---------------------------------------------------------------------
   //  불온한 조우 (이벤트). floors: 나오는 층 (1부터, 없으면 전부)
   //  choices: { label, desc, cost: { ingot|hope|life }, gain: {...}, chance: 성공 확률, fail: 실패 시 gain, result, failResult }
-  //  gain 키: ingot, hope, life, exp, relic: 개수 | 'rare' | 'special' | 소장품 id, ticket: 장수, promote: 무료 랭크 상승 횟수
+  //  gain 키: ingot, hope, life, exp, relic: 개수 | 'rare' | 'special' | 소장품 id, ticket: 장수, promote: 고급 물자배급권 장수, promoteClass: 직군 랭크 상승권
   // ---------------------------------------------------------------------
   events: [
     { id: 'wreck', title: '좌초된 상선', text: '암초에 걸린 상선 한 척이 기울어져 있다. 짐칸은 아직 물에 잠기지 않았다.',
@@ -498,7 +539,7 @@ const IS_DATA = {
       ] },
     { id: 'mirror', title: '물에 비친 얼굴', floors: [2, 3, 4], text: '잔잔한 물웅덩이에 비친 얼굴이 조금 늦게 움직인다.',
       choices: [
-        { label: '들여다본다', desc: '오퍼레이터 1명 무료 랭크 상승', gain: { promote: 1 }, result: '물속의 얼굴이 무언가를 속삭였다. 머릿속이 맑아진다.' },
+        { label: '들여다본다', desc: '고급 물자배급권 1장 (오퍼레이터 1명 희망 소모 없이 랭크 상승)', gain: { promote: 1 }, result: '물속의 얼굴이 무언가를 속삭였다. 머릿속이 맑아진다.' },
         { label: '돌을 던진다', desc: '오리지늄각뿔 +3', gain: { ingot: 3 }, result: '물결이 퍼지자 바닥에 깔린 오리지늄각뿔가 보였다.' },
       ] },
     { id: 'storm', title: '다가오는 폭풍', floors: [2, 3, 4], text: '수평선 너머에서 검은 구름이 몰려온다. 폭풍의 중심에서 희미한 불빛이 보인다.',
