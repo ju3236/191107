@@ -20,6 +20,7 @@
       <button class="icon-btn" id="btn-settings" aria-label="설정"></button>
       <button class="icon-btn" id="btn-notice" aria-label="공지" title="공지"></button>
       <button class="icon-btn" id="btn-archive" aria-label="기록"></button>
+      <button class="icon-btn" id="btn-boss" aria-label="화면 숨기기" title="화면 숨기기"></button>
       <button class="icon-btn" id="btn-feedback" aria-label="버그 신고 · 건의" title="버그 신고 · 건의"></button>
       <button class="icon-btn hidden" id="btn-fullscreen" aria-label="전체 화면"></button>
     </div>
@@ -396,12 +397,18 @@
         <button class="btn" id="pause-sound">효과음 켜짐</button>
         <button class="btn hidden" id="pause-fullscreen">전체 화면</button>
         <button class="btn" id="pause-feedback">버그 신고 · 건의</button>
+        <button class="btn" id="pause-boss">화면 숨기기</button>
         <button class="btn" id="pause-retry">다시 시작</button>
         <button class="btn danger" id="pause-quit">작전 포기</button>
       </div>
     </div>
   </div>
 
+  <div id="boss" class="boss hidden" aria-hidden="true">
+    <div class="bs-bar"><span class="bs-file">3주차_데이터베이스_정규화.pdf</span><span class="bs-zoom">100%</span></div>
+    <div class="bs-slide" id="bs-slide"></div>
+    <div class="bs-foot"><span>데이터베이스 설계 · 2026-2학기</span><button id="bs-page" class="bs-page">12 / 38</button></div>
+  </div>
   <div id="notice" class="overlay center notice hidden">
     <div class="nt-win">
       <button class="nt-close" aria-label="닫기">✕</button>

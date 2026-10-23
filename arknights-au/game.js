@@ -146,7 +146,9 @@
     $('#hud-stage').textContent = `${st.code} ${st.name}`;
     $('#btn-spawner').classList.toggle('hidden', !opts.practice);
     $('#tr-panel').classList.add('hidden');
-    S.autoWaves = true; S.trSpawn = 0; S.trCount = 1;
+    // 훈련장: 기본은 자동 반복 꺼짐 — 「적 배출」에서 고른 적만 나옴
+    S.autoWaves = !opts.practice; S.trSpawn = 0; S.trCount = 1;
+    if (opts.practice) { S.queue = []; S.total = 0; $('#tr-panel').classList.remove('hidden'); renderSpawner(); }
     $('#btn-speed').innerHTML = '<img src="img/ui/btn_speed_1x.png" alt="1배속"><kbd>F</kbd>';
     ['#result', '#pause', '#inspect', '#hint', '#toast'].forEach((s) => $(s).classList.add('hidden'));
     buildCards();
@@ -2376,6 +2378,19 @@
     }
   }
 
+  // 테두리만 (스킬 범위 미리 보기: 점선 빨간 테두리)
+  function outlineTiles(list, stroke) {
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    for (const [x, y] of list) {
+      if (x < 0 || y < 0 || x >= S.cols || y >= S.rows) continue;
+      poly(quad(x + 0.1, y + 0.1, x + 0.9, y + 0.9, tileH(x, y) + 0.01));
+      ctx.fillStyle = 'rgba(255,60,60,.08)'; ctx.fill();
+      ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   // ---------- 유닛 ----------
   function bar(x, y, w, h, ratio, color) {
     ctx.fillStyle = 'rgba(0,0,0,.75)';
@@ -2500,6 +2515,12 @@
       ctx.font = `900 ${T * 0.18}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(sk.stock && op.sp >= sk.sp * 2 ? String(Math.floor(op.sp / sk.sp)) : '!', bx2, by2 + T * 0.01);
+    } else if (op.skillT > 0 && (sk.effect || {}).cancelable) {
+      // 수동 종료 가능: 발동 가능(노란 원 「!」)과 구분되는 작은 회색 정지 아이콘
+      const bx2 = op.rect[2] - T * 0.08, by2 = op.rect[1] + T * 0.12, w = T * 0.22;
+      ctx.fillStyle = 'rgba(40,44,52,.92)'; ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = Math.max(1, T * 0.02);
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx2 - w / 2, by2 - w / 2, w, w, T * 0.04) : ctx.rect(bx2 - w / 2, by2 - w / 2, w, w); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#e8e8e8'; ctx.fillRect(bx2 - w * 0.22, by2 - w * 0.22, w * 0.44, w * 0.44);
     }
   }
 
@@ -2942,8 +2963,13 @@
       fillTiles(valid, 'rgba(76,217,100,.28)', 'rgba(120,255,140,.75)');
     } else if (S.mode === 'direction') {
       fillTiles(computeRange(S.sel.def.range, S.dir, S.tile.x, S.tile.y).list, 'rgba(255,150,40,.35)', 'rgba(255,170,60,.9)');
+      // 스킬을 쓰면 범위가 바뀌는 오퍼레이터: 스킬 범위를 빨간 테두리로 미리 보여 줌
+      const sk = chosenSkill(S.sel.def), sr = sk && sk.effect && sk.effect.range;
+      if (sr) outlineTiles(computeRange(sr, S.dir, S.tile.x, S.tile.y).list, 'rgba(255,70,70,.95)');
     } else if (S.mode === 'inspect' && S.inspect) {
       fillTiles(S.inspect.rangeList, 'rgba(255,150,40,.3)', 'rgba(255,170,60,.8)');
+      const op = S.inspect, sr = op.skill && op.skill.effect && op.skill.effect.range;
+      if (sr && !(op.skillT > 0)) outlineTiles(computeRange(sr, op.dir, op.x, op.y).list, 'rgba(255,70,70,.95)');
     }
     for (const op of S.ops) if (op.alive && op.flashUntil > S.time && op !== S.inspect) {
       const a = Math.min(1, (op.flashUntil - S.time) / 0.5);

@@ -90,6 +90,7 @@
     feedback: '<path d="M4 4h16v12H9l-5 4z"/><path d="M12 7v4M12 13.5v.5"/>',
     fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
     shrink: '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>',
+    hide: '<path d="M3 3l18 18"/><path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3.2 3.7M6.6 6.6C4.3 8.2 3 12 3 12s4 6 9 6c1.6 0 3-.4 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
     wrench: '<path d="M14.5 4.5a4.5 4.5 0 0 0-5.8 5.8L3 16l5 5 5.7-5.7a4.5 4.5 0 0 0 5.8-5.8l-3 3-3-1-1-3z"/>',
     flag: '<path d="M5 21V4h13l-3 4.5 3 4.5H5"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
@@ -529,15 +530,60 @@
       const env = body.querySelector('#fb-env').checked ? `${window.innerWidth}×${window.innerHeight} · ${(navigator.userAgent.match(/(iPhone|iPad|Android|Windows|Macintosh|Linux)/) || ['기타'])[0]} · ${(navigator.userAgent.match(/(Chrome|Safari|Firefox|Edg)\/[\d.]+/) || [''])[0]}` : '';
       try {
         const files = ACCOUNT.canAttach ? await Promise.all(fbFiles.map((f) => shrinkImage(f.file))) : [];
-        await ACCOUNT.sendFeedback({ files, type: fbType, title: fbDraft.title.trim() || fbDraft.body.trim().slice(0, 40), body: fbDraft.body.trim(), where: body.querySelector('#fb-env').checked ? where : '', env });
+        const res = await ACCOUNT.sendFeedback({ files, type: fbType, title: fbDraft.title.trim() || fbDraft.body.trim().slice(0, 40), body: fbDraft.body.trim(), where: body.querySelector('#fb-env').checked ? where : '', env });
         fbDraft = { title: '', body: '' };
         fbFiles.forEach((f) => URL.revokeObjectURL(f.url)); fbFiles = [];
-        toast('보냈습니다. 고마워요!');
+        const fails = (res && res.fails) || [];
+        toast(fails.length ? `글은 보냈어요. 사진 ${fails.length}장은 올리지 못했어요 (${fails[0]})` : '보냈습니다. 고마워요!', fails.length ? 5000 : 2500);
         openFeedback(from || current);
-      } catch (err) { console.warn(err); toast('보내지 못했습니다'); e.target.disabled = false; }
+      } catch (err) {
+        console.warn(err);
+        const c = err && (err.code || err.message);
+        toast(`보내지 못했습니다${c ? ` (${String(c).slice(0, 40)})` : ''} — 잠시 후 다시 시도해 주세요`, 5000);
+        e.target.disabled = false;
+      }
     });
   }
   $('#pause-feedback').addEventListener('click', () => openFeedback('battle'));
+
+  // ---------- 화면 숨기기 (몰백): 소리를 끄고 강의 자료처럼 보이는 화면으로 덮음 ----------
+  // 돌아가려면 오른쪽 아래 쪽수(「12 / 38」)를 누름. 화살표 · 클릭으로 슬라이드가 넘어감
+  const BOSS_SLIDES = [
+    ['3. 함수 종속성 (Functional Dependency)', ['X → Y : X 값이 같으면 Y 값도 반드시 같다', '완전 함수 종속: X 전체에만 종속, 부분 집합에는 종속되지 않음', '부분 함수 종속: X의 일부에만 종속 → 2NF 위반의 원인', '이행적 함수 종속: X → Y, Y → Z 이면 X → Z → 3NF 위반의 원인']],
+    ['4. 제1정규형 (1NF)', ['모든 속성의 도메인이 원자값(atomic value)만 가짐', '반복 그룹 제거: 한 칸에 여러 값을 넣지 않는다', '예) 수강과목 = "DB, OS, 네트워크" → 행을 나누어 저장', '※ 기본키를 반드시 정의할 것']],
+    ['5. 제2정규형 (2NF)', ['1NF를 만족하고, 기본키가 아닌 모든 속성이 기본키에 완전 함수 종속', '복합키의 일부에만 종속되는 속성을 분리', '예) (학번, 과목코드) → 성적 / 과목코드 → 과목명 → 과목 테이블 분리', '분리 후 조인으로 원래 정보 복원 가능해야 함 (무손실 분해)']],
+    ['6. 제3정규형 (3NF)', ['2NF를 만족하고, 이행적 함수 종속이 없음', '예) 학번 → 학과코드 → 학과명 : 학과 테이블 분리', '삽입 · 삭제 · 갱신 이상(anomaly) 감소', '다음 시간: BCNF와 반정규화 (과제 3 공지 예정)']],
+  ];
+  let bossIdx = 0, bossTitle = '';
+  function renderBoss() {
+    const [h, li] = BOSS_SLIDES[bossIdx];
+    $('#bs-slide').innerHTML = `<h2>${esc(h)}</h2><ul>${li.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
+    $('#bs-page').textContent = `${12 + bossIdx} / 38`;
+  }
+  function showBoss() {
+    if (window.__game && __game.state && !__game.state.ended && !__game.state.paused) $('#btn-pause').click();
+    if (window.SFX && SFX.hush) SFX.hush(true);
+    bossTitle = document.title; document.title = '3주차_데이터베이스_정규화.pdf';
+    bossIdx = 0; renderBoss();
+    $('#boss').classList.remove('hidden');
+  }
+  function hideBoss() {
+    $('#boss').classList.add('hidden');
+    document.title = bossTitle || document.title;
+    if (window.SFX && SFX.hush) SFX.hush(false);
+  }
+  $('#btn-boss').innerHTML = icon('hide');
+  $('#btn-boss').addEventListener('click', showBoss);
+  $('#pause-boss').addEventListener('click', showBoss);
+  $('#bs-page').addEventListener('click', (e) => { e.stopPropagation(); hideBoss(); });
+  $('#boss').addEventListener('click', () => { bossIdx = (bossIdx + 1) % BOSS_SLIDES.length; renderBoss(); });
+  document.addEventListener('keydown', (e) => {
+    if ($('#boss').classList.contains('hidden')) return;
+    e.stopPropagation(); e.preventDefault();
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') bossIdx = Math.min(BOSS_SLIDES.length - 1, bossIdx + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') bossIdx = Math.max(0, bossIdx - 1);
+    renderBoss();
+  }, true);
 
   // 전체 화면: 주소창과 claude.ai 상단 바를 가림. 브라우저·앱이 허용할 때만 버튼을 보여 줌
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
@@ -559,6 +605,12 @@
     $('#btn-fullscreen').setAttribute('aria-label', on ? '전체 화면 끝내기' : '전체 화면');
     $('#pause-fullscreen').textContent = on ? '전체 화면 끝내기' : '전체 화면';
   }
+  // 전체 화면에서 글자를 입력하면 아이패드 사파리가 경고창을 띄우므로, 입력란에 들어가는 순간 전체 화면을 끔
+  document.addEventListener('focusin', (e) => {
+    const t = e.target;
+    if (!fsEl() || !t || !(t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !['checkbox', 'radio', 'file', 'range', 'button', 'color'].includes(t.type)))) return;
+    try { Promise.resolve((document.exitFullscreen || document.webkitExitFullscreen).call(document)).catch(() => {}); } catch { /* 지원 안 함 */ }
+  });
   if (fsOk) {
     $('#btn-fullscreen').classList.remove('hidden');
     $('#pause-fullscreen').classList.remove('hidden');
@@ -1417,7 +1469,18 @@
     renderResources();
   }
 
-  $('#btn-practice').addEventListener('click', startPractice);
+  // 훈련장 배너: 바로 시작하지 않고 편성을 확인한 뒤 시작
+  function openPracticeBanner() {
+    fixPlayer();
+    const sq = save.squad.map((id) => OPS[id]).filter(Boolean);
+    openModal(`<div class="tr-banner"><div class="tr-bn-art"><small>PRACTICE · TR</small><b>훈련장</b><span>${esc(PRACTICE_STAGE.desc)}</span></div>
+      <p class="modal-text">지금 편성으로 훈련합니다. 목숨이 줄지 않고 코스트가 무한이며, 적은 왼쪽 위 「적 배출」에서 고른 것만 나옵니다(자동 반복은 패널에서 켤 수 있음).</p>
+      <div class="tr-bn-squad">${sq.map((o) => `<span class="tr-bn-op" style="--c:${o.color}">${o.image ? `<img src="${esc(o.image)}" alt="">` : esc(o.name[0])}<small>${esc(o.name)}</small></span>`).join('') || '<p class="empty-note">편성된 오퍼레이터가 없습니다.</p>'}</div>
+      <div class="panel-btns"><button class="btn" id="tr-bn-form">편성 바꾸기</button><button class="btn primary" id="tr-bn-go" ${sq.length ? '' : 'disabled'}>훈련 시작</button></div></div>`);
+    $('#tr-bn-form').addEventListener('click', () => { closeModal(); go('formation'); });
+    $('#tr-bn-go').addEventListener('click', () => { closeModal(); startPractice(); });
+  }
+  $('#btn-practice').addEventListener('click', openPracticeBanner);
   $('#ops-map').addEventListener('click', (e) => {
     const b = e.target.closest('[data-stage]');
     if (!b) return;

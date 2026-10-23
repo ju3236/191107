@@ -360,15 +360,23 @@
       emit('requests');
       return 'local';
     }
-    const imgs = [];
+    // 사진은 하나씩 올리고, 실패해도 글은 보냄 (실패한 장 수와 이유를 돌려줌)
+    const imgs = [], fails = [];
     for (const f of (fb.files || []).slice(0, FB_MAX_IMG)) {
-      if (!assets) break;
-      const a = await assets.upload(f);
-      if (a && isAssetId(a.id)) imgs.push(a.id);
+      if (!assets) { fails.push('사진 권한 없음'); continue; }
+      try {
+        const a = await assets.upload(f);
+        if (a && isAssetId(a.id)) imgs.push(a.id); else fails.push('알 수 없는 응답');
+      } catch (e) {
+        console.warn('사진 업로드 실패', e);
+        const c = e && e.code;
+        fails.push(c === 'too_large' || c === 'payload_too_large' ? '용량 초과' : c === 'not_granted' || c === 'forbidden' || c === 'permission_denied' ? '업로드 권한 없음' : c === 'rate_limited' ? '잠시 후 다시' : c ? c : '네트워크 오류');
+      }
     }
     if (imgs.length) doc.imgs = imgs;
+    if (fails.length) doc.env = str([doc.env, `사진 ${fails.length}장 업로드 실패(${fails[0]})`].filter(Boolean).join(' · '), 200);
     await db.collection('requests').add({ uid, ...doc });
-    return 'online';
+    return { mode: 'online', fails };
   }
 
   // ---------- 관리자 ----------

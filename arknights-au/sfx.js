@@ -8,9 +8,11 @@
   let enabled = true, bgmOn = true;
   try { enabled = localStorage.getItem(KEY) !== 'off'; bgmOn = localStorage.getItem(BKEY) !== 'off'; } catch { /* 저장 불가 환경 */ }
 
-  let ac = null, master = null, noiseBuf = null, bgmGain = null;
+  let ac = null, master = null, noiseBuf = null, bgmGain = null, hushed = false;
   function ensure() {
-    if (ac) { if (ac.state === 'suspended') ac.resume(); return true; }
+    // 아이패드 사파리는 전체 화면 해제 · 경고창 뒤에 'interrupted' 상태가 되므로 running이 아니면 다시 켬
+    if (hushed) return false;
+    if (ac) { if (ac.state !== 'running') ac.resume().catch(() => {}); return true; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
     ac = new AC();
@@ -85,6 +87,8 @@
   }
   // 브라우저는 사용자가 화면을 누른 뒤에만 소리를 허용함
   window.addEventListener('pointerdown', () => { if (enabled) ensure(); }, { capture: true });
+  window.addEventListener('touchend', () => { if (enabled) ensure(); }, { capture: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && enabled && !hushed && ac && ac.state !== 'running') ac.resume().catch(() => {}); });
 
   // ---------- 소리 재료 ----------
   function env(g, t, a, d, peak) {
@@ -163,6 +167,7 @@
   const last = {};
 
   function play(name) {
+    if (hushed) return;
     if (!enabled || !(SOUNDS[name] || SAMPLE.includes(name)) || !ensure()) return;
     const now = ac.currentTime;
     if (GAP[name] && now - (last[name] || -1) < GAP[name]) return;
@@ -194,5 +199,7 @@
     bgm,
     get bgmOn() { return bgmOn; },
     toggleBgm() { setBgm(!bgmOn); return bgmOn; },
+    // 몰백: 모든 소리를 즉시 멈췄다가 되살림
+    hush(on) { hushed = !!on; if (ac) { if (on) ac.suspend().catch(() => {}); else ac.resume().catch(() => {}); } },
   };
 })();
