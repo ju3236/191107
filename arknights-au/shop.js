@@ -694,19 +694,81 @@
   // ---------- 오퍼레이터 편집기 ----------
   const TALENT_FX = [['atk', '공격력 %'], ['hp', '최대 HP %'], ['def', '방어력 %'], ['speed', '공격 속도 %'], ['dodge', '물리 회피 %'], ['firstStrike', '첫 공격 배율 %'],
     ['critRate', '치명타 확률 %'], ['critMul', '치명타 배율 %'], ['auraDef', '주변 아군 방어 %'], ['guard', 'HP 50% 이하 피해 감소 %'], ['lastStand', 'HP 25% 이하 1회 회복 %']];
-  const SKILL_FX = [['atk', '공격력 %'], ['def', '방어력 %'], ['speed', '공격 속도 %'], ['targets', '동시 공격 수'], ['splash', '범위 피해 반경'],
-    ['hits', '연발 횟수'], ['hitMul', '연발 1발 배율 %'], ['nextHit', '다음 공격 배율 %'], ['charges', '유지 공격 횟수'],
-    ['strike', '즉시 범위 공격 %'], ['strikeRadius', '범위 공격 반경'], ['stun', '기절(초)'], ['heal', '자기 즉시 회복 %'], ['regen', '초당 자기 회복 %'],
-    ['allyHeal', '주변 아군 즉시 회복(공격력 %)'], ['allyRegen', '주변 아군 초당 회복(공격력 %)'], ['allyRadius', '아군 회복 반경'],
+  const SKILL_FX = [['atk', '공격력 +%'], ['def', '방어력 +%'], ['speed', '공격 속도 +%'], ['targets', '동시 공격 수'], ['splash', '공격 시 주변 피해 반경(칸)'],
+    ['hits', '1회 공격 연타 수'], ['hitMul', '연타 1발 배율 %'], ['nextHit', '다음 1회 공격 배율 %'], ['charges', '유지 공격 횟수'],
+    ['strike', '발동 순간 주변 폭발 %'], ['strikeRadius', '발동 폭발 반경(칸)'], ['stun', '발동 폭발 기절(초)'], ['heal', '자기 즉시 회복 %'], ['regen', '초당 자기 회복 %'],
+    ['allyHeal', '주변 아군 즉시 회복(공격력 %)'], ['allyRegen', '주변 아군 초당 회복(공격력 %)'], ['allyRadius', '아군 회복 반경(칸)'],
     ['shield', '보호막(최대 HP %)'], ['dodge', '물리 회피 %'], ['block', '저지 수 +'], ['dp', '즉시 코스트 +'],
-    ['endBlast', '종료 시 폭발 %'], ['endRadius', '폭발 반경'], ['selfDmg', '종료 시 자기 HP 소모 %']];
+    ['antiAir', '공중 적 공격 (1=가능)'], ['arts', '마법 피해로 공격 (1=예)'], ['ignoreDef', '방어력 무시 %'], ['firstStun', '처음 때리는 적 기절(초)'],
+    ['slowRate', '공격 시 둔화 %'], ['slowDur', '둔화 시간(초)'],
+    ['endBlast', '종료 시 폭발 %'], ['endRadius', '종료 폭발 반경(칸)'], ['selfDmg', '종료 시 자기 HP 소모 %']];
+  // 입력란 설명 (「?」에 마우스를 올리거나 누르면 보임)
+  const HELP = {
+    name: '게임 안에 보이는 이름입니다.', rarity: '★ 등급. 헤드헌팅 확률과 육성 재료에 영향을 줍니다.',
+    isonly: '「통합전략 전용」이면 헤드헌팅에 나오지 않고 통합전략 임시 모집으로만 합류합니다.',
+    class: '직군. 배치 가능한 칸(지상/고지대)과 기본 특성이 정해집니다.', arch: '세부 직군 특성. 원작 분과 특성이 그대로 적용됩니다(예: 공격수는 저지 중인 적 전부 공격).',
+    cost: '배치할 때 드는 코스트입니다. 전투 하단 카드도 이 값이 낮은 순으로 정렬됩니다.', redeploy: '퇴각하거나 쓰러진 뒤 다시 배치할 수 있을 때까지 걸리는 시간(초).',
+    block: '동시에 막을 수 있는 적의 수. 0이면 아무도 막지 않습니다.', hp: '최대 체력.', atk: '공격력. 피해량의 기준입니다.', def: '방어력. 받는 물리 피해를 그만큼 줄입니다.',
+    res: '마법 저항. 받는 마법 피해를 %로 줄입니다(최대 100).', interval: '공격 사이 간격(초). 작을수록 자주 때립니다.',
+    range: '평소 공격 범위. 오른쪽을 보고 섰을 때 기준이며 배치 방향에 따라 돌아갑니다.',
+    spType: 'SP가 차는 방식. 자동 회복=초당 1, 공격 회복=공격할 때마다 1, 피격 회복=맞을 때마다 1, 배치 시 발동=배치하자마자 발동.',
+    trigger: '수동 발동은 SP가 차면 직접 눌러서 켭니다. 자동 발동은 아래 「자동 발동 조건」에 따라 저절로 켜집니다.',
+    autoWhen: '자동 발동 스킬이 언제 켜질지. 「적이 범위에 들어오면」은 공격할 적이 있을 때까지 기다리고, 「SP가 차면 바로」는 적이 없어도 즉시 켭니다. 「자동 판단」은 코스트 · 회복 · 보호막만 있는 스킬이면 바로, 아니면 적이 들어올 때 켭니다.',
+    sp: '스킬을 쓰는 데 필요한 SP.', initSp: '배치했을 때 처음 가지고 있는 SP.',
+    duration: '스킬 지속 시간(초). 0이면 발동 순간 효과(코스트 · 폭발 · 회복)만 일어나고, -1이면 끝나지 않습니다. 공격력 +% 같은 지속 효과는 1초 이상이어야 적용됩니다.',
+    srange: '스킬이 켜져 있는 동안의 공격 범위. 발동하는 순간 판 위에 1.5초간 노랗게 표시됩니다.',
+    atk_s: '스킬 중 공격력이 이만큼 % 늘어납니다. 100이면 2배.', def_s: '스킬 중 방어력이 % 늘어납니다.', speed_s: '공격 간격을 줄입니다. 50이면 간격이 절반.',
+    targets: '한 번 공격할 때 범위 안에서 몇 명을 동시에 때리는지.', splash: '공격이 맞은 적 주변 몇 칸 안의 다른 적도 같이 맞습니다.',
+    hits: '한 번 공격이 몇 대로 나뉘어 들어가는지. 2 이상이어야 적용됩니다.', hitMul: '연타 한 대의 위력(공격력 대비 %). 비우면 100.',
+    nextHit: '스킬 발동 후 다음 1회 공격만 이 배율로 강하게 때립니다.', charges: '스킬이 시간 대신 공격 횟수만큼 유지됩니다.',
+    strike: '발동 순간 오퍼레이터 주변에 폭발을 일으켜 공격력의 이 %만큼 피해. 아래 「발동 폭발 반경」 안의 모든 적이 맞습니다.',
+    strikeRadius: '발동 폭발이 닿는 거리(칸). 「발동 순간 주변 폭발 %」가 있어야 쓰입니다. 공격 범위를 넓히려면 「스킬 중 공격 범위」를 쓰세요.',
+    stun: '발동 폭발에 맞은 적을 이 초만큼 기절시킵니다.', heal: '발동 순간 자기 HP를 최대 HP의 %만큼 회복.', regen: '스킬 중 매초 최대 HP의 %만큼 회복.',
+    allyHeal: '발동 순간 주변 아군을 공격력의 %만큼 회복.', allyRegen: '스킬 중 매초 주변 아군을 공격력의 %만큼 회복.', allyRadius: '아군 회복이 닿는 거리(칸).',
+    shield: '발동 순간 최대 HP의 %만큼 보호막을 얻습니다.', dodge: '스킬 중 물리 공격을 % 확률로 피합니다.', block: '스킬 중 저지 수가 늘어납니다.', dp: '발동 순간 코스트를 얻습니다.',
+    antiAir: '1이면 스킬 중 근거리 오퍼레이터도 공중 적을 때릴 수 있습니다.', arts: '1이면 스킬 중 공격이 마법 피해가 됩니다(방어력 대신 마법 저항으로 줄어듦).',
+    ignoreDef: '스킬 중 공격이 적 방어력을 %만큼 무시합니다.', firstStun: '스킬 중 처음 때리는 적을 이 초만큼 기절시킵니다.',
+    slowRate: '스킬 중 때린 적의 이동 속도를 % 낮춥니다.', slowDur: '둔화가 유지되는 시간(초). 비우면 1.5초.',
+    endBlast: '스킬이 끝날 때 주변에 공격력의 %만큼 폭발.', endRadius: '종료 폭발이 닿는 거리(칸).', selfDmg: '스킬이 끝날 때 자기 HP를 최대 HP의 %만큼 잃습니다.',
+    atk_t: '항상 공격력이 % 늘어납니다.', hp_t: '항상 최대 HP가 % 늘어납니다.', def_t: '항상 방어력이 % 늘어납니다.', speed_t: '항상 공격 간격이 % 줄어듭니다.',
+    dodge_t: '항상 물리 공격을 % 확률로 피합니다.', firstStrike: '배치 후 첫 공격만 이 배율로 때립니다.', critRate: '공격이 치명타가 될 확률 %.', critMul: '치명타일 때 배율 %(비우면 150).',
+    auraDef: '주변 아군의 방어력이 % 늘어납니다.', guard: 'HP가 50% 이하일 때 받는 피해가 % 줄어듭니다.', lastStand: 'HP가 25% 이하가 되면 한 번, 최대 HP의 %만큼 회복합니다.',
+  };
+  const tip = (k) => (HELP[k] ? `<span class="tip" tabindex="0" data-tip="${esc(HELP[k])}">?</span>` : '');
+  const L = (label, k) => `<span class="lb">${label}${tip(k)}</span>`;
+  // 입력한 값이 게임에서 어떻게 쓰이는지 한 줄로
+  function describeSkill(s) {
+    const f = s.fx || {}, out = [];
+    const dur = s.duration < 0 ? '끝나지 않고' : s.duration > 0 ? `${s.duration}초간` : '';
+    if (f.dp) out.push(`발동 시 코스트 +${f.dp}`);
+    if (f.heal) out.push(`발동 시 자기 HP ${f.heal}% 회복`);
+    if (f.shield) out.push(`발동 시 보호막 ${f.shield}%`);
+    if (f.allyHeal) out.push(`발동 시 주변 ${f.allyRadius || 1.5}칸 아군 공격력 ${f.allyHeal}% 회복`);
+    if (f.strike) out.push(`발동 시 주변 ${f.strikeRadius || 1.5}칸 폭발 ${f.strike}%${f.stun ? ` + 기절 ${f.stun}초` : ''}`);
+    else if (f.strikeRadius) out.push('⚠ 「발동 폭발 반경」만 있고 「발동 순간 주변 폭발 %」가 없어 아무 효과가 없습니다');
+    const keep = [];
+    if (f.atk) keep.push(`공격력 +${f.atk}%`); if (f.def) keep.push(`방어력 +${f.def}%`); if (f.speed) keep.push(`공격 속도 +${f.speed}%`);
+    if (f.targets > 1) keep.push(`최대 ${f.targets}명 동시 공격`); if (f.hits > 1) keep.push(`1회 공격이 ${f.hits}연타(타당 ${f.hitMul || 100}%)`);
+    if (f.splash) keep.push(`맞은 적 주변 ${f.splash}칸 피해`); if (f.block) keep.push(`저지 +${f.block}`); if (f.dodge) keep.push(`물리 회피 ${f.dodge}%`);
+    if (f.regen) keep.push(`매초 HP ${f.regen}% 회복`); if (f.allyRegen) keep.push(`주변 아군 매초 공격력 ${f.allyRegen}% 회복`);
+    if (f.antiAir) keep.push('공중 적 공격'); if (f.arts) keep.push('마법 피해'); if (f.ignoreDef) keep.push(`방어력 ${f.ignoreDef}% 무시`);
+    if (f.firstStun) keep.push(`처음 때린 적 ${f.firstStun}초 기절`); if (f.slowRate) keep.push(`때린 적 ${f.slowDur || 1.5}초간 이동 속도 -${f.slowRate}%`);
+    if (s.range) keep.push(`공격 범위 「${(ACCOUNT.RANGE_PRESETS[s.range] || {}).name || s.range}」`);
+    if (keep.length) out.push(dur ? `${dur} ${keep.join(' · ')}` : `⚠ 지속이 0초라 적용 안 됨: ${keep.join(' · ')}`);
+    if (f.nextHit) out.push(`다음 1회 공격 ${f.nextHit}%`);
+    if (f.endBlast) out.push(`종료 시 주변 ${f.endRadius || 1.4}칸 폭발 ${f.endBlast}%`);
+    if (f.selfDmg) out.push(`종료 시 자기 HP -${f.selfDmg}%`);
+    const sp = { time: '자동 회복', attack: '공격 회복', hit: '피격 회복', deploy: '배치 시 발동' }[s.spType] || '';
+    const when = s.trigger === 'manual' ? '수동 발동' : s.autoWhen === 'ready' ? '자동 발동(SP가 차면 바로)' : s.autoWhen === 'enemy' ? '자동 발동(적이 들어오면)' : '자동 발동';
+    return `${sp} · SP ${s.sp} · ${when} — ${out.join(' · ') || '효과 없음'}`;
+  }
   function blankOp() {
     return {
       name: '', en: '', rarity: 6, class: 'guard', archetype: '', race: '', faction: '로도스 아일랜드', color: '#6fa8dc', tags: '',
       imageId: '', cost: 15, redeploy: 40, block: 2, hp: 2500, atk: 600, def: 350, res: 0, interval: 1.2, range: 'melee1',
       profile: '', quote: '', voices: '', isOnly: false,
       talents: [{ name: '', desc: '', fx: {} }, { name: '', desc: '', fx: {} }],
-      skills: [0, 1, 2].map(() => ({ name: '', desc: '', spType: 'time', trigger: 'manual', sp: 30, initSp: 10, duration: 15, range: '', fx: {} })),
+      skills: [0, 1, 2].map(() => ({ name: '', desc: '', spType: 'time', trigger: 'manual', autoWhen: '', sp: 30, initSp: 10, duration: 15, range: '', fx: {} })),
       creator: '',
     };
   }
@@ -724,7 +786,8 @@
   const inp = (id, label, val, type = 'text', extra = '') => `<label>${label}<input id="${id}" type="${type}" value="${esc(val ?? '')}" ${extra}></label>`;
   const sel = (id, label, val, options) => `<label>${label}<select id="${id}">${options.map(([v, n]) => `<option value="${esc(v)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
   function fxGrid(prefix, list, fx) {
-    return `<div class="fx-grid">${list.map(([k, n]) => inp(`${prefix}-${k}`, n, fx[k] ?? '', 'number', 'step="any"')).join('')}</div>`;
+    const tal = prefix[0] === 't';
+    return `<div class="fx-grid">${list.map(([k, n]) => inp(`${prefix}-${k}`, L(n, HELP[`${k}_${tal ? 't' : 's'}`] ? `${k}_${tal ? 't' : 's'}` : k), fx[k] ?? '', 'number', 'step="any"')).join('')}</div>`;
   }
   function renderEditor(main) {
     const d = editing.data;
@@ -733,10 +796,10 @@
       <div class="ops-head"><h3>${editing.docId ? '오퍼레이터 수정' : '새 오퍼레이터'}</h3>
         <div><button class="btn" id="ed-cancel">취소</button> <button class="btn primary" id="ed-save">저장</button></div></div>
       <section><h4>기본 정보</h4><div class="form-grid">
-        ${inp('ed-name', '이름', d.name, 'text', 'maxlength="20"')}${inp('ed-en', '영문 이름', d.en, 'text', 'maxlength="30"')}
-        ${sel('ed-rarity', '레어도', d.rarity, [6, 5, 4, 3, 2, 1].map((r) => [r, '★' + r]))}${sel('ed-isonly', '용도', d.isOnly ? 1 : 0, [[0, '일반 (헤드헌팅 · 보유)'], [1, '통합전략 전용 (임시 모집만)']])}
-        ${sel('ed-class', '직군', d.class, Object.entries(CLASSES).map(([k, c]) => [k, c.name]))}
-        ${sel('ed-arch', '세부 직군 특성', d.archetype, [['', '없음 (직군 기본 특성)'], ...Object.entries(ARCHETYPES).map(([k, a]) => [k, `${a.name} — ${a.trait}`])])}
+        ${inp('ed-name', L('이름', 'name'), d.name, 'text', 'maxlength="20"')}${inp('ed-en', '영문 이름', d.en, 'text', 'maxlength="30"')}
+        ${sel('ed-rarity', L('레어도', 'rarity'), d.rarity, [6, 5, 4, 3, 2, 1].map((r) => [r, '★' + r]))}${sel('ed-isonly', L('용도', 'isonly'), d.isOnly ? 1 : 0, [[0, '일반 (헤드헌팅 · 보유)'], [1, '통합전략 전용 (임시 모집만)']])}
+        ${sel('ed-class', L('직군', 'class'), d.class, Object.entries(CLASSES).map(([k, c]) => [k, c.name]))}
+        ${sel('ed-arch', L('세부 직군 특성', 'arch'), d.archetype, [['', '없음 (직군 기본 특성)'], ...Object.entries(ARCHETYPES).map(([k, a]) => [k, `${a.name} — ${a.trait}`])])}
         ${inp('ed-race', '종족', d.race, 'text', 'maxlength="20"')}${inp('ed-faction', '소속', d.faction, 'text', 'maxlength="40"')}
         ${inp('ed-color', '대표 색', d.color, 'color')}${inp('ed-tags', '태그 (쉼표로 구분)', d.tags, 'text', 'maxlength="60"')}
       </div>
@@ -744,10 +807,10 @@
         <label class="btn ${ACCOUNT.canUpload ? '' : 'disabled'}">그림 올리기<input id="ed-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden ${ACCOUNT.canUpload ? '' : 'disabled'}></label>
         <small>투명 배경 PNG, 세로로 긴 전신 그림을 추천합니다. 전투 화면에도 그대로 서서 나옵니다.</small></div></section>
       <section><h4>능력치</h4><div class="form-grid">
-        ${inp('ed-cost', '배치 코스트', d.cost, 'number')}${inp('ed-redeploy', '재배치(초)', d.redeploy, 'number')}${inp('ed-block', '저지 수', d.block, 'number')}
-        ${inp('ed-hp', 'HP', d.hp, 'number')}${inp('ed-atk', '공격력', d.atk, 'number')}${inp('ed-def', '방어력', d.def, 'number')}
-        ${inp('ed-res', '마법 저항', d.res, 'number')}${inp('ed-interval', '공격 간격(초)', d.interval, 'number', 'step="0.05"')}
-        ${sel('ed-range', '공격 범위', d.range, Object.entries(ACCOUNT.RANGE_PRESETS).map(([k, r]) => [k, r.name]))}
+        ${inp('ed-cost', L('배치 코스트', 'cost'), d.cost, 'number')}${inp('ed-redeploy', L('재배치(초)', 'redeploy'), d.redeploy, 'number')}${inp('ed-block', L('저지 수', 'block'), d.block, 'number')}
+        ${inp('ed-hp', L('HP', 'hp'), d.hp, 'number')}${inp('ed-atk', L('공격력', 'atk'), d.atk, 'number')}${inp('ed-def', L('방어력', 'def'), d.def, 'number')}
+        ${inp('ed-res', L('마법 저항', 'res'), d.res, 'number')}${inp('ed-interval', L('공격 간격(초)', 'interval'), d.interval, 'number', 'step="0.05"')}
+        ${sel('ed-range', L('공격 범위', 'range'), d.range, Object.entries(ACCOUNT.RANGE_PRESETS).map(([k, r]) => [k, r.name]))}
       </div></section>
       <section><h4>프로필</h4><div class="form-grid one">
         <label>프로필<textarea id="ed-profile" maxlength="600" rows="3">${esc(d.profile)}</textarea></label>
@@ -759,12 +822,24 @@
         <details><summary>효과 수치</summary>${fxGrid('t' + i, TALENT_FX, t.fx)}</details></section>`).join('')}
       ${d.skills.map((s, i) => `<section><h4>스킬 ${i + 1} <small>(이름을 비우면 스킬 없음)</small></h4><div class="form-grid">
         ${inp(`s${i}-name`, '이름', s.name, 'text', 'maxlength="30"')}${inp(`s${i}-desc`, '설명', s.desc, 'text', 'maxlength="200"')}
-        ${sel(`s${i}-spType`, 'SP 회복', s.spType, [['time', '자동 회복'], ['attack', '공격 회복'], ['hit', '피격 회복'], ['deploy', '배치 시 발동']])}
-        ${sel(`s${i}-trigger`, '발동', s.trigger, [['manual', '수동 발동'], ['auto', '자동 발동']])}
-        ${inp(`s${i}-sp`, '필요 SP', s.sp, 'number')}${inp(`s${i}-initSp`, '초기 SP', s.initSp, 'number')}
-        ${inp(`s${i}-duration`, '지속(초, 0=즉시, -1=무한)', s.duration, 'number')}${sel(`s${i}-range`, '스킬 중 공격 범위', s.range || '', [['', '기본 범위 그대로'], ...Object.entries(ACCOUNT.RANGE_PRESETS).map(([k, r]) => [k, r.name])])}</div>
-        <details ${s.name ? 'open' : ''}><summary>효과 수치</summary>${fxGrid('s' + i, SKILL_FX, s.fx)}</details></section>`).join('')}
+        ${sel(`s${i}-spType`, L('SP 회복', 'spType'), s.spType, [['time', '자동 회복'], ['attack', '공격 회복'], ['hit', '피격 회복'], ['deploy', '배치 시 발동']])}
+        ${sel(`s${i}-trigger`, L('발동', 'trigger'), s.trigger, [['manual', '수동 발동'], ['auto', '자동 발동']])}${sel(`s${i}-autoWhen`, L('자동 발동 조건', 'autoWhen'), s.autoWhen || '', [['', '자동 판단'], ['enemy', '적이 범위에 들어오면'], ['ready', 'SP가 차면 바로']])}
+        ${inp(`s${i}-sp`, L('필요 SP', 'sp'), s.sp, 'number')}${inp(`s${i}-initSp`, L('초기 SP', 'initSp'), s.initSp, 'number')}
+        ${inp(`s${i}-duration`, L('지속(초, 0=즉시, -1=무한)', 'duration'), s.duration, 'number')}${sel(`s${i}-range`, L('스킬 중 공격 범위', 'srange'), s.range || '', [['', '기본 범위 그대로'], ...Object.entries(ACCOUNT.RANGE_PRESETS).map(([k, r]) => [k, r.name])])}</div>
+        <details ${s.name ? 'open' : ''}><summary>효과 수치</summary>${fxGrid('s' + i, SKILL_FX, s.fx)}</details><p class="fx-preview" id="s${i}-prev"></p></section>`).join('')}
     </div>`;
+    const prev = () => [0, 1, 2].forEach((i) => { const s = readSkill(i), el = $(`#s${i}-prev`); if (el) el.textContent = s.name ? '미리보기: ' + describeSkill(s) : ''; });
+    main.querySelector('.editor').addEventListener('click', (e) => {
+      const t = e.target.closest('.tip');
+      if (!t) return;
+      e.preventDefault();
+      const on = !t.classList.contains('show');
+      main.querySelectorAll('.tip.show').forEach((x) => x.classList.remove('show'));
+      t.classList.toggle('show', on);
+    });
+    main.querySelector('.editor').addEventListener('input', prev);
+    main.querySelector('.editor').addEventListener('change', prev);
+    prev();
     const file = $('#ed-file');
     if (file) file.addEventListener('change', async () => {
       const f = file.files[0];
@@ -782,10 +857,16 @@
       }
     });
   }
+  const edV = (id) => { const el = $('#' + id); return el ? el.value : ''; };
+  const edFx = (prefix, list) => { const o = {}; for (const [k] of list) { const x = edV(`${prefix}-${k}`); if (x !== '' && Number.isFinite(+x) && +x !== 0) o[k] = +x; } return o; };
+  const readSkill = (i) => ({
+    name: edV(`s${i}-name`).trim(), desc: edV(`s${i}-desc`).trim(), spType: edV(`s${i}-spType`), trigger: edV(`s${i}-trigger`),
+    sp: +edV(`s${i}-sp`), initSp: +edV(`s${i}-initSp`), duration: +edV(`s${i}-duration`), range: edV(`s${i}-range`), autoWhen: edV(`s${i}-autoWhen`), fx: edFx('s' + i, SKILL_FX),
+  });
   function readEditor() {
-    const v = (id) => { const el = $('#' + id); return el ? el.value : ''; };
+    const v = edV;
     const n = (id) => +v(id);
-    const fx = (prefix, list) => { const o = {}; for (const [k] of list) { const x = v(`${prefix}-${k}`); if (x !== '' && Number.isFinite(+x) && +x !== 0) o[k] = +x; } return o; };
+    const fx = edFx;
     return {
       isOnly: v('ed-isonly') === '1',
       name: v('ed-name').trim(), en: v('ed-en').trim(), rarity: n('ed-rarity'), class: v('ed-class'), archetype: v('ed-arch'),
@@ -797,10 +878,7 @@
       profile: v('ed-profile').trim(), quote: v('ed-quote').trim(),
       voices: v('ed-voices').split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 6),
       talents: [0, 1].map((i) => ({ name: v(`t${i}-name`).trim(), desc: v(`t${i}-desc`).trim(), fx: fx('t' + i, TALENT_FX) })).filter((t) => t.name),
-      skills: [0, 1, 2].map((i) => ({
-        name: v(`s${i}-name`).trim(), desc: v(`s${i}-desc`).trim(), spType: v(`s${i}-spType`), trigger: v(`s${i}-trigger`),
-        sp: n(`s${i}-sp`), initSp: n(`s${i}-initSp`), duration: n(`s${i}-duration`), range: v(`s${i}-range`), fx: fx('s' + i, SKILL_FX),
-      })).filter((s) => s.name),
+      skills: [0, 1, 2].map(readSkill).filter((s) => s.name),
       creator: editing.data.creator || '',
     };
   }

@@ -195,6 +195,11 @@
     if (num(f.dodge, 0)) e.dodge = num(f.dodge, 0, 0, 90) / 100;
     if (num(f.block, 0)) e.block = num(f.block, 0, 0, 3);
     if (num(f.dp, 0)) e.dp = num(f.dp, 0, 0, 40);
+    if (num(f.antiAir, 0)) e.antiAir = true;
+    if (num(f.arts, 0)) e.arts = true;
+    if (num(f.ignoreDef, 0)) e.ignoreDef = num(f.ignoreDef, 0, 0, 100) / 100;
+    if (num(f.firstStun, 0)) e.firstStun = num(f.firstStun, 0, 0, 10);
+    if (num(f.slowRate, 0)) e.hitSlow = { rate: num(f.slowRate, 0, 0, 90) / 100, dur: num(f.slowDur, 1.5, 0.5, 10) };
     if (num(f.endBlast, 0)) e.endBlast = { mul: num(f.endBlast, 0, 0, 1000) / 100, radius: num(f.endRadius, 1.4, 0.5, 4), selfDmg: num(f.selfDmg, 0, 0, 90) / 100 };
     return e;
   }
@@ -225,7 +230,7 @@
       const effect = skillFx(k.fx);
       if (rangeKey) effect.range = RANGE_PRESETS[rangeKey].range;
       return {
-        rangeKey, name: str(k.name, 30) || '스킬', desc: str(k.desc, 200), spType,
+        rangeKey, autoWhen: k.autoWhen === 'ready' || k.autoWhen === 'enemy' ? k.autoWhen : '', name: str(k.name, 30) || '스킬', desc: str(k.desc, 200), spType,
         trigger: k.trigger === 'auto' || spType === 'deploy' ? 'auto' : 'manual',
         sp: spType === 'deploy' ? 0 : num(k.sp, 20, 1, 200), initSp: spType === 'deploy' ? 0 : num(k.initSp, 0, 0, 200),
         duration: num(k.duration, 10, -1, 120), effect, fx: obj(k.fx),

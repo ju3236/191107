@@ -125,7 +125,8 @@
       dp: (st.startDp ?? 10) + (mods.startDp || 0), life, maxLife: opts.maxLife ?? life, deployLimit: (st.deployLimit ?? 8) + (mods.deployLimit || 0),
       ext: opts, mods, edefs: opts.enemies || null, maxDp: MAX_DP + (mods.maxDp || 0), shield: opts.shield || 0,
       ops: [], enemies: [], effects: [],
-      roster: squad.map((def) => ({ def, cd: 0, deployed: false })),
+      // 하단 카드는 코스트 낮은 순 (같으면 편성 순)
+      roster: squad.map((def, i) => ({ def, cd: 0, deployed: false, i })).sort((a, b) => (a.def.cost || 0) - (b.def.cost || 0) || a.i - b.i),
       speed: 1, paused: false, ended: false,
       mode: 'idle', sel: null, tile: null, dir: 'right', press: null, inspect: null,
       shake: 0, T: 40, dpr: 1,
@@ -1291,6 +1292,14 @@
     return list.slice(0, n);
   }
 
+  // 자동 발동 조건: 'ready'면 SP가 차는 즉시, 'enemy'면 공격할 적이 있을 때.
+  // 정하지 않았으면 코스트 · 자기 회복 · 보호막만 있는 스킬은 바로 켬
+  const SUPPORT_ONLY = new Set(['dp', 'heal', 'regen', 'shield']);
+  function autoReady(sk) {
+    if (sk.autoWhen) return sk.autoWhen === 'ready';
+    const ks = Object.keys(sk.effect || {});
+    return ks.length > 0 && ks.every((k) => SUPPORT_ONLY.has(k));
+  }
   function hasWork(op) {
     const ef = op.skill.effect || {};
     if (ef.allyHeal) return alliesNear(op, ef.allyHeal.radius).some((o) => o.hp < o.maxHp);
@@ -1342,7 +1351,7 @@
       }
     } else if (sk.spType !== 'deploy') {
       if (!sk.spType || sk.spType === 'time') op.sp = Math.min(spCap(sk), op.sp + dt * (S.ext.practice ? 3 : 1));
-      if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && (op.def.archetype === 'bearer' || hasWork(op))) activateSkill(op);
+      if (sk.trigger === 'auto' && op.sp >= sk.sp && !op.charge && !op.burst && (op.def.archetype === 'bearer' || autoReady(sk) || hasWork(op))) activateSkill(op);
     }
 
     // 예리한 관찰: 공격 범위 안의 적에게 「분석」 누적
@@ -1407,7 +1416,7 @@
 
     const targets = pickTargets(op, n);
     if (!targets.length) return;
-    const type = op.def.dmgType || (op.def.class === 'caster' || op.def.class === 'supporter' ? 'arts' : 'phys');
+    const type = eff(op).arts ? 'arts' : op.def.dmgType || (op.def.class === 'caster' || op.def.class === 'supporter' ? 'arts' : 'phys');
     // 타고난 천재: 같은 적을 연속 공격하면 방어력 무시가 쌓임
     let ignore = 0;
     const fo = op.tal.focus;
@@ -1524,6 +1533,8 @@
         if (op.patSnap >= 40 && t.alive) hitEnemy(t, opAtk(op) * op.tal.patience.extra, 'phys', false, op, ignore, true);
         // 부디 자비를: 처음 공격하는 적 기절
         if (eff(op).firstStun && i === 0 && t.alive && !(t.mercyBy === op && t.mercyN === op.skillN)) { t.mercyBy = op; t.mercyN = op.skillN; stunEnemy(t, eff(op).firstStun); }
+        // 실장 오퍼레이터: 공격 시 둔화
+        if (eff(op).hitSlow && t.alive) slowEnemy(t, 1 - eff(op).hitSlow.rate, eff(op).hitSlow.dur);
         if (op.tal.relay && i === 0) markEnemy(op, t);
         if (finish && i === 0 && t.alive) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#ffcf3a', r: 0.5 }); hitEnemy(t, opAtk(op) * fin.mul, 'phys', true, op, ignore, true); }
         if (splash) {
