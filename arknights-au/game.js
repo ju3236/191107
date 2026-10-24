@@ -2615,7 +2615,7 @@
   }
 
   function drawOp(op) {
-    if (op.remOwner) { ctx.save(); ctx.globalAlpha = 0.62; ctx.filter = 'grayscale(1) brightness(.7) contrast(1.2)'; drawOpBody(op); ctx.restore(); return; }
+    if (op.remOwner) { ctx.save(); ctx.globalAlpha = 0.85; drawOpBody(op); ctx.restore(); return; }
     if (isCamo(op)) { ctx.save(); ctx.globalAlpha = 0.5; drawOpBody(op); ctx.restore(); return; }
     drawOpBody(op);
   }

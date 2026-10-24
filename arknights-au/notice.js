@@ -9,6 +9,13 @@
 // =====================================================================
 const NOTICES = [
   {
+    id: 'e20261024b', tab: 'event', date: '2026-10-24', short: '신규\n의상',
+    title: "'네가 남긴 여름' 의상 안내", banner: '의상', art: 'img/skin/isseo_1.png', bg: 'img/homebg/bg_siesta_1.webp',
+    body: [
+      { li: ['신이서 의상 「네가 남긴 여름」(이상현상조사부) — 오퍼레이터 상세의 「의상」에서 오리지늄 18개로 구매할 수 있습니다.', '신이서의 잔영 그림이 유령 모양으로 바뀌었습니다.'] },
+    ],
+  },
+  {
     id: 'e20261024a', tab: 'event', date: '2026-10-24', short: '한정\n헤드헌팅',
     title: "'아무도 없는 교실' 헤드헌팅 안내", banner: '헤드헌팅', art: 'isseo', bg: 'img/homebg/bg_rogue_1.webp',
     body: [
