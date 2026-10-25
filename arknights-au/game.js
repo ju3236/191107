@@ -2596,7 +2596,7 @@
   function drawBody(def, X, Y, T, alpha = 1, flash = 0) {
     const im = imgOf(def);
     if (im) {
-      const ih = T * 1.25, iw = (ih * im.naturalWidth) / im.naturalHeight;
+      const ih = T * 1.25 * (def.scale || 1), iw = (ih * im.naturalWidth) / im.naturalHeight;
       const x0 = X - iw / 2, y0 = Y - ih * 0.96;
       ctx.globalAlpha = alpha;
       if (flash > 0) ctx.filter = 'brightness(1.6) sepia(1) saturate(4) hue-rotate(-40deg)';

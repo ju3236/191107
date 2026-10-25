@@ -1094,7 +1094,7 @@ const OPERATORS = [
     hp: 1950, atk: 660, def: 135, res: 20, interval: 1.6,
     range: [[0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1], [2, -1], [2, 0], [2, 1], [3, 0]],
     // 고유 소환물: 잔영 (적의 처치 위치에 자동 생성, 배치 인원을 차지하지 않음)
-    remnant: { id: 'isseo_remnant', name: '잔영', class: 'guard', color: '#c8d3e3', image: 'img/remnant.png', dmgType: 'arts',
+    remnant: { id: 'isseo_remnant', name: '잔영', class: 'guard', color: '#c8d3e3', image: 'img/remnant.png', scale: 0.6, dmgType: 'arts',
       hp: 1500, atk: 420, def: 180, res: 30, interval: 1.25, block: 1, range: [[0, 0], [1, 0]], life: 40, max: 3, fade: 0.6 },
     talents: [
       { name: '보이지 않는 친구들', desc: '공격 범위 안에서 지상 적이 쓰러지면 그 자리에 잔영 소환(최대 3, 40초). 잔영이 이미 가득하면 HP가 가장 낮은 잔영의 HP 40% 회복 · 공격력 +20%(최대 2회 중첩). 잔영이 저지 중인 적에게 주는 마법 피해 +25%',
