@@ -229,7 +229,7 @@
     if (!S.ended) placeRing();
     const hint = $('#hint');
     if (mode === 'placing') {
-      hint.textContent = tileOf(S.sel.def) === 'ground' ? '지면(어두운 칸)을 선택하세요' : '고지대(밝은 칸)를 선택하세요';
+      hint.textContent = tileOf(S.sel.def) === 'any' ? '지면 또는 고지대를 선택하세요' : tileOf(S.sel.def) === 'ground' ? '지면(어두운 칸)을 선택하세요' : '고지대(밝은 칸)를 선택하세요';
     } else if (mode === 'direction') {
       hint.textContent = '드래그하거나 화살표를 눌러 방향 결정 · 가운데를 누르면 취소';
     }
@@ -272,7 +272,7 @@
     if (def.summoned && own && own.alive && own.def.archetype === 'tactician' && !own.range.has(key(tx, ty))) return false;
     const ch = S.map[ty][tx];
     const need = tileOf(def) === 'ground' ? '.' : '^';
-    const ok = ch === need || (need === '.' && ch === '~') || (need === '^' && S.mods.rangedGround && (ch === '.' || ch === '~'));
+    const ok = (tileOf(def) === 'any' && (ch === '.' || ch === '~' || ch === '^')) || ch === need || (need === '.' && ch === '~') || (need === '^' && S.mods.rangedGround && (ch === '.' || ch === '~'));
     return ok && !opAt(tx, ty);
   }
   function pickDir(p) {
@@ -525,6 +525,8 @@
   const opArtsDodge = (op) => (op.def.artsDodge || 0) + (eff(op).artsDodge || 0) + B(op, 'artsDodge');
   const tileOf = (def) => def.tile || CLASSES[def.class].tile;
   const isGround = (def) => tileOf(def) === 'ground';
+  // 후크마스터: 지상 · 고지대 모두 배치 — 실제로 놓인 칸으로 근접 여부 판단
+  const isGroundOp = (op) => (tileOf(op.def) === 'any' ? !op.onHigh : isGround(op.def));
   const isFly = (def) => !!(def.fly || def.flying);
 
   function setRange(op, range) {
@@ -675,6 +677,13 @@
     // 끝까지 한 걸음: HP가 낮을수록 공격력
     if (t.lastStep) { const r = op.hp / op.maxHp; if (r <= t.lastStep.hp2) add('atk', t.lastStep.atk2); else if (r <= t.lastStep.hp1) add('atk', t.lastStep.atk1); }
     if (op.dodgeT > 0) add('dodge', op.dodgeV);
+    // 행운의 가호 / 남겨진 희망
+    if (op.blessT > 0 && op.blessBy) {
+      const ls = op.blessBy.tal.luckShare || { atk: 0.05, dodge: 0.05 };
+      add('atk', ls.atk * op.blessN); add('dodge', ls.dodge * op.blessN); add('artsDodge', ls.dodge * op.blessN);
+      if (op.blessBy.alive && eff(op.blessBy).blessAspd) add('aspd', eff(op.blessBy).blessAspd);
+    }
+    if (op.hopeT > 0) add('aspd', op.hopeAspd * op.hopeN);
     if (op.def.summoned && op.owner && op.owner.alive) {
       const oe = eff(op.owner);
       if (oe.guardAtk) add('atk', oe.guardAtk - 1);
@@ -1077,6 +1086,45 @@
     if (n) summonRemnants(ow, n, e.x, e.y);
   }
 
+  // ---------- 후크마스터(판도라): 끌어당기기 · 행운 · 불운 ----------
+  const misOf = (e) => e.misT > 0 && e.misBy;
+  function applyMis(op, e, dur) { if (!e.alive) return; e.misT = Math.max(e.misT || 0, dur || (op.tal.luckSteal ? op.tal.luckSteal.dur : 10)); e.misBy = op; }
+  function stealLuck(op, e) {
+    const ls = op.tal.luckSteal;
+    if (!ls || !e.alive || S.time < (e.stealReadyAt || 0)) return false;
+    e.stealReadyAt = S.time + ls.cd;
+    op.luck = Math.min(ls.max, (op.luck || 0) + 1);
+    applyMis(op, e);
+    addText(e.x, e.y - 0.45, '행운 탈취', '#ffd86b', 0.6);
+    const ef = eff(op);
+    if (ef.stealHeal) healOp(op, op.maxHp * ef.stealHeal, true);
+    if (ef.stealArts && e.alive) { hitEnemy(e, opAtk(op) * ef.stealArts.mul, 'arts', false, op, 0, true); if (e.alive) bindEnemy(e, ef.stealArts.bind); }
+    return true;
+  }
+  // 「공략」 공통 시너지: 프레임이 있으면 같은 학교 넷의 추가 피해에도 방어 무시 · 피해 증가
+  function schoolOf(op, e) {
+    if (!SCHOOL.includes(op.def.id) || !(e.analyzedT > 0)) return { amp: 1, ign: 0 };
+    const lead = S.ops.find((o) => o.alive && o.tal.pattern);
+    if (!lead || lead === op) return { amp: 1, ign: 0 };
+    return { amp: 1 + lead.tal.pattern.schoolAmp, ign: lead.tal.pattern.schoolIgnore };
+  }
+  // 갈고리: 무게에 따라 끌려오는 거리가 줄어듦. 맞기만 하면 행운 탈취
+  function hookEnemy(op, e, power, dmgMul) {
+    if (!e.alive) return false;
+    pullEnemy(e, op, Math.max(0, power - (wOf(e) - 1) * 0.6));
+    addFx({ type: 'ring', x: e.x, y: e.y, life: 0.3, color: '#b07bff', r: 0.45 });
+    if (dmgMul) { const sc = schoolOf(op, e); hitEnemy(e, opAtk(op) * dmgMul * sc.amp, 'phys', false, op, sc.ign, true); }
+    return stealLuck(op, e);
+  }
+  function hookPulse(op, p) {
+    const inR = S.enemies.filter((e) => e.alive && !isFly(e.def) && op.range.has(key(Math.floor(e.x), Math.floor(e.y))));
+    const d = (e) => Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5));
+    inR.sort((a, b) => (p.misFirst ? !!misOf(b) - !!misOf(a) : 0) || d(b) - d(a));
+    const ts = inR.slice(0, p.n);
+    for (const t of ts) hookEnemy(op, t, p.power, p.dmg);
+    if (ts.length) sfx('retreat');
+  }
+
   function deploy(r, tx, ty, dir) {
     if (r.left !== undefined && r.left <= 0) { setMode('idle'); return; }
     if (S.dp < r.def.cost) { toast('배치 코스트가 부족합니다'); setMode('idle'); return; }
@@ -1090,6 +1138,7 @@
       firstStrike: !!tal.firstStrike, lastStandUsed: false,
       blocked: [], alive: true, flash: 0, born: S.time,
     };
+    op.onHigh = S.map[ty][tx] === '^';
     setRange(op, def.range);
     S.ops.push(op);
     if (r.owner) op.owner = r.owner;
@@ -1205,6 +1254,19 @@
     if (ef.heal) healOp(op, op.maxHp * ef.heal);
     if (ef.shield) op.shield = op.maxHp * ef.shield;
     if (ef.nextHit) { op.charge = ef.nextHit; op.chargeStun = ef.nextStun || 0; }
+    if (ef.fullLuck && op.tal.luckSteal && op.luck >= op.tal.luckSteal.max) op.charge *= 1 + ef.fullLuck;
+    if (ef.pullEvery) op.pullT = 0.3;
+    // 행운은 나누는 겁니다: 행운 최대 3을 써서 주변 8칸 아군 중 공격력이 가장 높은 1명에게 가호
+    const lsh = op.tal.luckShare;
+    if (lsh && op.luck > 0) {
+      const al = S.ops.filter((o) => o.alive && o !== op && !o.remOwner && Math.max(Math.abs(o.x - op.x), Math.abs(o.y - op.y)) <= 1).sort((a, b) => opAtk(b) - opAtk(a))[0];
+      if (al) {
+        const n = Math.min(lsh.use, op.luck);
+        op.luck -= n;
+        al.blessN = Math.min(3, n); al.blessT = lsh.dur; al.blessBy = op;
+        addText(al.x + 0.5, al.y - 0.15, `행운의 가호 ×${al.blessN}`, '#ffd86b', 0.9, true);
+      }
+    }
     if (ef.remSummon && op.def.remnant) summonRemnants(op, ef.remSummon);
     if (ef.dodgeBuff) { op.dodgeT = ef.dodgeBuff.dur; op.dodgeV = ef.dodgeBuff.v; }
     if (ef.lastTouch) { op.ltUsed = false; op.ltReady = false; }
@@ -1311,6 +1373,14 @@
   // 지속형 스킬이 끝날 때
   function endSkill(op) {
     const ef = op.skill.effect || {};
+    // 남겨진 희망: 행운을 모두 써서 주변 8칸 아군(자신 포함) 강화
+    if (ef.endHope && op.luck > 0) {
+      const n = Math.min(ef.endHope.max, op.luck);
+      op.luck = 0;
+      for (const o of S.ops) if (o.alive && Math.max(Math.abs(o.x - op.x), Math.abs(o.y - op.y)) <= 1) { o.hopeN = n; o.hopeT = ef.endHope.dur; o.hopeAspd = ef.endHope.aspd; o.hopeCut = ef.endHope.cut; }
+      addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.6, color: '#ffd86b', r: 1.6 });
+      addText(op.x + 0.5, op.y - 0.2, `남겨진 희망 ×${n}`, '#ffd86b', 1.1, true);
+    }
     op.skillT = 0;
     op.charges = 0;
     if (ef.endHealPerKill && op.skillKills) healOp(op, op.maxHp * ef.endHealPerKill * op.skillKills);
@@ -1376,7 +1446,7 @@
   const SCHOOL = ['gaeul', 'iai', 'simhae', 'byeol'];
   const SWORD_HITS = { count: 2, mul: 1 };   // 소드마스터: 일반 공격 2연격
   function pickTargets(op, n) {
-    const ground = isGround(op.def);
+    const ground = isGroundOp(op);
     const antiAir = op.def.class === 'sniper';
     // 공격수: 저지 중인 적 전부 동시 공격
     if (op.def.archetype === 'centurion' || eff(op).allBlocked || (op.def.summoned && op.owner && op.owner.alive && eff(op.owner).guardAll)) n = Math.max(n, op.blocked.length);
@@ -1417,6 +1487,9 @@
     op.flash = Math.max(0, op.flash - dt);
     op.chill = Math.max(0, op.chill - dt);
     if (op.remOwner) { op.lifeT -= dt; if (op.lifeT <= 0) { removeOp(op, false); return; } }
+    if (op.blessT > 0) op.blessT -= dt * (op.skillT > 0 ? 0.5 : 1);
+    if (op.hopeT > 0) op.hopeT -= dt;
+    if (ef.pullEvery && op.skillT > 0 && (op.pullT -= dt) <= 0) { op.pullT = ef.pullEvery.every; hookPulse(op, ef.pullEvery); }
     if (op.dodgeT > 0) op.dodgeT -= dt;
     if (op.invulnT > 0) op.invulnT -= dt;
     if (op.egN && !eff(op).engardeKeep && (op.egT -= dt) <= 0) op.egN = 0;
@@ -1601,7 +1674,8 @@
     for (const t of targets) {
       for (let i = 0; i < count; i++) {
         attackFx(op, t, i, type, op.skillT > 0 || mul > 1.4, cx, cy);
-        const crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
+        let crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
+        if (crit === 1 && op.blessT > 0 && Math.random() < (op.blessBy && op.blessBy.tal.luckShare ? op.blessBy.tal.luckShare.crit : 0.05) * op.blessN) crit = 1.5;
         // 로드: 저지하지 않은 적(원거리 공격)에게는 공격력 80%
         const lordMul = op.def.archetype === 'lord' && t.blockedBy !== op ? 0.8 : 1;
         // 패턴 학습: 「공략」된 적에게 방어력 무시 · 추가 피해 (NO CONTINUE: 피해 +20%)
@@ -1625,6 +1699,9 @@
         S.noDodge = false;
         if (i === 0 && t.alive && charged && starred && (op.skill.effect || {}).starHit) { const sh = op.skill.effect.starHit; hitEnemy(t, opAtk(op) * sh.mul, 'phys', false, op, ign, true); if (t.alive) stunEnemy(t, sh.stun); }
         if (i === 0 && t.alive && ef0.extraShot && Math.random() < ef0.extraShot) { attackFx(op, t, 1, type, true, cx, cy); hitEnemy(t, dmg, type, false, op, ign, true); }
+        // 잠깐 빌리겠슴다!: 강화 공격이 목표를 끌어당기고 불운 부여, 행운을 빼앗으면 SP +1
+        const sk1 = op.skill.effect || {};
+        if (i === 0 && charged && sk1.hookPull && t.alive) { if (sk1.misHit) applyMis(op, t); if (hookEnemy(op, t, sk1.hookPull) && sk1.stealSp) gainSp(op, sk1.stealSp); }
         // 이상현상 기록: 강화 공격 대상에게 목격, 8초 안에 쓰러지면 잔영 추가
         if (i === 0 && charged && (op.skill.effect || {}).witnessHit) { t.witnessT = op.skill.effect.witnessHit; t.witnessBy = op; t.witHitBy = op; t.witHitUntil = S.time + op.skill.effect.witnessHit; }
         // 끝까지 한 걸음: HP 40% 이하면 준 피해의 8% 회복
@@ -1780,6 +1857,7 @@
   }
   function hitOp(op, atk, type, src) {
     if (!op.alive) return;
+    if (op.hopeT > 0) atk *= 1 - op.hopeCut * op.hopeN;
     const X = S.mods;
     if (type === 'phys' && Math.random() < opDodge(op)) { onDodge(op, src); return; }
     if (type === 'arts' && Math.random() < opArtsDodge(op)) { onDodge(op, src); return; }
@@ -1920,6 +1998,7 @@
     if (e.rushT > 0) amp *= 1 - S.mods.eliteRush.cut;
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
     if (e.resDownT > 0) res = Math.max(0, res - e.resDown);
+    if (misOf(e)) { if (src === e.misBy && type === 'phys' && src.tal.luckSteal) amp *= 1 + src.tal.luckSteal.amp; if (e.misBy.alive && eff(e.misBy).misAmp) amp *= 1 + eff(e.misBy).misAmp; }
     if (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness) res = Math.max(0, res - e.witnessBy.tal.witness.res);
     if (e.unluckyT > 0) for (const o of luckOps()) {
       const le = eff(o);
@@ -2010,7 +2089,7 @@
   function tryBlock(e) {
     const w = Math.max(1, (e.def.weight || 1) + ((S.mods.enemy && S.mods.enemy.weight) || 0));
     for (const op of S.ops) {
-      if (!op.alive || !isGround(op.def)) continue;
+      if (!op.alive || !isGroundOp(op)) continue;
       const load = op.blocked.reduce((s, b) => s + (b.alive && b.blockedBy === op ? Math.max(1, (b.def.weight || 1) + ((S.mods.enemy && S.mods.enemy.weight) || 0)) : 0), 0);
       if (load + w > opBlock(op)) continue;
       if (Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) < 0.7) {
@@ -2064,7 +2143,7 @@
 
   function enemyAtk(e) {
     const en = e.def.enrage, X = S.mods;
-    return e.def.atk * e.atkMul * (e.rushT > 0 ? 1 + X.eliteRush.atk : 1) * (X.anger && S.time < X.anger.dur ? 1 - X.anger.atk : 1) * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1) * (e.markT > 0 && e.markBy ? 1 - e.markBy.tal.relay.atkDown : 1) * (e.unluckyT > 0 && luckOps().some((o) => eff(o).luckAtk) ? 1 - Math.max(...luckOps().map((o) => eff(o).luckAtk || 0)) : 1);
+    return e.def.atk * e.atkMul * (e.rushT > 0 ? 1 + X.eliteRush.atk : 1) * (X.anger && S.time < X.anger.dur ? 1 - X.anger.atk : 1) * (en && e.hp / e.maxHp <= en.below ? en.atk : 1) * (e.def.brandAtk && onBrand(e.x, e.y) ? e.def.brandAtk : 1) * (e.atkDownT > 0 ? 1 - e.atkDown : 1) * (e.markT > 0 && e.markBy ? 1 - e.markBy.tal.relay.atkDown : 1) * (e.unluckyT > 0 && luckOps().some((o) => eff(o).luckAtk) ? 1 - Math.max(...luckOps().map((o) => eff(o).luckAtk || 0)) : 1) * (misOf(e) && e.misBy.alive && eff(e.misBy).misAtkDown ? 1 - eff(e.misBy).misAtkDown : 1);
   }
 
   function updateEnemy(e, dt, healAura) {
@@ -2079,6 +2158,7 @@
     if (e.rushT > 0) e.rushT -= dt;
     if (e.resDownT > 0) e.resDownT -= dt;
     if (e.witnessT > 0) e.witnessT -= dt;
+    if (e.misT > 0) e.misT -= dt;
     if (e.atkSlowT > 0) e.atkSlowT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
@@ -2133,6 +2213,8 @@
       target = inRange[0];
     }
     if (!target) return;
+    // 불운(판도라): 공격이 빗나감
+    if (misOf(e) && Math.random() < ((e.misBy.tal.luckSteal || {}).miss || 0.15)) { addText(e.x, e.y - 0.4, '빗나감', '#b07bff', 0.6); e.atkCd = e.def.interval; return; }
     // 불행의 연쇄: 공격 실패
     if (e.unluckyT > 0 && !(e.failCd > 0)) {
       const ul = luckOps()[0];
@@ -2154,7 +2236,7 @@
       }
     }
     hitOp(target, atk, type, e);
-    e.atkCd = e.def.interval * (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness ? 1 + e.witnessBy.tal.witness.aspd : 1) * (e.atkSlowT > 0 ? e.atkSlowMul : 1) * (e.slowT > 0 ? e.slowAtk : 1) * (e.auraAtkI || 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
+    e.atkCd = e.def.interval * (misOf(e) ? 1 + ((e.misBy.tal.luckSteal || {}).aspd || 0.15) : 1) * (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness ? 1 + e.witnessBy.tal.witness.aspd : 1) * (e.atkSlowT > 0 ? e.atkSlowMul : 1) * (e.slowT > 0 ? e.slowAtk : 1) * (e.auraAtkI || 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
   }
 
   // =====================================================================
@@ -2668,6 +2750,9 @@
         ctx.fillRect(bx + i * (cw + gap), cy2, cw, ch);
       }
     } else bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
+    // 판도라의 행운 중첩 · 행운의 가호 · 남겨진 희망 표시
+    if (op.tal.luckSteal && op.luck) { ctx.font = `900 ${Math.max(10, T * 0.16)}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffd86b'; ctx.fillText('♣' + op.luck, bx + bw + 3, by + 2); }
+    if (op.blessT > 0 || op.hopeT > 0) { ctx.font = `900 ${Math.max(9, T * 0.14)}px sans-serif`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffd86b'; ctx.fillText(op.blessT > 0 ? '✦' + op.blessN : '♡' + op.hopeN, bx - 3, by + 2); }
     if (op.neural > 0) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), op.neural / 1000, '#c77dff');
     // 해방자: 공격력 충전 게이지
     if (op.def.archetype === 'librator' && !(op.skillT > 0)) bar(bx, by + Math.max(7, T * 0.13), bw, Math.max(2, T * 0.035), (op.libT || 0) / 40, '#ffd86b');
@@ -2743,6 +2828,7 @@
     }
     const bw = T * (e.def.boss ? 0.8 : 0.5);
     bar(X - bw / 2, headY - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
+    if (misOf(e)) { ctx.font = `900 ${T * 0.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#b07bff'; ctx.fillText('☂', X - bw / 2 - T * 0.1, headY - T * 0.1); }
     if (e.starUntil > S.time) { ctx.font = `900 ${T * 0.22}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfe3ff'; ctx.fillText('★', X + bw / 2 + T * 0.1, headY - T * 0.1); }
     if (e.analysis > 0 && e.ana) {
       // 분석 스택 표시
@@ -3022,7 +3108,7 @@
   }
   // 공격 이펙트 (투사체 또는 근접 타격)
   function attackFx(op, t, i, type, strong, cx, cy) {
-    const v = vfxOf(op.def), melee = !v.shot && (isGround(op.def) || v.hit);
+    const v = vfxOf(op.def), melee = !v.shot && (isGroundOp(op) || v.hit);
     if (melee) {
       const st = v.hit || 'slash';
       addFx({ type: 'hit', style: st, x: t.x, y: t.y, life: strong ? 0.3 : 0.22, color: strong ? '#ffcf3a' : v.color, color2: v.color2, big: strong, rot: st === 'iai' ? -0.35 + (Math.random() - 0.5) * 0.5 : -2.4 + (Math.random() - 0.5) * 1.2 + i * 0.9 });

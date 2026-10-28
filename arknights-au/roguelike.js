@@ -23,7 +23,7 @@
   const relicById = (id) => ALL_RELICS.find((r) => r.id === id);
   const RARITY = { common: '평범', rare: '진귀', special: '매우 진귀', curse: '저주받은 고물' };
   const MAX_SQUAD = 13;
-  const isMelee = (def) => CLASSES[def.class] && (def.tile || CLASSES[def.class].tile) === 'ground';
+  const isMelee = (def) => CLASSES[def.class] && ['ground', 'any'].includes(def.tile || CLASSES[def.class].tile);
   const rec = () => {
     const x = (P().isRec = P().isRec || { runs: 0, wins: 0, best: 0, seen: [] });
     x.unlock = x.unlock || {}; x.diffMax = x.diffMax ?? -1; x.ingot = x.ingot || 0; x.exp = x.exp || 0; x.bank = x.bank || 0;

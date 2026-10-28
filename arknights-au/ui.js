@@ -689,7 +689,7 @@
     fitName($('#detail-name'));
     $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${PRO_IMG.has(o.class) ? `<img class="sub-ico" src="img/ui/sub_${esc(o.archetype)}.png" alt="">` : ''}${esc(arch.name)}</small>` : ''}`;
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
-    $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
+    $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'any' ? '지면 · 고지대 배치' : (o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
     $('#detail-cost').textContent = o.cost;
     const list = skillsOf(base), cur = skillIndex(base), tlist = skillsOf(o);
     const lvTag = (i) => (i > pg.elite ? '' : `<span class="sk-lv ${pg.mst[i] ? 'm' : ''}">${pg.mst[i] ? `특화 ${pg.mst[i]}` : `Lv.${pg.slv}`}</span>`);
