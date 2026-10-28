@@ -437,6 +437,55 @@
     const [k, n] = Object.entries(g.items)[0];
     return { name: ITEMS[k].name, sub: `×${n.toLocaleString('ko-KR')}`, item: k };
   }
+  // 이벤트 보너스 · 임무
+  const evOf = (st) => st && st.event && EVENTS.find((e) => e.id === st.event);
+  const evBonusOf = (st, squad = []) => { const ev = evOf(st); return ev && ev.bonus ? squad.reduce((a, id) => a + (ev.bonus[id] || 0), 0) : 0; };
+  function evBonusHTML(st) {
+    const ev = evOf(st), cur = evBonusOf(st, save.squad || []);
+    if (!ev || !ev.bonus) return '';
+    return `<div class="ev-bonus"><small>이벤트 보너스</small>${Object.entries(ev.bonus).map(([id, v]) => `<span class="${(save.squad || []).includes(id) ? 'on' : ''}">${esc((OPS[id] || {}).name || id)} +${Math.round(v * 100)}%</span>`).join('')}<em>현재 편성 <i class="ri ${ev.currency}"></i> +${Math.round(cur * 100)}%</em></div>`;
+  }
+  const evMis = (ev) => { save.evMis = save.evMis || {}; return (save.evMis[ev.id] = save.evMis[ev.id] || { runs: 0, bonus: 0, got: {} }); };
+  function trackEvent(st, n, squad = []) {
+    const ev = evOf(st);
+    if (!ev || !eventLive(ev)) return;
+    const m = evMis(ev);
+    m.runs += n;
+    if (evBonusOf(st, squad) > 0) m.bonus += n;
+  }
+  function misProg(ev, ms) {
+    const m = evMis(ev);
+    if (ms.kind === 'runs') return [Math.min(ms.n, m.runs), ms.n];
+    if (ms.kind === 'bonus') return [Math.min(ms.n, m.bonus), ms.n];
+    if (ms.kind === 'clear') { const st = STAGES.find((x) => x.code === ms.code); return [st && cleared(st) ? 1 : 0, 1]; }
+    if (ms.kind === 'star3') return [ms.codes.filter((c) => (save.stars[c] || 0) >= 3).length, ms.codes.length];
+    return [0, 1];
+  }
+  const misReady = (ev) => (ev.missions || []).filter((ms) => { const [a, b] = misProg(ev, ms); return a >= b && !evMis(ev).got[ms.id]; });
+  function openEventMissions(ev) {
+    const m = evMis(ev);
+    const rows = (ev.missions || []).map((ms) => {
+      const [a, b] = misProg(ev, ms), done = a >= b, got = m.got[ms.id];
+      return `<div class="evm-row ${got ? 'got' : done ? 'ready' : ''}"><div class="evm-txt"><b>${esc(ms.text)}</b><i class="evm-bar"><u style="width:${(a / b) * 100}%"></u></i><small>${a}/${b}</small></div>
+        <span class="evm-rw">${Object.entries(ms.reward).map(([k, n]) => `<span><i class="ri ${k}"></i>${n.toLocaleString('ko-KR')}</span>`).join('')}</span>
+        <button class="btn small ${done && !got ? 'primary' : ''}" data-evmis="${esc(ms.id)}" ${done && !got ? '' : 'disabled'}>${got ? '수령 완료' : done ? '수령' : '진행 중'}</button></div>`;
+    }).join('');
+    const ready = misReady(ev).length;
+    openModal(`<div class="modal-title">${esc(ev.name)} — 이벤트 임무</div><div class="modal-sub">이벤트 작전 완료 ${m.runs}회 · 보너스 편성 ${m.bonus}회</div>
+      <div class="evm-list">${rows}</div>
+      <div class="panel-btns"><button class="btn primary" id="evm-all" ${ready ? '' : 'disabled'}>모두 수령 (${ready})</button></div>`);
+    const claim = (list) => {
+      const total = {};
+      for (const ms of list) { m.got[ms.id] = true; for (const [k, n] of Object.entries(ms.reward)) total[k] = (total[k] || 0) + n; }
+      if (!list.length) return;
+      ACCOUNT.earn(total); writeSave(); renderResources(); sfx('select');
+      toast(Object.entries(total).map(([k, n]) => `${ITEMS[k].name} +${n.toLocaleString('ko-KR')}`).join(' · '));
+      openEventMissions(ev);
+      if (current === 'event') RENDER.event();
+    };
+    document.querySelectorAll('[data-evmis]').forEach((b) => b.addEventListener('click', () => claim(misReady(ev).filter((ms) => ms.id === b.dataset.evmis))));
+    $('#evm-all').addEventListener('click', () => claim(misReady(ev)));
+  }
   const endText = (d) => { const t = new Date(new Date(`${d}T04:00:00`).getTime() + 864e5 - 60e3); return `${t.getFullYear()}/${String(t.getMonth() + 1).padStart(2, '0')}/${String(t.getDate()).padStart(2, '0')} 03:59`; };
   // 이벤트 메인 화면 (원작처럼 큰 그림 + 오른쪽 메뉴: 작전 · 상점 · 출석)
   RENDER.event = () => {
@@ -449,11 +498,13 @@
     $('#evh-top').innerHTML = `<span class="evh-cur"><i class="ri ${cur}"></i><b>${ACCOUNT.bal(cur).toLocaleString('ko-KR')}</b></span>`;
     $('#evh-title').innerHTML = `<small class="evh-tag">${esc(ev.tag)}</small><b>${esc(ev.name)}</b><span class="evh-en">${esc(ev.en)}</span>
       <p class="evh-desc">${esc(ev.desc)}</p>
+      ${ev.bonus ? `<div class="evh-bonus">보너스 오퍼레이터 ${Object.entries(ev.bonus).map(([id, v]) => `<span>${esc((OPS[id] || {}).name || id)} <b>+${Math.round(v * 100)}%</b></span>`).join('')}</div>` : ''}
       <div class="evh-time">${opOpen ? `작전 진행 잔여 시간: ${endText(ev.end)} <em>잔여 ${daysLeft(ev.end)}일</em>` : `작전 종료 · 상점 교환 ${endText(ev.shopEnd)}까지 <em>잔여 ${daysLeft(ev.shopEnd)}일</em>`}</div>`;
     const att = typeof ATTENDANCE !== 'undefined' && eventLive(ATTENDANCE);
     $('#evh-menu').innerHTML = `
       <button class="evh-btn" data-evm="shop"><span class="evh-ic">${icon('store') || ''}</span><b>이벤트 상점</b><small>EVENT STORE · <i class="ri ${cur}"></i>${ACCOUNT.bal(cur).toLocaleString('ko-KR')}</small></button>
       ${att ? `<button class="evh-btn" data-evm="attend"><span class="evh-ic">${icon('calendar')}</span><b>${esc(ATTENDANCE.name)}</b><small>CHECK-IN · ${attState().n}/${ATTENDANCE.rewards.length}일</small></button>` : ''}
+      <button class="evh-btn ${misReady(ev).length ? 'has-new' : ''}" data-evm="mission"><span class="evh-ic">${icon('mission')}</span><b>이벤트 임무</b><small>MISSIONS · ${(ev.missions || []).filter((ms) => evMis(ev).got[ms.id]).length}/${(ev.missions || []).length}</small></button>
       <button class="evh-btn" data-evm="story"><span class="evh-ic">${icon('book')}</span><b>스토리 다시 보기</b><small>MEMORY</small></button>
       <button class="evh-go ${opOpen ? '' : 'off'}" data-evm="ops"><b>작전 개시</b><small>OPERATION · 진행 ${done}/${list.length}</small><span>▶</span></button>`;
   };
@@ -463,6 +514,7 @@
     if (b.dataset.evm === 'shop') go('evshop', ev.id);
     else if (b.dataset.evm === 'attend') openAttendance(true);
     else if (b.dataset.evm === 'story') openEventStory(ev);
+    else if (b.dataset.evm === 'mission') openEventMissions(ev);
     else if (b.dataset.evm === 'ops') { if (!eventLive(ev)) { toast('이벤트 작전이 종료되었습니다'); return; } go('operations', 'event'); }
   });
   function openEventStory(ev) {
@@ -1353,9 +1405,11 @@
     save.trust = save.trust || {};
     for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
     const first = !(save.stars[st.code] > 0);
-    const reward = rewardFor(st, idx, starCount, first);
+    const reward = rewardFor(st, idx, starCount, first, squadIds);
     ACCOUNT.earn(reward);
-    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}`).join(' · ') + ` · 신뢰도 +${cost}%`;
+    trackEvent(st, 1, squadIds);
+    const eb = st.event ? evBonusOf(st, squadIds) : 0;
+    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 신뢰도 +${cost}%`;
   }
   // 훈련장: 지금 편성으로, 목숨이 줄지 않는 연습 작전
   function startPractice() {
@@ -1368,9 +1422,14 @@
       onEnd: (r) => ({ text: `훈련 종료 · 처치 ${r.killed}`, buttons: [{ label: '다시 훈련', cls: 'primary', fn: startPractice }, { label: '편성', fn: () => go('formation') }, { label: '작전 목록', fn: () => go('operations') }] }),
     });
   }
-  function rewardFor(st, idx, starCount, first) {
+  function rewardFor(st, idx, starCount, first, squad = []) {
     if (st.supply) return TRAIN.supplyDrops(st, starCount);
-    if (st.event) { const r = TRAIN.supplyDrops(st, starCount); if (first) r.originite = 1; return r; }
+    if (st.event) {
+      const r = TRAIN.supplyDrops(st, starCount), eb = evBonusOf(st, squad);
+      if (r.lantern && eb) r.lantern = Math.round(r.lantern * (1 + eb));
+      if (first) r.originite = 1;
+      return r;
+    }
     const reward = TRAIN.stageDrops({ ...st, sanity: sanityCost(st) }, idx, starCount, first);
     if (first) reward.originite = 1;
     return reward;
@@ -1549,6 +1608,7 @@
         <div class="op-desc">
           <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명${st.supply || cleared(st) ? '' : ' · 첫 클리어 보상 오리지늄 1'}</div>
           ${dropsHTML(st, opSel)}
+          ${st.event ? evBonusHTML(st) : ''}
           <p>${esc(st.desc)}</p>
           <p class="op-warn">출현 적: ${enemyIds.map((id) => ENEMIES[id] ? esc(ENEMIES[id].name) : id).join(', ')}</p>
         </div>
@@ -1627,9 +1687,10 @@
     if (!ACCOUNT.useSanity(cost)) { openSanity(() => runProxy(idx, n)); return; }
     fixPlayer();
     const total = {};
-    for (let k = 0; k < n; k++) for (const [id, v] of Object.entries(rewardFor(st, idx, 3, false))) total[id] = (total[id] || 0) + v;
+    for (let k = 0; k < n; k++) for (const [id, v] of Object.entries(rewardFor(st, idx, 3, false, save.squad))) total[id] = (total[id] || 0) + v;
     ACCOUNT.earn(total);
     trackBattle(st, n);
+    trackEvent(st, n, save.squad);
     save.trust = save.trust || {};
     for (const id of save.squad) save.trust[id] = Math.min(200, (save.trust[id] || 0) + sanityCost(st) * n);
     writeSave();

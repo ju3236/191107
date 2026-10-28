@@ -2519,3 +2519,26 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 900px) { .evs-board { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .evs-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-height: 480px) { .evs-hero { height: 96px; } .evs-bar { top: 60px; height: 36px; } .evs-tab { padding: 5px 12px; font-size: 13px; } .evs-board { top: 96px; grid-auto-rows: 110px; } }
+
+.ev-bonus { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 6px 0; font-size: 11px; }
+.ev-bonus small { color: #e8c76a; font-weight: 900; margin-right: 2px; }
+.ev-bonus span { padding: 1px 6px; border: 1px solid rgba(255,255,255,.2); opacity: .55; }
+.ev-bonus span.on { opacity: 1; border-color: #e8c76a; color: #ffe39a; }
+.ev-bonus em { font-style: normal; display: flex; align-items: center; gap: 2px; margin-left: auto; font-weight: 900; color: #e8c76a; }
+.ev-bonus em .ri { width: 16px; height: 16px; }
+.evh-bonus { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 12px; margin: 2px 0 6px; }
+.evh-bonus span { padding: 1px 7px; background: rgba(0,0,0,.45); border: 1px solid rgba(232,199,106,.45); }
+.evh-bonus b { color: #e8c76a; }
+.evh-btn.has-new { position: relative; }
+.evh-btn.has-new::after { content: ''; position: absolute; right: 8px; top: 8px; width: 8px; height: 8px; border-radius: 50%; background: #ff4d57; }
+.evm-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 56vh; overflow-y: auto; }
+.evm-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(255,255,255,.05); border-left: 3px solid rgba(255,255,255,.15); }
+.evm-row.ready { border-left-color: #ffcf3a; background: rgba(255,207,58,.08); }
+.evm-row.got { opacity: .5; }
+.evm-txt b { font-size: 13px; display: block; }
+.evm-txt small { font-size: 11px; opacity: .7; }
+.evm-bar { display: block; height: 4px; margin: 4px 0 2px; background: rgba(255,255,255,.12); }
+.evm-bar u { display: block; height: 100%; background: #e8c76a; }
+.evm-rw { display: flex; gap: 8px; font-size: 12px; }
+.evm-rw span { display: flex; align-items: center; gap: 2px; }
+@media (max-width: 560px) { .evm-row { grid-template-columns: 1fr auto; } .evm-rw { grid-column: 1 / -1; } }

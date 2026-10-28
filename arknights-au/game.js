@@ -891,7 +891,19 @@
     const cx = op.x + 0.5, cy = op.y + 0.5, dx = cx - e.x, dy = cy - e.y, d = Math.hypot(dx, dy);
     if (d < 0.75) return;
     const st = Math.min(dist, d - 0.7), nx = e.x + (dx / d) * st, ny = e.y + (dy / d) * st;
-    if (groundTile(Math.floor(nx), Math.floor(ny))) { e.x = nx; e.y = ny; }
+    if (groundTile(Math.floor(nx), Math.floor(ny))) { e.x = nx; e.y = ny; resyncPath(e); }
+  }
+  // 끌려간 적의 다음 목표 지점을 다시 맞춤: 가장 가까운 경로 구간의 끝점으로 (끌려간 뒤 길을 거슬러 돌아가지 않게)
+  function resyncPath(e) {
+    const p = e.path;
+    let best = e.pi, bd = Infinity;
+    for (let i = 1; i < p.length; i++) {
+      const a = p[i - 1], b = p[i], vx = b.x - a.x, vy = b.y - a.y, l2 = vx * vx + vy * vy || 1;
+      const t = Math.max(0, Math.min(1, ((e.x - a.x) * vx + (e.y - a.y) * vy) / l2));
+      const d = Math.hypot(a.x + vx * t - e.x, a.y + vy * t - e.y);
+      if (d < bd - 1e-6) { bd = d; best = i; }
+    }
+    e.pi = best;
   }
   function addZone(op, x, y, r, zn) {
     S.zones = S.zones || [];

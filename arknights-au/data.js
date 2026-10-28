@@ -1643,7 +1643,7 @@ Object.assign(ENEMIES, {
   nc_dark:     { code: 'NC6', name: '교실의 망령', hp: 2700, atk: 460, def: 150, res: 50, speed: 0.55, interval: 1.8, range: 0, veil: 1.6, color: '#6a5f78', desc: '불 꺼진 교실에서 나온 망령. 저지당하지 않은 동안에는 바로 옆(1.6칸 안)에 있는 오퍼레이터만 공격할 수 있다.' },
   nc_caster:   { code: 'NC7', name: '빛바랜 수업', hp: 2000, atk: 380, def: 80, res: 50, speed: 0.5, interval: 2.6, range: 2.3, arts: true, color: '#8a7fb0', desc: '칠판 앞에 남은 수업의 잔해. 먼 거리에서 마법 피해를 준다.' },
   nc_pupil:    { code: 'NC8', name: '출석부의 잔영', hp: 950, atk: 200, def: 0, res: 30, speed: 0.75, interval: 1.5, range: 0, color: '#7fb6e0', desc: '기억 등롱이 기록한 학생의 모습. 마지막 담임이 이름을 부르면 나타난다.' },
-  nc_teacher:  { code: 'NCB', name: '마지막 담임', hp: 34000, atk: 880, def: 480, res: 40, speed: 0.28, interval: 2.6, range: 0, aoe: 1.2, weight: 3, summon: { enemy: 'nc_pupil', every: 12, count: 2 }, bell: { every: 15, radius: 2.5, stun: 2 }, revive: { atk: 1.3 }, lifeCost: 5, boss: true, color: '#d9c27a', desc: '10년 전 마지막 수업을 끝내지 못한 담임의 잔영. 출석을 부르면 학생 잔영이 나타나고, 종을 울려 주변을 멈추게 한다. 쓰러져도 한 번 「졸업식」을 위해 일어선다.' },
+  nc_teacher:  { code: 'NCB', name: '마지막 담임', hp: 20000, atk: 760, def: 420, res: 40, speed: 0.28, interval: 2.6, range: 0, aoe: 1.2, weight: 3, summon: { enemy: 'nc_pupil', every: 14, count: 2 }, bell: { every: 16, radius: 2.2, stun: 2 }, revive: { atk: 1.3 }, lifeCost: 5, boss: true, color: '#d9c27a', desc: '10년 전 마지막 수업을 끝내지 못한 담임의 잔영. 출석을 부르면 학생 잔영이 나타나고, 종을 울려 주변을 멈추게 한다. 쓰러져도 한 번 「졸업식」을 위해 일어선다.' },
   nc_teacher2: { code: 'NCB+', name: '마지막 담임 · 졸업식', hp: 48000, atk: 1100, def: 600, res: 50, speed: 0.28, interval: 2.4, range: 0, aoe: 1.4, weight: 3, summon: { enemy: 'nc_pupil', every: 9, count: 3 }, bell: { every: 11, radius: 2.8, stun: 2.5 }, revive: { atk: 1.4 }, lifeCost: 10, boss: true, color: '#f0d890', image: 'img/enemy/nc_teacher.png', desc: '하드 작전의 마지막 담임. 더 자주 출석을 부르고, 종소리가 더 멀리 퍼진다.' },
   // 훈련장 표적 (공격하지 않음)
   dummy:       { code: 'TR1', name: '훈련용 표적', hp: 20000, atk: 0, def: 0, res: 0, speed: 0.25, interval: 3.0, range: 0, color: '#c9a96a', image: 'img/enemy/dummy.png', desc: '방어력과 마법 저항이 없는 표적. 공격하지 않는다.' },
@@ -2246,6 +2246,21 @@ const EVENTS = [
     start: '2026-10-28', end: '2026-11-18', shopEnd: '2026-11-25', currency: 'lantern',
     art: 'isseo', arts: ['img/skin/isseo_2.png', 'img/skin/yunseo_1.png'], bg: 'img/story/nc_gate.webp', color: '#e8c76a',
     desc: '단국의 소도시, 10년 전 문을 닫은 청람 학원. 등불 가면제의 밤마다 불 꺼진 교실에 수업 종이 울린다.',
+    // 이벤트 보너스: 편성한 보너스 오퍼레이터마다 이벤트 작전의 등불 조각 획득량 증가
+    bonus: { isseo: 0.25, yunseo: 0.25, binari: 0.15, andrea: 0.15 },
+    // 이벤트 임무 — kind: runs(이벤트 작전 완료 횟수) · bonus(보너스 오퍼레이터 편성 후 완료 횟수) · clear(작전 클리어) · star3(작전 모두 별 3개)
+    missions: [
+      { id: 'r5', kind: 'runs', n: 5, text: '이벤트 작전을 5회 완료', reward: { lantern: 100, lmd: 10000 } },
+      { id: 'r15', kind: 'runs', n: 15, text: '이벤트 작전을 15회 완료', reward: { lantern: 200, exp_4: 5 } },
+      { id: 'r30', kind: 'runs', n: 30, text: '이벤트 작전을 30회 완료', reward: { lantern: 300, permit: 1 } },
+      { id: 'r60', kind: 'runs', n: 60, text: '이벤트 작전을 60회 완료', reward: { lantern: 400, originite: 5 } },
+      { id: 'b10', kind: 'bonus', n: 10, text: '보너스 오퍼레이터를 편성해 이벤트 작전을 10회 완료', reward: { lantern: 200, m_device3: 2 } },
+      { id: 'c4', kind: 'clear', code: 'NC-4', text: 'NC-4 「계단의 엇갈림」 클리어', reward: { lantern: 100, skill_3: 3 } },
+      { id: 'c8', kind: 'clear', code: 'NC-8', text: 'NC-8 「졸업식」 클리어', reward: { lantern: 200, permit: 1 } },
+      { id: 's3', kind: 'star3', codes: ['NC-1', 'NC-2', 'NC-3', 'NC-4', 'NC-5', 'NC-6', 'NC-7', 'NC-8'], text: 'NC-1 ~ NC-8을 모두 별 3개로 클리어', reward: { lantern: 300, originite: 3 } },
+      { id: 'x1', kind: 'clear', code: 'NC-EX-1', text: '하드 NC-EX-1 클리어', reward: { lantern: 200, exp_4: 8 } },
+      { id: 'x2', kind: 'clear', code: 'NC-EX-2', text: '하드 NC-EX-2 클리어', reward: { lantern: 300, originite: 5 } },
+    ],
     shop: [
       { id: 'sk_isseo', skin: 'isseo_s2', price: 600, limit: 1 },
       { id: 'sk_yunseo', skin: 'yunseo_s1', price: 600, limit: 1 },
@@ -2354,14 +2369,14 @@ const liveEvent = (key = 'end') => EVENTS.find((e) => eventLive(e, key)) || null
     ev('NC-3', {
       sanity: 14, name: '1층 복도', desc: '긴 복도와 양쪽 교실 문. 그림자가 문 사이를 오가며 저지선을 건너뛴다. 교실 문에서도 적이 나온다.',
       startDp: 15, deployLimit: 9, storyBg: BG('corridor'), pos: 60,
-      map: ['#################', '#################', '#^^^^R^^^^^^^^^^#', '#^^^^.^^^^^^^^^^#', 'R--.............B', '#^^^^^^^^^^.^^^^#', '#^^^^^^^^^^R^^^^#', '#################', '#################'],
+      map: ['#################', '#################', '#^^^^R^^^^^^^^^^#', '#^^^^.^^^^^^^^^^#', 'R--.............B', '#^^^^^^^.^^^^^^^#', '#^^^^^^^R^^^^^^^#', '#################', '#################'],
       waves: [
-        { t: 6, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 }, { t: 18, enemy: 'nc_shadow', count: 2, gap: 5 },
-        { t: 28, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 }, { t: 34, enemy: 'nc_shadow', count: 1, spawn: 2 },
-        { t: 42, enemy: 'nc_caster', count: 2, gap: 4, spawn: 1 }, { t: 50, enemy: 'nc_shadow', count: 3, gap: 4 },
-        { t: 62, enemy: 'nc_vendor', count: 2, gap: 5, spawn: 1 }, { t: 66, enemy: 'nc_shadow', count: 2, gap: 4, spawn: 2 },
-        { t: 78, enemy: 'nc_shadow_l', count: 1 }, { t: 82, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 },
-        { t: 92, enemy: 'nc_shadow', count: 2, gap: 3, spawn: 2 },
+        { t: 6, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 }, { t: 18, enemy: 'nc_shadow', count: 1 },
+        { t: 28, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 }, { t: 36, enemy: 'nc_shadow', count: 1, spawn: 2 },
+        { t: 44, enemy: 'nc_caster', count: 2, gap: 4, spawn: 1 }, { t: 54, enemy: 'nc_shadow', count: 2, gap: 6 },
+        { t: 66, enemy: 'nc_vendor', count: 2, gap: 5, spawn: 1 }, { t: 72, enemy: 'nc_guest', count: 2, gap: 3, spawn: 2 },
+        { t: 84, enemy: 'nc_shadow_l', count: 1 }, { t: 88, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 },
+        { t: 98, enemy: 'nc_shadow', count: 1, spawn: 2 },
       ],
       drops: { lantern: 28, lmd: lmdOf(14) }, chance: [['m_iron', 0.3, 1], ['m_rock3', 0.15, 1]],
       before: [
@@ -2391,10 +2406,10 @@ const liveEvent = (key = 'end') => EVENTS.find((e) => eventLive(e, key)) || null
       waves: [
         { t: 5, enemy: 'nc_guest', count: 4, gap: 2 }, { t: 14, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 },
         { t: 26, enemy: 'nc_caster', count: 2, gap: 4 }, { t: 32, enemy: 'nc_vendor', count: 1, spawn: 1 },
-        { t: 40, enemy: 'nc_shadow', count: 2, gap: 5 }, { t: 48, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 },
-        { t: 58, enemy: 'nc_lantern', count: 3, gap: 3 }, { t: 66, enemy: 'nc_vendor', count: 2, gap: 4 },
-        { t: 74, enemy: 'nc_shadow', count: 2, gap: 4, spawn: 1 }, { t: 84, enemy: 'nc_caster', count: 2, gap: 3, spawn: 1 },
-        { t: 90, enemy: 'nc_shadow_l', count: 1 }, { t: 96, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 },
+        { t: 40, enemy: 'nc_shadow', count: 2, gap: 5 }, { t: 50, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 },
+        { t: 60, enemy: 'nc_lantern', count: 2, gap: 4 }, { t: 68, enemy: 'nc_vendor', count: 2, gap: 5 },
+        { t: 78, enemy: 'nc_shadow', count: 1, spawn: 1 }, { t: 86, enemy: 'nc_caster', count: 2, gap: 3 },
+        { t: 94, enemy: 'nc_shadow_l', count: 1 }, { t: 100, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 },
       ],
       drops: { lantern: 30, lmd: lmdOf(15) }, chance: [['m_keton', 0.3, 1], ['m_sugar3', 0.15, 1]],
       before: [
@@ -2528,7 +2543,7 @@ const liveEvent = (key = 'end') => EVENTS.find((e) => eventLive(e, key)) || null
     ev('NC-8', {
       sanity: 21, name: '졸업식', desc: '강당. 세 갈래 통로가 무대 앞에서 만난다. 「마지막 담임」은 출석을 불러 학생 잔영을 불러내고, 종을 울려 주변을 멈추게 한다. 쓰러져도 한 번 다시 일어선다.',
       startDp: 20, deployLimit: 10, storyBg: BG('hall'), pos: 45,
-      map: ['#################', 'R-............^##', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-...........-..B', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-............^##', '#################'],
+      map: ['#################', 'R-.........^^^^##', '#^^^^^^^^^.^^^^##', '#^^^^^^^^^.^^^^##', 'R-..............B', '#^^^^^^^^^.^^^^##', '#^^^^^^^^^.^^^^##', 'R-.........^^^^##', '#################'],
       waves: [
         { t: 6, enemy: 'nc_guest', count: 3, gap: 2 }, { t: 8, enemy: 'nc_guest', count: 3, gap: 2, spawn: 2 },
         { t: 20, enemy: 'nc_shadow', count: 2, gap: 4, spawn: 1 }, { t: 30, enemy: 'nc_caster', count: 2, gap: 3 },
@@ -2588,10 +2603,10 @@ const liveEvent = (key = 'end') => EVENTS.find((e) => eventLive(e, key)) || null
     ev('NC-EX-1', {
       sanity: 21, name: '복도의 그림자 (하드)', desc: '【하드】 1층 복도. 그림자 반장들이 문 사이를 쉴 새 없이 오간다. 배치 가능 인원이 적다.',
       startDp: 14, deployLimit: 8, storyBg: BG('corridor'), pos: 40, hard: true, ex: true,
-      map: ['#################', '#################', '#^^^^R^^^^^^^^^^#', '#^^^^.^^^^^^^^^^#', 'R--.............B', '#^^^^^^^^^^.^^^^#', '#^^^^^^^^^^R^^^^#', '#################', '#################'],
+      map: ['#################', '#################', '#^^^^R^^^^^^^^^^#', '#^^^^.^^^^^^^^^^#', 'R--.............B', '#^^^^^^^.^^^^^^^#', '#^^^^^^^R^^^^^^^#', '#################', '#################'],
       waves: [
-        { t: 5, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 }, { t: 14, enemy: 'nc_shadow', count: 3, gap: 3 },
-        { t: 24, enemy: 'nc_shadow_l', count: 1, spawn: 2 }, { t: 30, enemy: 'nc_caster', count: 3, gap: 3, spawn: 1 },
+        { t: 5, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 }, { t: 16, enemy: 'nc_shadow', count: 2, gap: 4 },
+        { t: 26, enemy: 'nc_shadow_l', count: 1 }, { t: 30, enemy: 'nc_caster', count: 3, gap: 3, spawn: 1 },
         { t: 40, enemy: 'nc_shadow', count: 3, gap: 3, spawn: 2 }, { t: 48, enemy: 'nc_shadow_l', count: 2, gap: 5 },
         { t: 58, enemy: 'nc_vendor', count: 3, gap: 4, spawn: 1 }, { t: 66, enemy: 'nc_dark', count: 3, gap: 3, spawn: 1 },
         { t: 74, enemy: 'nc_shadow_l', count: 2, gap: 4, spawn: 2 }, { t: 84, enemy: 'nc_bell', count: 1, spawn: 1 },
@@ -2604,7 +2619,7 @@ const liveEvent = (key = 'end') => EVENTS.find((e) => eventLive(e, key)) || null
     ev('NC-EX-2', {
       sanity: 24, name: '졸업식 (하드)', desc: '【하드】 강당. 졸업식을 고집하는 마지막 담임이 더 자주 출석을 부르고, 종소리가 더 멀리 퍼진다.',
       startDp: 18, deployLimit: 9, storyBg: BG('hall'), pos: 60, hard: true, ex: true,
-      map: ['#################', 'R-............^##', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-...........-..B', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-............^##', '#################'],
+      map: ['#################', 'R-.........^^^^##', '#^^^^^^^^^.^^^^##', '#^^^^^^^^^.^^^^##', 'R-..............B', '#^^^^^^^^^.^^^^##', '#^^^^^^^^^.^^^^##', 'R-.........^^^^##', '#################'],
       waves: [
         { t: 5, enemy: 'nc_guest', count: 4, gap: 1.8 }, { t: 7, enemy: 'nc_guest', count: 4, gap: 1.8, spawn: 2 },
         { t: 18, enemy: 'nc_shadow_l', count: 1, spawn: 1 }, { t: 24, enemy: 'nc_caster', count: 3, gap: 3 },
