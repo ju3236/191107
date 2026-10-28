@@ -51,6 +51,7 @@ const ARCHETYPES = {
   executor:  { name: '처형자', trait: '재배치 시간 대폭 감소' },
   centurion: { name: '공격수', trait: '저지하고 있는 모든 적 동시에 공격' },
   fighter:   { name: '파이터', trait: '적 1명 저지 가능' },
+  instructor: { name: '교관', trait: '먼 거리의 적도 공격할 수 있으며, 자신이 저지하지 않은 적을 공격할 때 공격력이 120%로 증가' },
   hexer:     { name: '약화자', trait: '공격 시 마법 대미지를 입힘' },
   therapist: { name: '테라피스트', trait: '넓은 치료 범위 보유, 멀리 있는 목표 치료 시 치유량이 80%로 변경' },
   core:      { name: '코어 캐스터', trait: '공격 시 마법 대미지를 입힘' },
@@ -714,23 +715,30 @@ const OPERATORS = [
     },
   },
   {
-    id: 'russell', name: '아이언클래드', class: 'guard', archetype: 'fighter', race: '페린', color: '#3b3a4a',
-    en: 'Ironclad', rarity: 6, tags: ['근거리', '화력', '제어'], faction: '컬럼비아 · 아이언 게이트 교정시설',
+    id: 'russell', name: '아이언클래드', class: 'guard', archetype: 'instructor', race: '페린', color: '#3b3a4a',
+    en: 'Ironclad', rarity: 6, tags: ['근거리', '지원', '제어'], faction: '컬럼비아 · 아이언 게이트 교정시설',
     partner: 'felix',
     image: 'img/russell.png',
     profile: '코드네임 아이언클래드, 본명 러셀 셔먼. 펠릭스 테일러와 같은 교정시설 「아이언 게이트」에서 근무하는 교도관. 원리원칙을 중시하며 업무에 있어서는 철저한 완벽주의자다. 언제나 딱딱한 존댓말을 유지하고 감정 표현에 서툴다. 펠릭스의 태만과 농담을 못마땅하게 여기면서도, 누구보다 그의 능력을 잘 알고 있다.\n\n아이언 게이트 사건 당시 상부의 부당한 명령을 거부하고 펠릭스와 함께 진상을 밝혀냈다. 강화 건틀릿으로 진압술과 관절기, 짧고 정확한 타격을 구사하며 위험 인물을 신속하게 제압한다.',
     quote: '테일러. 지금은 근무 중입니다.',
-    cost: 11, redeploy: 70, block: 1,
-    hp: 1900, atk: 470, def: 300, res: 0, interval: 0.78,
-    range: area(0, 1, 0, 0),
+    // 교관(원작 instructor): 원작 범위 2-2(정면 3칸), 공격 간격 1.05초, 저지 2
+    cost: 17, redeploy: 70, block: 2,
+    hp: 2150, atk: 680, def: 420, res: 0, interval: 1.05,
+    range: [[0, 0], [1, 0], [2, 0]],
     talents: [
-      { name: '원칙에 따라', desc: '같은 적을 연속 공격할 때마다 공격 속도 +5·방어력 무시 +5% (최대 5회 중첩). 최대 중첩이면 그 적에게 주는 대미지 +20%', effect: { principle: { aspd: 5, ignore: 0.05, max: 5, amp: 0.2 } } },
-      { name: '엄격한 집행', desc: '자신이 저지 중인 적에게 받는 물리 피해 -20%. 주변 8칸에 아군 디펜더가 있으면 공격력 +15%·물리 회피 +15%', effect: { strict: { cut: 0.2, atk: 0.15, dodge: 0.15 } } },
+      { name: '원칙에 따라', desc: '공격 범위 안 아군 근거리 오퍼레이터(러셀 제외)의 공격력 +12% · 방어력 +12%. 2차 정예화 시 그 아군이 적을 저지하고 있으면 강화 — 공격력 · 방어력 +20%, 저지 중인 적에게 주는 물리 피해 +10%',
+        effect: { drill: { atk: 0.12, def: 0.12, atkB: 0.2, defB: 0.2, physB: 0.1 } } },
+      { name: '엄격한 집행', desc: '공격 범위 안 아군이 저지한 적을 공격하면 그 적을 「위반 대상」으로 지정(최대 2명, 저지가 풀린 뒤 5초 유지) — 방어력 -15%, 공격 속도 -15, 러셀에게 받는 물리 피해 +20%. 러셀이 위반 대상을 공격할 때마다 그 적을 저지 중인 아군의 HP를 러셀 공격력의 8% 회복',
+        effect: { violation: { max: 2, def: 0.15, aspd: 0.15, amp: 0.2, keep: 5, heal: 0.08 } } },
     ],
     skills: [
-      { name: '규정 위반입니다', desc: '다음 공격 시 공격력의 220%로 공격하고 대상을 1.5초간 기절', sp: 4, initSp: 0, duration: 0, spType: 'attack', trigger: 'auto', effect: { nextHit: 2.2, nextStun: 1.5 } },
-      { name: '즉각 제압', desc: '20초간 공격력 +40%·공격 속도 상승, 2연격. 같은 적을 연속 공격하는 중첩 1회당 대미지 +6%', sp: 30, initSp: 12, duration: 20, trigger: 'manual', effect: { atk: 1.4, interval: 0.8, hits: { count: 2, mul: 1 }, focusAmp: 0.06 } },
-      { name: '최종 경고', desc: '발동 시 주변 적에게 공격력의 100% 물리 피해를 주고 2초간 기절. 25초간 공격력 +80%·공격 속도 대폭 상승·저지 수 +1, 저지 중인 모든 적을 동시 공격, 5번 공격할 때마다 공격력의 250% 추가 타격. 지속 중 상태 이상 저항(지속 시간 -50%)', sp: 45, initSp: 20, duration: 25, trigger: 'manual', effect: { strike: { mul: 1, radius: 1.6, stun: 2 }, atk: 1.8, interval: 0.65, block: 1, allBlocked: true, finisher: { every: 5, mul: 2.5 }, statusRes: 0.5 } },
+      { name: '규정 위반입니다', desc: '다음 공격이 공격력의 230% 물리 피해를 입히고 1.5초간 기절. 위반 대상이면 피해 배율 280%. 대상이 아군에게 저지당하고 있으면 그 아군의 HP를 러셀 공격력의 30% 회복',
+        sp: 4, initSp: 0, duration: 0, spType: 'attack', trigger: 'auto', voice: '규정 위반입니다. 즉시 중단하십시오.', effect: { nextHit: 2.3, nextStun: 1.5, violHit: 2.8, blockHeal: 0.3 } },
+      { name: '즉각 제압', desc: '30초간 공격력 +55%, 공격 속도 +35, 범위 안 적 최대 2명 동시 공격. 범위 안 아군 근거리 오퍼레이터 방어력 +25%, 그 아군이 저지 중인 적에게 주는 물리 피해 +20%. 위반 대상을 공격할 때 저지 중인 아군 HP를 러셀 공격력의 15% 회복. 「합동 제압」: 범위 안 아군이 위반 대상을 공격하면 러셀이 공격력의 80% 물리 피해로 추가 공격(같은 아군당 1.5초 간격)',
+        sp: 35, initSp: 15, duration: 30, trigger: 'manual', voice: '저항하지 마십시오. 즉시 제압하겠습니다.', effect: { atk: 1.55, aspd: 35, targets: 2, allyDef: 0.25, allyPhys: 0.2, violHeal: 0.15, jointHit: { mul: 0.8, cd: 1.5 } } },
+      { name: '최종 경고', desc: '25초간 공격 범위 확대(전방 · 측면), 공격력 +100%, 공격 속도 +25. 범위 안 모든 적에게 공격력의 180% 물리 피해. 위반 대상을 우선 공격하고 방어력 30% 무시, 위반 대상 최대 4명. 범위 안 아군 근거리 오퍼레이터 공격력 +25% · 방어력 +30% · 저지 수 +1. 위반 대상을 공격하면 2초간 기절(같은 적 5초마다 1회). 「최종 경고 집행」: 범위 안 아군이 저지 중인 적을 처치하면 그 아군 주변 8칸의 적에게 공격력의 150% 물리 피해(4초마다 1회)',
+        sp: 48, initSp: 20, duration: 25, trigger: 'manual', voice: '최종 경고입니다. 이 이상의 관용은 없습니다.',
+        effect: { range: area(0, 3, -1, 1), atk: 2.0, aspd: 25, targets: 99, allMul: 1.8, violPrio: true, violIgnore: 0.3, violMax: 4, allyAtk: 0.25, allyDef: 0.3, allyBlock: 1, violStun: { d: 2, cd: 5 }, execute: { mul: 1.5, cd: 4 } } },
     ],
     voice: {
       obtain: '러셀 셔먼입니다. 교도관으로 근무하고 있으며, 이번에 가드 오퍼레이터로 등록하게 되었습니다. 맡겨진 임무는 성실히 수행하겠습니다. ……테일러도 함께 배속되었다고 들었습니다만, 그 사람의 근무 태도에 관해서는 별도의 주의가 필요할 겁니다.',
@@ -785,7 +793,7 @@ const OPERATORS = [
     skills: [
       { name: '탄도 보정', desc: '다음 공격 시 공격력의 200%로 공격하고 대상 주변의 적에게도 폭발 피해', sp: 3, initSp: 0, duration: 0, spType: 'attack', trigger: 'auto', effect: { nextHit: 2, nextSplash: 0.9 } },
       { name: '파라벨룸', desc: '20초간 공격력 +50%·공격 속도 상승. 공격 시 크기가 다른 탄환 2발을 연속 발사 — 첫 발은 대상에게 공격력의 130% 물리 피해, 두 번째 발은 대상 주변에 공격력의 80% 범위 물리 피해', sp: 30, initSp: 15, duration: 20, trigger: 'auto', effect: { atk: 1.5, interval: 0.75, twinShot: { mul: 1.3, blast: 0.8, radius: 1 } } },
-      { name: 'PARABELLUM BULLET', desc: '15초간 공격 범위 확대, 공격력 +80%·공격 속도 대폭 상승. 범위 안의 적 최대 4명에게 푸른 탄환을 일제 사격, 각 탄환은 착탄 지점에 범위 물리 피해. 탄환 일부는 무게가 가장 무거운 적에게 집중(추가 1발)', sp: 50, initSp: 30, duration: 15, trigger: 'manual', effect: { range: area(1, 5, -2, 2), atk: 1.8, interval: 0.5, targets: 4, splash: 0.8, heavyFocus: 1 } },
+      { name: 'PARABELLUM BULLET', desc: '15초간 공격 범위 확대, 공격력 +80%·공격 속도 대폭 상승. 범위 안의 적 최대 4명에게 푸른 탄환을 일제 사격, 각 탄환은 착탄 지점에 범위 물리 피해. 탄환 일부는 무게가 가장 무거운 적에게 집중(추가 1발)', sp: 50, initSp: 30, duration: 15, trigger: 'manual', effect: { range: area(0, 4, -1, 1), atk: 1.8, interval: 0.5, targets: 4, splash: 0.8, heavyFocus: 1 } },
     ],
     voice: {
       obtain: '……리안 터너. 코드네임은 터너야. 스나이퍼로 등록하면 된다고 들었어. ……아, 맞다. 앞으로 잘 부탁해, 박사.',
@@ -971,7 +979,7 @@ const OPERATORS = [
     skills: [
       { name: '아침 조회', desc: '8초 동안 배치 코스트 18을 서서히 획득', sp: 26, initSp: 13, duration: 8, trigger: 'auto', voice: '좋아, 오늘도 시작해 볼까?', effect: { dpRegen: 18 / 8 } },
       { name: '오늘의 운세는?', desc: '발동 시 아츠를 무작위로 다시 뽑음. 12초 동안 배치 코스트 16 획득, 「오늘의 변수」 효과 2배·범위가 주변 8칸에서 주변 12칸으로 확대. 종료 후 자신의 HP를 최대 HP의 25% 회복', sp: 32, initSp: 16, duration: 12, trigger: 'manual', effect: { dpRegen: 16 / 12, dailyMul: 2, dailyWide: true, endHeal: 0.25, reroll: true } },
-      { name: '내일도 출근하자', desc: '발동 시 세 강화 효과 중 무작위로 1종 발현 (발동 후 15초 동안 배치 코스트 20 획득). 깃발을 펼쳐 주변 12칸에 — 「순풍」 아군 공격 속도 +30·공격력 +15% / 「햇빛」 아군 HP 매초 최대 HP의 3% 회복·받는 피해 -20% / 「중력」 적 이동 속도 -45%·공격 속도 -25, 발동 시 적 2초 정지. 스킬 지속 시간 무제한, 스킬 직접 끄기 가능 — 끄면 SP가 남아 있어 바로 다시 켤 수 있고, 켤 때마다 강화 효과를 다시 뽑음 (배치 코스트 20은 배치당 1회. 3초 이상 켜 두었다가 끄면 범위 안에서 HP 비율이 가장 낮은 아군 1명이 5초간 받는 피해 -35%)', sp: 38, initSp: 20, duration: -1, trigger: 'manual', effect: { dpFor: { total: 20, dur: 15 }, dailyMax: true, dailyWide: true, endGuard: { cut: 0.35, dur: 5 }, reroll: true, cancelable: true, toggle: true } },
+      { name: '내일도 출근하자', desc: '발동 시 세 강화 효과 중 무작위로 1종 발현 (발동 후 10초 동안 배치 코스트 24 획득). 지속 중 자신의 저지 수 +1 · 방어력 +30%. 깃발을 펼쳐 주변 12칸에 — 「순풍」 아군 공격 속도 +30·공격력 +15% / 「햇빛」 아군 HP 매초 최대 HP의 3% 회복·받는 피해 -20% / 「중력」 적 이동 속도 -45%·공격 속도 -25, 발동 시 적 2초 정지. 스킬 지속 시간 무제한, 스킬 직접 끄기 가능 — 끄면 SP가 남아 있어 바로 다시 켤 수 있고, 켤 때마다 강화 효과를 다시 뽑음 (배치 코스트 24는 배치당 1회. 3초 이상 켜 두었다가 끄면 범위 안에서 HP 비율이 가장 낮은 아군 1명이 5초간 받는 피해 -35%)', sp: 38, initSp: 20, duration: -1, trigger: 'manual', effect: { dpFor: { total: 24, dur: 10 }, block: 1, def: 1.3, dailyMax: true, dailyWide: true, endGuard: { cut: 0.35, dur: 5 }, reroll: true, cancelable: true, toggle: true } },
     ],
     voice: {
       obtain: '안녕, 박사! 여명이라고 해. 뱅가드로 배속됐어. 원래는 회사에서 일하고 있는데…… 뭐, 여기서도 잘할 수 있을 것 같네. 잘 부탁해! 아, 내 능력은 매일 바뀌니까 너무 놀라지는 말고.',

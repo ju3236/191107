@@ -521,7 +521,7 @@
   }
   // 기수: 스킬 지속 시간 동안 저지 가능 수 0
   // 해방자: 스킬 미발동 시 저지 0
-  const opBlock = (op) => ((op.def.archetype === 'bearer' && op.skillT > 0) || (op.def.archetype === 'librator' && !(op.skillT > 0)) ? 0 : op.def.block + (eff(op).block || 0) + B(op, 'block') + (op.remOwner ? eff(op.remOwner).remBlock || 0 : 0));
+  const opBlock = (op) => ((op.def.archetype === 'bearer' && op.skillT > 0 && !eff(op).block) || (op.def.archetype === 'librator' && !(op.skillT > 0)) ? 0 : op.def.block + (eff(op).block || 0) + B(op, 'block') + (op.remOwner ? eff(op.remOwner).remBlock || 0 : 0));
   const opDodge = (op) => op.tal.dodge + (eff(op).dodge || 0) + (op.def.dodge || 0) + B(op, 'dodge');
   const opArtsDodge = (op) => (op.def.artsDodge || 0) + (eff(op).artsDodge || 0) + B(op, 'artsDodge');
   const tileOf = (def) => def.tile || CLASSES[def.class].tile;
@@ -702,6 +702,13 @@
     if (t.houseEdge && S.ops.some((o) => o.owner === op && o.blocked.length)) add('aspd', t.houseEdge.aspd);
     if (op.def.class === 'vanguard') for (const k of S.ops) if (k.alive && k !== op && k.tal.trustGuest && k.range.has(key(op.x, op.y))) { add('aspd', k.tal.trustGuest.aspd); break; }
     if (t.easygoing && op.blocked.length) add('def', t.easygoing.def);
+    // 원칙에 따라 (교관 러셀): 범위 안 근거리 아군 강화
+    for (const rs of drillersOf(op)) {
+      const dr = rs.tal.drill, re = eff(rs), up = op.blocked.length > 0 && rs.def.trained && rs.def.trained.elite >= 2;
+      add('atk', (up ? dr.atkB : dr.atk) + (re.allyAtk || 0));
+      add('def', (up ? dr.defB : dr.def) + (re.allyDef || 0));
+      if (re.allyBlock) add('block', re.allyBlock);
+    }
     if (ef.aspd) add('aspd', ef.aspd);
     // 해방자: 40초간 공격력 최대 +200% (스킬의 공격력 증가와 합연산)
     if (op.def.archetype === 'librator' && op.libT > 0) add('atk', (2 * Math.min(40, op.libT)) / 40 / (ef.atk || 1));
@@ -1127,6 +1134,33 @@
       if (op.hp / op.maxHp <= tp.below && S.time >= (op.payDodgeCd || 0)) { op.payDodgeT = tp.dur; op.payDodgeCd = S.time + tp.cd; addText(op.x + 0.5, op.y - 0.1, '위험수당', '#7fd06b', 0.8, true); }
     }
     if (ef.payNext) op.nextAmp = ef.payNext;
+  }
+
+  // ---------- 교관(러셀): 원칙에 따라 · 위반 대상 ----------
+  const drillersOf = (op) => (op.def.class === 'device' || !isGroundOp(op) ? [] : S.ops.filter((r) => r.alive && r !== op && r.tal.drill && r.range.has(key(op.x, op.y))));
+  const violOf = (e) => e.violT > 0 && e.violBy && e.violBy.alive && e.violBy.tal.violation ? e.violBy : null;
+  function markViolation(rs, e) {
+    const vt = rs.tal.violation;
+    if (!vt || !e.alive) return;
+    if (e.violBy !== rs || !(e.violT > 0)) {
+      const n = S.enemies.filter((o) => o.alive && o.violBy === rs && o.violT > 0).length;
+      if (n >= (eff(rs).violMax || vt.max)) return;
+      addText(e.x, e.y - 0.45, '위반 대상', '#ff7a4a', 0.8, true);
+    }
+    e.violBy = rs; e.violT = vt.keep;
+  }
+  // 아군이 저지한 적을 공격: 위반 대상 지정, 즉각 제압 중이면 합동 제압 추가 공격
+  function drillAssist(op, t) {
+    if (t.blockedBy !== op) return;
+    for (const rs of drillersOf(op)) {
+      markViolation(rs, t);
+      const jh = eff(rs).jointHit;
+      if (jh && t.alive && violOf(t) === rs && S.time >= (op.jointAt || 0)) {
+        op.jointAt = S.time + jh.cd;
+        attackFx(rs, t, 0, 'phys', true, rs.x + 0.5, rs.y + 0.5);
+        hitEnemy(t, opAtk(rs) * jh.mul, 'phys', false, rs, 0, true);
+      }
+    }
   }
 
   // ---------- 소환사(클라운피쉬): 여름 바다의 친구 · 바닷물의 잔향 · 파도 ----------
@@ -1614,7 +1648,7 @@
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op || remB(e) ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord' && !eff(op).antiAir))));
     const prio = eff(op).priority || (op.def.archetype === 'deadeye' ? 'lowDef' : null);
-    const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0) + (op.tal.tracker && trackedBy(e, op) ? 1 : 0) + (op.tal.contract && op.contract === e ? 1 : 0) + (op.def.summoned && op.owner && op.owner.tal.seaEcho && e.seaEchoT > 0 ? 1 : 0);
+    const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0) + (op.tal.tracker && trackedBy(e, op) ? 1 : 0) + (op.tal.contract && op.contract === e ? 1 : 0) + (op.def.summoned && op.owner && op.owner.tal.seaEcho && e.seaEchoT > 0 ? 1 : 0) + (eff(op).violPrio && violOf(e) === op ? 1 : 0);
     list.sort((a, b) =>
       stb(b) - stb(a) ||
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
@@ -1881,7 +1915,7 @@
         let crit = op.tal.crit && Math.random() < op.tal.crit.rate ? op.tal.crit.mul : 1;
         if (crit === 1 && op.blessT > 0 && Math.random() < (op.blessBy && op.blessBy.tal.luckShare ? op.blessBy.tal.luckShare.crit : 0.05) * op.blessN) crit = 1.5;
         // 로드: 저지하지 않은 적(원거리 공격)에게는 공격력 80%
-        const lordMul = op.def.archetype === 'lord' && t.blockedBy !== op ? 0.8 : 1;
+        const lordMul = op.def.archetype === 'lord' && t.blockedBy !== op ? 0.8 : op.def.archetype === 'instructor' && t.blockedBy !== op ? 1.2 : 1;
         // 패턴 학습: 「공략」된 적에게 방어력 무시 · 추가 피해 (NO CONTINUE: 피해 +20%)
         // 공통 시너지 (같은 학교 · 김가을 판도라 헤이비스 천사별): 김가을이 배치되어 있으면 넷의 공격이 모두 「공략」을 쌓고,
         // 「공략」된 적을 공격할 때 김가을 외의 셋도 방어력 무시 · 피해 증가 (school)
@@ -1903,10 +1937,22 @@
         if (trk && trackedBy(t, op)) { xMul *= 1 + (op.def.trained && op.def.trained.elite >= 2 ? trk.amp2 : trk.amp); if (charged && sef.warnShot) nIgn += sef.warnShot.ignore; }
         if (op.tal.contract && op.contract === t) { xMul *= 1 + (op.def.trained && op.def.trained.elite >= 2 ? op.tal.contract.amp2 : op.tal.contract.amp) + (ef0.contractAmp || 0); if (charged && sef.rushFee) nIgn += sef.rushFee.ignore; }
         if (ef0.lastBullet && i === count - 1) nIgn += ef0.lastBullet.ignore;
+        // 엄격한 집행 · 최종 경고: 위반 대상
+        const isViol = op.tal.violation && violOf(t) === op;
+        if (isViol && ef0.violIgnore) nIgn += ef0.violIgnore;
+        if (isViol && charged && sef.violHit && sef.nextHit) xMul *= sef.violHit / sef.nextHit;
+        if (ef0.allMul) xMul *= ef0.allMul;
         const dmg = atk * crit * lordMul * anaMul * starMul * blkMul * xMul * (t === targets[0] ? bsMul : 1), ign = Math.min(1, ignOf(t) + ptIgn + starIgn + nIgn);
         S.noDodge = charged && wasReady && !!(op.skill.effect || {}).starHit;
         hitEnemy(t, dmg, type, crit > 1, op, ign);
         S.noDodge = false;
+        if (i === 0) {
+          drillAssist(op, t);
+          const bk = t.blockedBy;
+          if (isViol && bk && bk !== op && bk.alive) healOp(bk, opAtk(op) * (ef0.violHeal || op.tal.violation.heal), true);
+          if (charged && sef.blockHeal && bk && bk !== op && bk.alive) healOp(bk, opAtk(op) * sef.blockHeal);
+          if (isViol && ef0.violStun && t.alive && S.time >= (t.violStunAt || 0)) { t.violStunAt = S.time + ef0.violStun.cd; stunEnemy(t, ef0.violStun.d); }
+        }
         if (ef0.lastBullet && i === count - 1 && t.alive) stunEnemy(t, ef0.lastBullet.stun);
         if (ef0.hitStunChance && i === 0 && t.alive && Math.random() < ef0.hitStunChance.p) stunEnemy(t, ef0.hitStunChance.d);
         if (charged && i === 0 && sef.warnShot) { if (t.alive) slowEnemy(t, 1 - sef.warnShot.slow, sef.warnShot.dur); else op.ammo = Math.min(op.ammoMax || 0, (op.ammo || 0) + sef.warnShot.ammo); }
@@ -2224,6 +2270,9 @@
     }
     if (e.vulnT > 0) amp += e.vulnAmp;
     if (e.seaEchoT > 0 && type === 'arts') amp += e.seaEchoAmp || 0;
+    const vb = violOf(e);
+    if (vb) { def *= 1 - vb.tal.violation.def; if (src === vb && type === 'phys') amp += vb.tal.violation.amp; }
+    if (type === 'phys' && src && src.def && e.blockedBy === src) for (const rs of drillersOf(src)) amp += (rs.def.trained && rs.def.trained.elite >= 2 ? rs.tal.drill.physB : 0) + (eff(rs).allyPhys || 0);
     if (type === 'phys') amp += markAmpOf(e);
     const a = e.ana;
     if (a && e.analysis > 0) {
@@ -2272,6 +2321,15 @@
     }
     e.alive = false;
     S.killed++;
+    // 최종 경고 집행: 범위 안 아군이 저지 중인 적을 처치하면 그 아군 주변 8칸에 물리 피해
+    if (src && src.def && e.blockedBy === src) for (const rs of drillersOf(src)) {
+      const ex = eff(rs).execute;
+      if (!ex || S.time < (rs.exeAt || 0)) continue;
+      rs.exeAt = S.time + ex.cd;
+      addFx({ type: 'ring', x: src.x + 0.5, y: src.y + 0.5, life: 0.5, color: '#ff7a4a', r: 1.4 });
+      addText(src.x + 0.5, src.y - 0.3, '최종 경고 집행', '#ff7a4a', 0.9, true);
+      for (const o of S.enemies.filter((o) => o.alive && Math.abs(Math.floor(o.x) - src.x) <= 1 && Math.abs(Math.floor(o.y) - src.y) <= 1)) hitEnemy(o, opAtk(rs) * ex.mul, 'phys', false, rs, 0, true);
+    }
     // 별흔이 있는 적이 쓰러지면 범위 안 HP 비율이 가장 낮은 적에게 옮겨 감
     const sb = e.starUntil > S.time && e.starBy;
     if (sb && sb.alive && sb.tal.starMark) {
@@ -2389,6 +2447,7 @@
     if (e.resDownT > 0) e.resDownT -= dt;
     if (e.witnessT > 0) e.witnessT -= dt;
     if (e.seaEchoT > 0) e.seaEchoT -= dt;
+    if (e.violT > 0) { if (e.blockedBy && e.violBy && e.violBy.tal.violation) e.violT = e.violBy.tal.violation.keep; else e.violT -= dt; }
     if (e.misT > 0) e.misT -= dt;
     if (e.atkSlowT > 0) e.atkSlowT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
@@ -2467,7 +2526,7 @@
       }
     }
     hitOp(target, atk, type, e);
-    e.atkCd = e.def.interval * (misOf(e) ? 1 + ((e.misBy.tal.luckSteal || {}).aspd || 0.15) : 1) * (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness ? 1 + e.witnessBy.tal.witness.aspd : 1) * (e.atkSlowT > 0 ? e.atkSlowMul : 1) * (e.slowT > 0 ? e.slowAtk : 1) * (e.auraAtkI || 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
+    e.atkCd = e.def.interval * (misOf(e) ? 1 + ((e.misBy.tal.luckSteal || {}).aspd || 0.15) : 1) * (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness ? 1 + e.witnessBy.tal.witness.aspd : 1) * (e.atkSlowT > 0 ? e.atkSlowMul : 1) * (violOf(e) ? 1 + e.violBy.tal.violation.aspd : 1) * (e.slowT > 0 ? e.slowAtk : 1) * (e.auraAtkI || 1) * (e.blockedBy && e.blockedBy.tal && e.blockedBy.tal.easygoing ? e.blockedBy.tal.easygoing.slow : 1);
   }
 
   // =====================================================================
@@ -3067,6 +3126,7 @@
     const bw = T * (e.def.boss ? 0.8 : 0.5);
     bar(X - bw / 2, headY - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
     if (contractOf(e)) { ctx.font = `900 ${T * 0.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#7fd06b'; ctx.fillText('$', X - bw / 2 - T * 0.25, headY - T * 0.1); }
+    if (violOf(e)) { ctx.font = `900 ${T * 0.22}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ff7a4a'; ctx.fillText('!', X - bw / 2 - T * 0.25, headY + T * 0.12); }
     if (e.trackedUntil > S.time) { ctx.font = `900 ${T * 0.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#6fa8ff'; ctx.fillText('◎', X + bw / 2 + T * 0.25, headY - T * 0.1); }
     if (misOf(e)) { ctx.font = `900 ${T * 0.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#b07bff'; ctx.fillText('☂', X - bw / 2 - T * 0.1, headY - T * 0.1); }
     if (e.starUntil > S.time) { ctx.font = `900 ${T * 0.22}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfe3ff'; ctx.fillText('★', X + bw / 2 + T * 0.1, headY - T * 0.1); }
