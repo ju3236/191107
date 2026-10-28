@@ -210,6 +210,7 @@
     if (!S || S.ended) return;
     if (S.sel === r && S.mode !== 'idle' && S.mode !== 'inspect') { sfx('cancel'); setMode('idle'); return; }
     if (r.deployed || r.left === 0) return;
+    if (summonFull(r)) { sfx('deny'); toast(`동시 배치 상한(${r.owner.def.summonMax})에 도달했습니다`); return; }
     // 배치할 수 없을 때도 정보 창은 보여 줌
     const no = r.cd > 0 ? '재배치 대기 중입니다' : S.dp < r.def.cost ? '배치 코스트가 부족합니다'
       : !r.def.summoned && deployedCount() >= S.deployLimit ? '배치 가능 인원을 초과했습니다' : null;
@@ -694,6 +695,9 @@
       if (oe.guardDef) add('def', oe.guardDef - 1);
       if (oe.guardAspd) add('aspd', oe.guardAspd);
       if (oe.guardBlock) add('block', oe.guardBlock);
+      if (oe.fishAtk) add('atk', oe.fishAtk);
+      if (oe.fishAspd) add('aspd', oe.fishAspd);
+      if (op.rare && op.owner.tal.dreamFish) add('atk', op.owner.tal.dreamFish.atk);
     }
     if (t.houseEdge && S.ops.some((o) => o.owner === op && o.blocked.length)) add('aspd', t.houseEdge.aspd);
     if (op.def.class === 'vanguard') for (const k of S.ops) if (k.alive && k !== op && k.tal.trustGuest && k.range.has(key(op.x, op.y))) { add('aspd', k.tal.trustGuest.aspd); break; }
@@ -706,6 +710,7 @@
     // 받는 피해 배율 (여명 · 주영하 · 보호 효과)
     let cut = 1;
     if (op.guardT > 0) { op.guardT -= dt; cut *= 1 - op.guardCut; }
+    if (op.fgT > 0) { op.fgT -= dt; cut *= 1 - op.fgCut; }   // 꿈속의 손님의 가호
     for (const b of S.ops) {
       if (!b.alive || !b.tal.daily || !inBearer(b, op.x, op.y)) continue;
       const be = eff(b), kind = b.arts, m = be.dailyMul || 1;
@@ -1124,6 +1129,84 @@
     if (ef.payNext) op.nextAmp = ef.payNext;
   }
 
+  // ---------- 소환사(클라운피쉬): 여름 바다의 친구 · 바닷물의 잔향 · 파도 ----------
+  const fishesOf = (ow) => S.ops.filter((o) => o.alive && o.owner === ow && o.def.rareDef);
+  const inOpRange = (op) => S.enemies.filter((e) => e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y))));
+  function seaEcho(sm, t) {
+    const ow = sm.owner, se = ow.tal.seaEcho;
+    if (!se || !t.alive) return;
+    const dur = se.dur + (sm.rare && ow.tal.dreamFish ? ow.tal.dreamFish.echo : 0);
+    t.seaEchoT = Math.max(t.seaEchoT || 0, dur); t.seaEchoAmp = se.amp;
+    slowEnemy(t, 1 - se.slow, dur);
+  }
+  // 꿈속의 손님: 범위 안 HP 비율이 가장 낮은 아군 치료 (Nostalgic Summer 중 2명)
+  function rareHeal(sm, mul) {
+    const ow = sm.owner, n = eff(ow).rareHealN || 1;
+    const al = S.ops.filter((o) => o.alive && o.hp < o.maxHp && sm.range.has(key(o.x, o.y))).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, n);
+    for (const a of al) { healOp(a, opAtk(ow) * mul); addFx({ type: 'beam', x1: sm.x + 0.5, y1: sm.y + 0.5, x2: a.x + 0.5, y2: a.y + 0.5, life: 0.3, color: '#e8f2ff' }); }
+  }
+  function fishHit(sm, t) {
+    const hs = sm.def.hitSlow;
+    if (hs) slowEnemy(t, hs.move, hs.dur);
+    seaEcho(sm, t);
+    const df = sm.owner.alive && sm.owner.tal.dreamFish;
+    if (sm.rare && df) rareHeal(sm, df.heal);
+  }
+  // 같이 헤엄쳐 줄래요?: 모든 소환물이 범위 안 적에게 일제 공격
+  function fishVolley(op, fv) {
+    for (const sm of fishesOf(op)) {
+      addFx({ type: 'ring', x: sm.x + 0.5, y: sm.y + 0.5, life: 0.5, color: sm.def.color, r: 1.2 });
+      for (const e of inOpRange(sm)) {
+        addFx({ type: 'beam', x1: sm.x + 0.5, y1: sm.y + 0.5, x2: e.x, y2: e.y, life: 0.25, color: '#ffb36b' });
+        hitEnemy(e, opAtk(sm) * fv.mul, 'arts', false, sm);
+        if (!e.alive) continue;
+        slowEnemy(e, 1 - fv.slow, fv.dur); seaEcho(sm, e);
+        if (sm.rare) { bindEnemy(e, fv.bind); addText(e.x, e.y - 0.4, '속박', '#bfe0ff', 0.6); }
+      }
+    }
+    sfx('arts');
+  }
+  function fishUpdate(op, dt) {
+    const ow = op.owner;
+    if (op.def.rareDef && ow && ow.alive) {
+      const oe = eff(ow);
+      // 꿈꾸는 낚시: 2초마다 범위 안 아군 치료, 범위 안 적 감속, 꿈속의 손님은 가호
+      if (oe.fishHeal && (op.fhT = (op.fhT || 0) - dt) <= 0) {
+        op.fhT = oe.fishHeal.every;
+        for (const a of S.ops) {
+          if (!a.alive || !op.range.has(key(a.x, a.y))) continue;
+          if (a.hp < a.maxHp) healOp(a, opAtk(ow) * oe.fishHeal.mul, true);
+          if (op.rare && oe.rareGuard) { a.fgT = oe.fishHeal.every + 0.2; a.fgCut = Math.max(a.fgT > 0 ? a.fgCut || 0 : 0, oe.rareGuard); }
+        }
+        rise(op.x + 0.5, op.y + 0.5, '#7dff9a', 4, 0.4, 'circle');
+      }
+      if (oe.fishSlow) for (const e of inOpRange(op)) slowEnemy(e, 1 - oe.fishSlow, 0.3);
+    }
+    const ef = eff(op);
+    // Nostalgic Summer: 4초마다 모든 소환물 위치에서 파도. 서로 다른 소환물의 파도에 동시에 맞으면 기절
+    if (ef.fishWave && (op.fwT -= dt) <= 0) {
+      const fw = ef.fishWave; op.fwT = fw.every;
+      const hitN = new Map();
+      for (const sm of fishesOf(op)) {
+        for (const [kx, ky] of sm.rangeList) addFx({ type: 'ring', x: kx + 0.5, y: ky + 0.5, life: 0.6, color: '#5fd3ff', r: 0.45 });
+        for (const e of inOpRange(sm)) hitN.set(e, (hitN.get(e) || 0) + 1);
+      }
+      for (const [e, n] of hitN) {
+        hitEnemy(e, opAtk(op) * fw.mul, 'arts', false, op);
+        if (!e.alive) continue;
+        slowEnemy(e, 1 - fw.slow, fw.dur);
+        e.resDown = Math.max(e.resDownT > 0 ? e.resDown : 0, fw.res); e.resDownT = Math.max(e.resDownT || 0, fw.dur);
+        if (n >= 2 && S.time >= (e.fwStunAt || 0)) { e.fwStunAt = S.time + fw.stunCd; stunEnemy(e, fw.stun); addText(e.x, e.y - 0.45, '파도 기절', '#5fd3ff', 0.7); }
+      }
+      if (hitN.size || fishesOf(op).length) sfx('arts');
+    }
+    // 그 여름의 기억: 소환물이 3체면 자신의 범위도 여름 바다 (지속 감속)
+    if (ef.summerSea && fishesOf(op).length >= ef.summerSea.need) {
+      for (const e of inOpRange(op)) slowEnemy(e, 1 - ef.summerSea.slow, 0.3);
+      if (Math.random() < dt * 6) { const [kx, ky] = op.rangeList[Math.floor(Math.random() * op.rangeList.length)]; rise(kx + 0.5, ky + 0.6, '#7fe0ff', 1, 0.3, 'circle'); }
+    }
+  }
+
   // ---------- 후크마스터(판도라): 끌어당기기 · 행운 · 불운 ----------
   const misOf = (e) => e.misT > 0 && e.misBy;
   function applyMis(op, e, dur) { if (!e.alive) return; e.misT = Math.max(e.misT || 0, dur || (op.tal.luckSteal ? op.tal.luckSteal.dur : 10)); e.misBy = op; }
@@ -1163,8 +1246,14 @@
     if (ts.length) sfx('retreat');
   }
 
+  // 소환사: 소환물 동시 배치 상한
+  function summonFull(r) {
+    const ow = r.owner;
+    return !!(r.def.summoned && ow && ow.alive && ow.def.summonMax && S.ops.filter((o) => o.alive && o.owner === ow).length >= ow.def.summonMax);
+  }
   function deploy(r, tx, ty, dir) {
     if (r.left !== undefined && r.left <= 0) { setMode('idle'); return; }
+    if (summonFull(r)) { toast('동시 배치 상한에 도달했습니다'); setMode('idle'); return; }
     if (S.dp < r.def.cost) { toast('배치 코스트가 부족합니다'); setMode('idle'); return; }
     if (!r.def.summoned && deployedCount() >= S.deployLimit) { toast('배치 가능 인원을 초과했습니다'); setMode('idle'); return; }
     const def = r.def, tal = talentFx(def), skill = chosenSkill(def);
@@ -1182,6 +1271,19 @@
     setRange(op, def.range);
     S.ops.push(op);
     if (r.owner) op.owner = r.owner;
+    if (op.owner && op.owner.alive && def.rareDef) {
+      const ow = op.owner, df = ow.tal.dreamFish;
+      if (ow.def.voice && ow.def.voice.summon) addText(ow.x + 0.5, ow.y - 0.45, ow.def.voice.summon, ow.def.color, 1.6, true);
+      // Dreaming Fishing: 30% 희귀 어획 → 꿈속의 손님 (대가: 클라운피쉬 최대 HP 10%)
+      if (df && Math.random() < df.rate) {
+        op.rare = true; op.def = { ...def, ...def.rareDef };
+        ow.hp = Math.max(1, ow.hp - ow.maxHp * df.hp);
+        addText(tx + 0.5, ty - 0.45, '희귀 어획!', '#bfe0ff', 1.4, true);
+        const rl = UI.line(ow.def, 'rare'); if (rl) addText(ow.x + 0.5, ow.y - 0.45, rl, ow.def.color, 1.8, true);
+        addFx({ type: 'ring', x: tx + 0.5, y: ty + 0.5, life: 0.7, color: '#e8f2ff', r: 0.9 });
+        rise(tx + 0.5, ty + 0.5, '#e8f2ff', 10, 0.5, 'star');
+      }
+    }
     // 소환물을 가진 오퍼레이터: 배치하면 소환물 카드가 생김
     // charges가 있는 장치는 남은 횟수만큼 여러 개 설치할 수 있음 (작전 중 횟수 유지)
     const sums = def.summons || (def.summon ? [def.summon] : []);
@@ -1324,6 +1426,13 @@
       for (const e of S.enemies) if (e.alive && Math.abs(Math.floor(e.x) - op.x) + Math.abs(Math.floor(e.y) - op.y) <= 2) stunEnemy(e, 2);
     }
     if (ef.wave) op.waveT = ef.wave.every * 0.5;
+    if (ef.summonRefill) {
+      const sr = (op.roster.summonRs || [])[0];
+      if (sr) { sr.left = Math.min(op.def.summonStock || 99, (sr.left || 0) + ef.summonRefill); addText(op.x + 0.5, op.y - 0.6, '소환물 +' + ef.summonRefill, '#ffb36b', 1, true); }
+    }
+    if (ef.fishVolley) fishVolley(op, ef.fishVolley);
+    if (ef.hpCost) op.hp = Math.max(1, op.hp - op.hp * ef.hpCost);
+    if (ef.fishWave) op.fwT = 0.5;
     if (ef.fishing) {
       const fs = ef.fishing;
       S.giftMiss = S.giftMiss || 0;
@@ -1388,7 +1497,7 @@
     addFx({ type: 'ring', x: op.x + 0.5, y: op.y + 0.5, life: 0.45, color: '#ffcf3a', r: 0.6 });
     castFx(op);
     addText(op.x + 0.5, op.y - 0.1, sk.name, '#ffcf3a', 1.2, true);
-    const cl = sk.voice || UI.line(op.def, 'combat');
+    const cl = (Array.isArray(sk.voice) ? sk.voice[Math.floor(Math.random() * sk.voice.length)] : sk.voice) || UI.line(op.def, 'combat');
     if (cl && (op.def.voice || sk.voice)) addText(op.x + 0.5, op.y - 0.45, cl, op.def.color, 1.8, true);
     return true;
   }
@@ -1418,6 +1527,7 @@
   // 지속형 스킬이 끝날 때
   function endSkill(op) {
     const ef = op.skill.effect || {};
+    if (ef.endFishHp) for (const sm of S.ops.filter((o) => o.alive && o.owner === op)) { sm.hp = Math.max(1, sm.hp - sm.maxHp * ef.endFishHp); addText(sm.x + 0.5, sm.y - 0.1, '물결이 잦아든다', '#9aa1ab', 0.8); }
     // 남겨진 희망: 행운을 모두 써서 주변 8칸 아군(자신 포함) 강화
     if (ef.endHope && op.luck > 0) {
       const n = Math.min(ef.endHope.max, op.luck);
@@ -1504,7 +1614,7 @@
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op || remB(e) ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord' && !eff(op).antiAir))));
     const prio = eff(op).priority || (op.def.archetype === 'deadeye' ? 'lowDef' : null);
-    const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0) + (op.tal.tracker && trackedBy(e, op) ? 1 : 0) + (op.tal.contract && op.contract === e ? 1 : 0);
+    const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0) + (op.tal.tracker && trackedBy(e, op) ? 1 : 0) + (op.tal.contract && op.contract === e ? 1 : 0) + (op.def.summoned && op.owner && op.owner.tal.seaEcho && e.seaEchoT > 0 ? 1 : 0);
     list.sort((a, b) =>
       stb(b) - stb(a) ||
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
@@ -1566,6 +1676,7 @@
       }
     }
     if (op.hopeT > 0) op.hopeT -= dt;
+    fishUpdate(op, dt);
     if (ef.pullEvery && op.skillT > 0 && (op.pullT -= dt) <= 0) { op.pullT = ef.pullEvery.every; hookPulse(op, ef.pullEvery); }
     if (op.dodgeT > 0) op.dodgeT -= dt;
     if (op.invulnT > 0) op.invulnT -= dt;
@@ -1826,6 +1937,7 @@
           if (op.evTarget === t) op.evN++; else { op.evTarget = t; op.evN = 1; }
           if (op.evN % ev.every === 0) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#7fe0ff', r: 0.5 }); hitEnemy(t, opAtk(op) * ev.mul, 'phys', true, op, ptIgn, true); stunEnemy(t, ev.stun); }
         }
+        if (op.def.summoned && op.owner && t.alive) fishHit(op, t);
         const ec = op.def.summoned && op.owner && op.owner.tal.echo;
         if (ec && t.alive) {
           t.resDown = ec.res; t.resDownT = ec.dur;
@@ -2111,6 +2223,7 @@
       if (le.luckAmp && type === 'arts') amp += le.luckAmp;
     }
     if (e.vulnT > 0) amp += e.vulnAmp;
+    if (e.seaEchoT > 0 && type === 'arts') amp += e.seaEchoAmp || 0;
     if (type === 'phys') amp += markAmpOf(e);
     const a = e.ana;
     if (a && e.analysis > 0) {
@@ -2275,6 +2388,7 @@
     if (e.rushT > 0) e.rushT -= dt;
     if (e.resDownT > 0) e.resDownT -= dt;
     if (e.witnessT > 0) e.witnessT -= dt;
+    if (e.seaEchoT > 0) e.seaEchoT -= dt;
     if (e.misT > 0) e.misT -= dt;
     if (e.atkSlowT > 0) e.atkSlowT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
@@ -2788,6 +2902,7 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const ic = def.icon && imgOf({ image: def.icon });
     if (ic) { const w = r * 1.5, h = (w * ic.naturalHeight) / ic.naturalWidth; ctx.drawImage(ic, X - w / 2, Y - h / 2, w, h); }
+    if (ic && def.glyph) { ctx.fillStyle = '#fff6b0'; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = Math.max(1, r * 0.08); ctx.font = `900 ${r * 0.8}px sans-serif`; ctx.strokeText(def.glyph, X + r * 0.75, Y - r * 0.7); ctx.fillText(def.glyph, X + r * 0.75, Y - r * 0.7); }
     else ctx.fillText(def.glyph || def.name[0], X, Y + r * 0.05);
     ctx.globalAlpha = 1;
   }
