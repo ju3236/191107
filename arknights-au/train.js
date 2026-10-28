@@ -188,7 +188,7 @@
   //    작전기록·칩·스킬개론은 나오지 않음 (물자 비축 · 칩 탐색에서)
   //  물자 비축 · 칩 탐색: 스테이지의 drops(고정) · chance([아이템, 확률, 개수])
   function dropTable(st, idx) {
-    if (st.supply) return { fixed: Object.entries(st.drops || {}), chance: (st.chance || []).map(([k, p, n]) => [k, p, n || 1]) };
+    if (st.supply || st.event) return { fixed: Object.entries(st.drops || {}), chance: (st.chance || []).map(([k, p, n]) => [k, p, n || 1]) };
     const ch = st.chapter || 1, pool = ch >= 3 ? R.matsT3 : R.matsT2;
     const n = STAGES.slice(0, idx).filter((x) => !x.supply && x.chapter === st.chapter).length;
     const main = st.mainDrop || pool[(n + ch * 2) % pool.length];
@@ -199,6 +199,7 @@
   function sourcesOf(k) {
     const rows = [];
     STAGES.forEach((st, i) => {
+      if (st.event && !eventLive(EVENTS.find((e) => e.id === st.event))) return;
       const t = dropTable(st, i);
       if (t.main === k) { rows.push({ i, rank: 0, label: '주요 드롭' }); return; }
       const f = t.fixed.find(([id]) => id === k);

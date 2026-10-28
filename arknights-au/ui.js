@@ -74,6 +74,7 @@
     back: '<path d="M15 4l-8 8 8 8"/>',
     gear: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
     mail: '<path d="M3 6h18v12H3z"/><path d="m3 6 9 7 9-7"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16"/><path d="M3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/>',
     book: '<path d="M3 5c3-1.2 6-1.2 9 1 3-2.2 6-2.2 9-1v14c-3-1.2-6-1.2-9 1-3-2.2-6-2.2-9-1z"/><path d="M12 6v14"/>',
     alert: '<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/>',
     users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.8 2.9-6 6.5-6s6.5 2.2 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.3c2 .7 3.5 2.6 3.5 5.7"/>',
@@ -286,6 +287,13 @@
   // 물자 조달: 1-4를 깨면 열리고, 같은 시리즈의 이전 단계를 깨야 다음 단계가 열림
   const unlocked = (i) => {
     const st = STAGES[i];
+    // 이벤트 작전: 이벤트 안에서 순서대로, EX는 본편 마지막 작전을 깨면 열림
+    if (st.event) {
+      const evs = STAGES.filter((x) => x.event === st.event && !x.ex);
+      if (st.ex) return cleared(evs[evs.length - 1]);
+      const k = evs.indexOf(st);
+      return k <= 0 || cleared(evs[k - 1]);
+    }
     if (st.supply) {
       if (!cleared(STAGES[3])) return false;
       const prev = STAGES.find((x) => x.supply === st.supply && x.tier === st.tier - 1);
@@ -317,6 +325,7 @@
     const a = OPS[save.assistant];
     $('#home-art').innerHTML = artHTML(a);
     $('#home-banner').innerHTML = `<small>${esc(GAME_INFO.subtitle)}</small><b>${esc(GAME_INFO.title)}</b>`;
+    renderHomeEvent();
     const ts = totalStars();
     $('#home-lv').textContent = 1 + ts * 5;
     $('#home-name').textContent = save.nick || GAME_INFO.commander || '지휘관';
@@ -408,6 +417,151 @@
   $('#btn-archive').innerHTML = icon('book');
   $('#btn-settings').addEventListener('click', openSettings);
   $('#btn-notice').addEventListener('click', () => openNotice());
+  $('#btn-attend').innerHTML = icon('calendar');
+  $('#btn-attend').addEventListener('click', () => openAttendance(true));
+  $('#home-event').addEventListener('click', () => { sfx('select'); go('event'); });
+
+  // ---------- 사이드 스토리 이벤트 · 이벤트 상점 · 출석 ----------
+  const mdText = (d) => { const [, m, dd] = d.split('-').map(Number); return `${m}월 ${dd}일`; };
+  const daysLeft = (d) => Math.max(0, Math.ceil((new Date(`${d}T04:00:00`).getTime() + 864e5 - Date.now()) / 864e5));
+  function eventHeadHTML(ev) {
+    return `<div class="ev-head" style="--ec:${ev.color}"><span class="ev-tag">${esc(ev.tag)}</span><b>${esc(ev.name)}</b><small>${esc(ev.en)} · ${endText(ev.end)} 종료 · 잔여 ${daysLeft(ev.end)}일</small></div>
+      <button class="ev-shop-btn" id="ev-shop"><i class="ri ${ev.currency}"></i><b>${ACCOUNT.bal(ev.currency).toLocaleString('ko-KR')}</b><span>이벤트 상점</span></button>`;
+  }
+  // 이벤트 의상: 상점이 열려 있는 동안은 상점에서만 교환 (닫힌 뒤에는 오리지늄)
+  const skinShopOf = (sk) => { if (!sk.event) return null; const ev = EVENTS.find((e) => e.id === sk.event); return eventLive(ev, 'shopEnd') ? ev : null; };
+  const evBought = (ev) => { save.evShop = save.evShop || {}; return (save.evShop[ev.id] = save.evShop[ev.id] || {}); };
+  function goodInfo(g) {
+    const sk = g.skin && SKINS.find((k) => k.id === g.skin);
+    if (sk) return { sk, name: sk.name, sub: `${(OPS[sk.op] || {}).name || ''} 의상 · ${sk.brand || ''}`, img: sk.image };
+    const [k, n] = Object.entries(g.items)[0];
+    return { name: ITEMS[k].name, sub: `×${n.toLocaleString('ko-KR')}`, item: k };
+  }
+  const endText = (d) => { const t = new Date(new Date(`${d}T04:00:00`).getTime() + 864e5 - 60e3); return `${t.getFullYear()}/${String(t.getMonth() + 1).padStart(2, '0')}/${String(t.getDate()).padStart(2, '0')} 03:59`; };
+  // 이벤트 메인 화면 (원작처럼 큰 그림 + 오른쪽 메뉴: 작전 · 상점 · 출석)
+  RENDER.event = () => {
+    const ev = liveEvent('shopEnd');
+    if (!ev) { toast('진행 중인 이벤트가 없습니다'); go('home'); return; }
+    const opOpen = eventLive(ev), cur = ev.currency;
+    const list = STAGES.filter((st) => st.event === ev.id), done = list.filter(cleared).length;
+    $('#evh-bg').style.backgroundImage = `url('${ev.bg}')`;
+    $('#evh-art').innerHTML = (ev.arts || []).map((a, i) => `<img class="evh-a${i}" src="${esc(a)}" alt="">`).join('');
+    $('#evh-top').innerHTML = `<span class="evh-cur"><i class="ri ${cur}"></i><b>${ACCOUNT.bal(cur).toLocaleString('ko-KR')}</b></span>`;
+    $('#evh-title').innerHTML = `<small class="evh-tag">${esc(ev.tag)}</small><b>${esc(ev.name)}</b><span class="evh-en">${esc(ev.en)}</span>
+      <p class="evh-desc">${esc(ev.desc)}</p>
+      <div class="evh-time">${opOpen ? `작전 진행 잔여 시간: ${endText(ev.end)} <em>잔여 ${daysLeft(ev.end)}일</em>` : `작전 종료 · 상점 교환 ${endText(ev.shopEnd)}까지 <em>잔여 ${daysLeft(ev.shopEnd)}일</em>`}</div>`;
+    const att = typeof ATTENDANCE !== 'undefined' && eventLive(ATTENDANCE);
+    $('#evh-menu').innerHTML = `
+      <button class="evh-btn" data-evm="shop"><span class="evh-ic">${icon('store') || ''}</span><b>이벤트 상점</b><small>EVENT STORE · <i class="ri ${cur}"></i>${ACCOUNT.bal(cur).toLocaleString('ko-KR')}</small></button>
+      ${att ? `<button class="evh-btn" data-evm="attend"><span class="evh-ic">${icon('calendar')}</span><b>${esc(ATTENDANCE.name)}</b><small>CHECK-IN · ${attState().n}/${ATTENDANCE.rewards.length}일</small></button>` : ''}
+      <button class="evh-btn" data-evm="story"><span class="evh-ic">${icon('book')}</span><b>스토리 다시 보기</b><small>MEMORY</small></button>
+      <button class="evh-go ${opOpen ? '' : 'off'}" data-evm="ops"><b>작전 개시</b><small>OPERATION · 진행 ${done}/${list.length}</small><span>▶</span></button>`;
+  };
+  $('#evh-menu').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-evm]'); if (!b) return;
+    const ev = liveEvent('shopEnd'); sfx('select');
+    if (b.dataset.evm === 'shop') go('evshop', ev.id);
+    else if (b.dataset.evm === 'attend') openAttendance(true);
+    else if (b.dataset.evm === 'story') openEventStory(ev);
+    else if (b.dataset.evm === 'ops') { if (!eventLive(ev)) { toast('이벤트 작전이 종료되었습니다'); return; } go('operations', 'event'); }
+  });
+  function openEventStory(ev) {
+    const rows = STAGES.map((st, i) => ({ st, i })).filter(({ st }) => st.event === ev.id).map(({ st, i }) => !unlocked(i) ? `<div class="arc-row locked"><b>${st.code}</b><span>???</span></div>` : `<div class="arc-row"><b>${st.code}</b><span>${esc(st.name)}</span>
+        ${st.before && st.before.length ? `<button class="btn small" data-story="${i}:before">작전 전</button>` : ''}
+        ${cleared(st) && st.after && st.after.length ? `<button class="btn small" data-story="${i}:after">작전 후</button>` : ''}</div>`).join('');
+    openModal(`<div class="modal-title">${esc(ev.name)} — 스토리</div><div class="modal-sub">MEMORY · 지나온 이야기를 다시 봅니다</div><div class="arc-list">${rows}</div>`);
+  }
+  // 이벤트 상점 화면 (원작처럼 카드 격자: 이름 · 그림 · 잔여 수량 · 가격, 다 사면 매진)
+  RENDER.evshop = (id) => {
+    const ev = (id && EVENTS.find((e) => e.id === id)) || liveEvent('shopEnd');
+    if (!ev || !eventLive(ev, 'shopEnd')) { toast('이벤트 상점이 열려 있지 않습니다'); go('home'); return; }
+    shopEv = ev;
+    const bought = evBought(ev), cur = ev.currency;
+    $('#evs-hero').style.backgroundImage = `url('${ev.bg}')`;
+    $('#evs-cur').innerHTML = `<i class="ri ${cur}"></i><b>${ACCOUNT.bal(cur).toLocaleString('ko-KR')}</b>`;
+    $('#evs-bar').innerHTML = `<span class="evs-tab"><i class="ri ${cur}"></i>${esc(ev.name)}</span><span class="evs-end">종료 시간: ${endText(ev.shopEnd)}<em>잔여 ${daysLeft(ev.shopEnd)}일</em></span>`;
+    $('#evs-board').innerHTML = ev.shop.map((g, k) => {
+      const info = goodInfo(g), left = info.sk && ownsSkin(info.sk.id) ? 0 : g.limit - (bought[g.id] || 0);
+      const n = info.sk ? 1 : Object.values(g.items)[0];
+      return `<button class="evg ${left <= 0 ? 'sold' : ''} ${info.sk ? 'skin' : ''}" data-good="${esc(g.id)}">
+        ${k === 0 ? '<span class="evg-no">01</span>' : ''}
+        <b class="evg-name">${esc(info.name)}</b>
+        ${info.sk ? `<small class="evg-brand">${esc(info.sk.brand || '')}</small><img class="evg-skin" src="${esc(info.img)}" alt="">` : `<span class="evg-icon"><i class="ri ${info.item}"></i><em>${n >= 1000 ? n.toLocaleString('ko-KR') : n}</em></span>`}
+        ${left > 0 && g.limit > 1 ? `<span class="evg-left">잔여 ${left}</span>` : ''}
+        <span class="evg-price"><i class="ri ${cur}"></i>${g.price.toLocaleString('ko-KR')}</span>
+        ${left <= 0 ? '<span class="evg-sold"><i>OUT OF STOCK</i><b>매진</b><i>OUT OF STOCK</i></span>' : ''}
+      </button>`;
+    }).join('');
+  };
+  let shopEv = null;
+  $('#evs-board').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-good]'); if (!b || !shopEv) return;
+    buyGood(shopEv, shopEv.shop.find((g) => g.id === b.dataset.good));
+  });
+  function buyGood(ev, g) {
+    const info = goodInfo(g), bought = evBought(ev), cur = ev.currency;
+    if ((info.sk && ownsSkin(info.sk.id)) || (bought[g.id] || 0) >= g.limit) { toast('이미 모두 교환했습니다'); return; }
+    if (ACCOUNT.bal(cur) < g.price) { sfx('deny'); toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
+    const go2 = () => {
+      if (!ACCOUNT.spend({ [cur]: g.price })) { toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
+      bought[g.id] = (bought[g.id] || 0) + 1;
+      if (info.sk) {
+        const sv = skinSave();
+        if (!sv.owned.includes(info.sk.id)) sv.owned.push(info.sk.id);
+        if (owned(info.sk.op)) sv.wear[info.sk.op] = info.sk.id;
+        applySkins();
+      } else ACCOUNT.earn(g.items);
+      writeSave(); renderResources(); sfx('select');
+      toast(`${info.name} ${info.sk ? '' : info.sub + ' '}교환 완료`);
+      closeModal();
+      if (RENDER[current]) RENDER[current](ev.id, { back: true });
+    };
+    if (g.price < 300) { go2(); return; }
+    openModal(`<div class="modal-title">교환 확인</div><div class="modal-sub">${esc(ev.name)} · 이벤트 상점</div>
+      ${info.sk ? `<div class="skin-buy"><img src="${esc(info.img)}" alt=""><div><b>${esc(info.name)}</b><small>${esc(info.sub)}</small><p>${esc(info.sk.desc || '')}</p></div></div>` : `<p class="modal-text">${esc(info.name)} ${esc(info.sub)}</p>`}
+      <p class="modal-text"><i class="ri ${cur}"></i> ${g.price.toLocaleString('ko-KR')}개로 교환합니다. 보유 ${ACCOUNT.bal(cur).toLocaleString('ko-KR')}</p>
+      <div class="panel-btns"><button class="btn primary" id="evs-go">교환</button><button class="btn" id="evs-no">취소</button></div>`);
+    $('#evs-go').addEventListener('click', go2);
+    $('#evs-no').addEventListener('click', closeModal);
+  }
+  function renderHomeEvent() {
+    const ev = liveEvent(), el = $('#home-event');
+    el.classList.toggle('hidden', !ev);
+    if (ev) el.innerHTML = `<span class="he-bg" style="background-image:url('${esc(ev.bg)}')"></span><small>${esc(ev.tag)} · D-${daysLeft(ev.end)}</small><b>${esc(ev.name)}</b><em>이벤트 보기 ▶</em>`;
+    const att = typeof ATTENDANCE !== 'undefined' && eventLive(ATTENDANCE);
+    $('#btn-attend').classList.toggle('hidden', !att);
+    if (att) $('#btn-attend').classList.toggle('has-new', attState().last !== dayKey() && attState().n < ATTENDANCE.rewards.length);
+    if (att && !attPolled) { attPolled = true; pollAttendance(0); }
+  }
+  // 출석: 하루 한 번(오전 4시 기준) 다음 칸 보상을 받음
+  let attPolled = false;
+  const attState = () => { save.attend = save.attend || {}; return (save.attend[ATTENDANCE.id] = save.attend[ATTENDANCE.id] || { n: 0, last: '' }); };
+  function pollAttendance(k) {
+    // 공지 창 · 다른 창이 닫힌 뒤에 출석 창을 띄움
+    setTimeout(() => {
+      if (current !== 'home' || !$('#modal').classList.contains('hidden') || !$('#notice').classList.contains('hidden') || !$('#dialog').classList.contains('hidden')) { if (k < 60) pollAttendance(k + 1); return; }
+      const a = attState();
+      if (a.last === dayKey() || a.n >= ATTENDANCE.rewards.length) return;
+      openAttendance(true);
+    }, k ? 1000 : 1600);
+  }
+  function openAttendance(claim) {
+    if (typeof ATTENDANCE === 'undefined' || !eventLive(ATTENDANCE)) return;
+    const a = attState(), R = ATTENDANCE.rewards;
+    let got = -1;
+    if (claim && a.last !== dayKey() && a.n < R.length) { got = a.n; ACCOUNT.earn(R[a.n]); a.n++; a.last = dayKey(); writeSave(); renderResources(); sfx('select'); }
+    const cell = (r, i) => {
+      const big = i === 6 || i === R.length - 1;
+      return `<div class="att-cell ${i < a.n ? 'done' : ''} ${i === got ? 'now' : ''} ${big ? 'big' : ''}"><small>DAY ${i + 1}</small>
+        <span class="att-items">${Object.entries(r).map(([k, n]) => `<span><i class="ri ${k}"></i><b>${n.toLocaleString('ko-KR')}</b></span>`).join('')}</span>${i < a.n ? '<i class="att-chk">✓</i>' : ''}</div>`;
+    };
+    openModal(`<div class="modal-title">${esc(ATTENDANCE.name)}</div>
+      <div class="modal-sub">${mdText(ATTENDANCE.start)} ~ ${mdText(ATTENDANCE.end)} · 하루 한 번(오전 4시 기준) 접속하면 다음 보상을 받습니다 · ${a.n}/${R.length}일</div>
+      <div class="att-grid">${R.map(cell).join('')}</div>
+      ${got >= 0 ? `<p class="att-got">오늘의 보상: ${Object.entries(R[got]).map(([k, n]) => `${esc(ITEMS[k].name)} ×${n.toLocaleString('ko-KR')}`).join(' · ')}</p>` : ''}`);
+    $('#modal').dataset.kind = 'attend';
+    $('#btn-attend').classList.remove('has-new');
+  }
 
   // ---------- 공지 (원작 로비 공지 창 · 패치 내역) ----------
   const NT_TABS = [['patch', '패치 내역', 'wrench'], ['event', '이벤트 공지', 'flag'], ['info', '정보 공지', 'info']];
@@ -934,11 +1088,11 @@
     const row = (sid, img, name, sub, state) => `<button class="skin-card ${cur === sid ? 'on' : ''}" data-skin="${esc(sid)}">
         <span class="skin-img" style="--c:${o.color}">${img ? `<img src="${esc(img)}" alt="">` : ''}</span><b>${esc(name)}</b><small>${esc(sub)}</small><em>${state}</em></button>`;
     const cards = [row('base', o.baseImage, '기본 의상', '오퍼레이터 기본 복장', cur === 'base' ? '착용 중' : '착용')]
-      .concat(list.map((k) => row(k.id, k.image, k.name, k.brand || '', cur === k.id ? '착용 중' : ownsSkin(k.id) ? '착용' : `오리지늄 ${k.price}`)));
+      .concat(list.map((k) => row(k.id, k.image, k.name, k.brand || '', cur === k.id ? '착용 중' : ownsSkin(k.id) ? '착용' : skinShopOf(k) ? '이벤트 상점' : `오리지늄 ${k.price}`)));
     openModal(`<div class="modal-title">${esc(o.name)} — 의상</div><div class="modal-sub">${list.length ? '의상을 눌러 갈아입거나 구매하세요' : '아직 이 오퍼레이터의 의상이 없습니다'}</div><div class="skin-grid">${cards.join('')}</div>`);
     document.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => {
       const sid = b.dataset.skin, sk = list.find((k) => k.id === sid);
-      if (sid !== 'base' && !ownsSkin(sid)) { buySkin(sk, () => openSkins(id)); return; }
+      if (sid !== 'base' && !ownsSkin(sid)) { const ev = skinShopOf(sk); if (ev) { closeModal(); go('evshop', ev.id); return; } buySkin(sk, () => openSkins(id)); return; }
       if (!owned(id)) { toast('보유한 오퍼레이터만 갈아입을 수 있습니다'); return; }
       if (sid === 'base') delete sv.wear[id]; else sv.wear[id] = sid;
       writeSave(); applySkins(); sfx('select');
@@ -1216,6 +1370,7 @@
   }
   function rewardFor(st, idx, starCount, first) {
     if (st.supply) return TRAIN.supplyDrops(st, starCount);
+    if (st.event) { const r = TRAIN.supplyDrops(st, starCount); if (first) r.originite = 1; return r; }
     const reward = TRAIN.stageDrops({ ...st, sanity: sanityCost(st) }, idx, starCount, first);
     if (first) reward.originite = 1;
     return reward;
@@ -1250,21 +1405,23 @@
   const supplyReady = () => cleared(STAGES[3]);
   RENDER.operations = (arg, opts = {}) => {
     if (!opts.back && arg !== 'after') { opsMode = 'main'; seriesSel = null; }
-    if (arg === 'supply' || arg === 'chip') { opsMode = arg; seriesSel = null; }
+    if (arg === 'supply' || arg === 'chip' || arg === 'event') { opsMode = arg; seriesSel = null; }
+    if (opsMode === 'event' && !liveEvent()) opsMode = 'main';
     document.querySelectorAll('#ops-nav [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === opsMode));
     const scr = $('#screen-operations');
-    if (opsMode !== 'main' && !seriesSel) { scr.classList.add('cards-mode'); renderSeriesCards(); return; }
+    if (opsMode !== 'main' && opsMode !== 'event' && !seriesSel) { scr.classList.add('cards-mode'); renderSeriesCards(); return; }
     scr.classList.remove('cards-mode');
+    scr.classList.toggle('event-mode', opsMode === 'event');
     $('#ops-cards').classList.add('hidden');
     let list;
     if (opsMode === 'main') {
       if (!opts.back && arg !== 'after') {
         let last = 0;
-        STAGES.forEach((st, i) => { if (!st.supply && unlocked(i)) last = i; });
+        STAGES.forEach((st, i) => { if (!st.supply && !st.event && unlocked(i)) last = i; });
         opSel = last;
         chapterSel = STAGES[last].chapter;
       }
-      if (!STAGES[opSel] || STAGES[opSel].supply) { opSel = 0; chapterSel = STAGES[0].chapter; }
+      if (!STAGES[opSel] || STAGES[opSel].supply || STAGES[opSel].event) { opSel = 0; chapterSel = STAGES[0].chapter; }
       const chs = chapters();
       const cur = chs.find((c) => c.id === chapterSel) || chs[0];
       chapterSel = cur.id;
@@ -1275,6 +1432,16 @@
         return `<button class="ep-tab ${c.id === cur.id ? 'on' : ''} ${open ? '' : 'locked'}" data-ep="${c.id}"><small>${esc(c.code)}</small><b>${open ? esc(c.name) : '???'}</b></button>`;
       }).join('');
       list = stagesOf(cur);
+    } else if (opsMode === 'event') {
+      const ev = liveEvent();
+      list = STAGES.map((st, i) => ({ st, i })).filter(({ st }) => st.event === ev.id);
+      scr.style.setProperty('--ev-bg', `url(${ev.bg})`);
+      $('#chapter-title').innerHTML = eventHeadHTML(ev);
+      if (!list.some(({ i }) => i === opSel)) {
+        let last = list[0].i;
+        list.forEach(({ st, i }) => { if (unlocked(i) && !st.ex) last = i; });
+        opSel = last;
+      }
     } else {
       const sr = SUPPLY_SERIES.find((x) => x.id === seriesSel);
       list = seriesStages(seriesSel);
@@ -1355,6 +1522,7 @@
     RENDER.operations(undefined, { back: true });
   });
   $('#chapter-title').addEventListener('click', (e) => {
+    if (e.target.closest('#ev-shop')) { go('evshop'); return; }
     if (e.target.closest('[data-series-back]')) { seriesSel = null; RENDER.operations(undefined, { back: true }); return; }
     const b = e.target.closest('[data-ep]');
     if (!b) return;
@@ -1413,7 +1581,7 @@
   function dropsHTML(st, idx) {
     const t = TRAIN.dropTable({ ...st, sanity: sanityCost(st) }, idx);
     const item = (k, txt, cls = '') => `<span class="${cls}" title="${esc(ITEMS[k].name)}"><i class="ri ${k}"></i>${esc(ITEMS[k].short)} ${txt}</span>`;
-    return `<div class="op-drops"><small class="od-t">${st.supply ? '고정 드롭' : '드롭'}</small>${t.fixed.map(([k, n]) => item(k, `×${n.toLocaleString('ko-KR')}`)).join('')}${t.chance.map(([k, p, n, tag]) =>
+    return `<div class="op-drops"><small class="od-t">${st.supply || st.event ? '고정 드롭' : '드롭'}</small>${t.fixed.map(([k, n]) => item(k, `×${n.toLocaleString('ko-KR')}`)).join('')}${t.chance.map(([k, p, n, tag]) =>
       tag === '주요' ? item(k, '<em>주요 · ★3 확정</em>', 'main') : item(k, `${tag === '추가' ? '+1 ' : n > 1 ? `×${n} ` : ''}${Math.round(p * 100)}%`, 'maybe')).join('')}</div>`;
   }
   // 획득처: 재료를 누르면 그 재료가 나오는 작전 · 가공소로 바로 이동
@@ -1438,7 +1606,7 @@
     const st = STAGES[i], sr = seriesOf(st);
     if (!unlocked(i)) { toast('아직 해금되지 않은 작전입니다'); return; }
     if (!seriesOpen(sr)) { toast(`${sr.name}: ${daysText(sr)} · 오늘은 진입할 수 없습니다`); return; }
-    if (sr) { opsMode = sr.tab; seriesSel = sr.id; } else { opsMode = 'main'; seriesSel = null; chapterSel = st.chapter; }
+    if (sr) { opsMode = sr.tab; seriesSel = sr.id; } else if (st.event) { opsMode = 'event'; seriesSel = null; } else { opsMode = 'main'; seriesSel = null; chapterSel = st.chapter; }
     opSel = i;
     closeModal();
     $('#train-view').classList.add('hidden');
@@ -1507,7 +1675,7 @@
         e.aoe && '범위 공격', e.healer && '치료', e.blink && '순간이동', e.revive && '부활', e.enrage && '광폭화', e.chill && '냉기', e.regen && 'HP 회복',
         e.neural && '신경 손상', e.neuralAura && '신경 손상 오라', e.dodge && '회피', e.targets > 1 && `동시 ${e.targets}명 공격`, e.lowHp && 'HP 낮은 대상 우선',
         e.burst && '피격 시 폭발', e.brandOnDeath && '사망 시 명흔', e.brandTrail && '명흔 남김', e.brandUnblockable && '명흔 위 저지 불가', e.brandAtk && '명흔 위 공격력 증가',
-        e.harden && '빈사 시 방어 상승', e.summon && '소환'].filter(Boolean);
+        e.harden && '빈사 시 방어 상승', e.summon && '소환', e.phase && '순간이동', e.bell && '종소리(기절)', e.veil && '어둠 속 은신'].filter(Boolean);
       return `<div class="enemy-row">
         <span class="enemy-ico" style="--c:${e.color}" title="${esc(e.code || '')}">${e.image ? `<img src="${esc(e.image)}" alt="">` : e.boss ? '王' : esc(e.name.replace(/[「」]/g, '')[0])}</span>
         <div class="enemy-info">
@@ -1523,7 +1691,7 @@
   const gradeOf = (v, max) => { const r = Math.min(1, v / max); let g = 'D'; for (const [k, t] of GRADE) if (r >= t) g = k; return g; };
   function enemyDetailHTML(e, n) {
     const stat = (label, v, max) => { const g = gradeOf(v, max); return `<div class="ed-stat"><span>${label}</span><i><b style="width:${Math.min(100, (v / max) * 100)}%"></b></i><em class="g-${g}">${g}</em><small>${v}</small></div>`; };
-    const flags = [e.boss && '보스', e.elite && '엘리트', e.sea && '시본', e.fly && '비행', e.unblockable && '저지 불가', e.range > 0 && `원거리 ${e.range}`, e.arts && '마법 피해', e.aoe && '범위 공격', e.healer && '치료', e.revive && '부활', e.summon && '소환', e.dodge && '회피', (e.weight || 1) >= 3 && `무게 ${e.weight}`].filter(Boolean);
+    const flags = [e.boss && '보스', e.elite && '엘리트', e.sea && '시본', e.fly && '비행', e.unblockable && '저지 불가', e.range > 0 && `원거리 ${e.range}`, e.arts && '마법 피해', e.aoe && '범위 공격', e.healer && '치료', e.revive && '부활', e.summon && '소환', e.phase && '순간이동', e.bell && '종소리(기절)', e.veil && '어둠 속 은신', e.dodge && '회피', (e.weight || 1) >= 3 && `무게 ${e.weight}`].filter(Boolean);
     return `<div class="ed-art" style="--c:${e.color}">${e.image ? `<img src="${esc(e.image)}" alt="">` : `<b>${esc(e.name[0])}</b>`}<span class="ed-lv ${e.boss ? 'boss' : e.elite ? 'elite' : ''}">${e.boss ? 'BOSS' : e.elite ? 'ELITE' : 'NORMAL'}</span></div>
       <div class="ed-body"><div class="ed-name"><small>${esc(e.code || '')}</small><b>${esc(e.name)}</b><span>×${n}</span></div>
         <div class="ed-stats">${stat('내구', e.hp, 20000)}${stat('공격력', e.atk, 1500)}${stat('방어력', e.def, 1200)}${stat('마법 저항', e.res || 0, 80)}</div>
@@ -1574,7 +1742,7 @@
   const storyBg = (st) => (st && typeof st.chapter === 'number' && st.chapter >= 1 && st.chapter <= 4 ? `story_${st.chapter}` : st && st.is ? 'story_is' : 'story_0');
   function playDialog(lines, done, st) {
     const ov = $('#dialog'), nameEl = $('#dlg-name'), textEl = $('#dlg-text'), por = $('#dlg-portrait');
-    ov.style.setProperty('--bg', `url(img/ui/${storyBg(st)}.webp)`);
+    ov.style.setProperty('--bg', `url(${st && st.storyBg ? st.storyBg : `img/ui/${storyBg(st)}.webp`})`);
     let i = -1, timer = null, full = '';
     ov.classList.remove('hidden');
     const bgmBefore = current === 'battle' ? null : screenBgm(current);
@@ -1591,6 +1759,7 @@
       i++;
       if (i >= lines.length) { finish(); return; }
       const L = lines[i];
+      if (L.bg) ov.style.setProperty('--bg', `url(${L.bg})`);
       const def = L.who && OPS[L.who];
       const name = def ? def.name : L.name || '';
       nameEl.textContent = name;

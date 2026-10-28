@@ -19,6 +19,7 @@
     <div class="home-icons">
       <button class="icon-btn" id="btn-settings" aria-label="설정"></button>
       <button class="icon-btn" id="btn-notice" aria-label="공지" title="공지"></button>
+      <button class="icon-btn hidden" id="btn-attend" aria-label="출석" title="출석 이벤트"></button>
       <button class="icon-btn" id="btn-archive" aria-label="기록"></button>
       <button class="icon-btn" id="btn-boss" aria-label="화면 숨기기" title="화면 숨기기"></button>
       <button class="icon-btn" id="btn-feedback" aria-label="버그 신고 · 건의" title="버그 신고 · 건의"></button>
@@ -27,6 +28,7 @@
 
     <div class="home-side">
       <div class="home-banner" id="home-banner"></div>
+      <button class="home-event hidden" id="home-event"></button>
       <div class="home-level">
         <div class="lv-ring"><b id="home-lv">1</b><small>LV</small></div>
       </div>
@@ -165,6 +167,35 @@
       </button>
     </div>
     <div class="formation-foot" id="formation-foot"></div>
+  </section>
+
+  <!-- ===================== 사이드 스토리 이벤트 (홈 배너에서 진입) ===================== -->
+  <section id="screen-event" class="screen ev-screen">
+    <div class="evh-bg" id="evh-bg"></div>
+    <div class="evh-art" id="evh-art"></div>
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+      </div>
+      <div class="evh-top" id="evh-top"></div>
+    </header>
+    <div class="evh-title" id="evh-title"></div>
+    <nav class="evh-menu" id="evh-menu"></nav>
+  </section>
+
+  <!-- ===================== 이벤트 상점 ===================== -->
+  <section id="screen-evshop" class="screen evs-screen">
+    <div class="evs-hero" id="evs-hero"></div>
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+      </div>
+      <div class="evs-cur" id="evs-cur"></div>
+    </header>
+    <div class="evs-bar" id="evs-bar"></div>
+    <div class="evs-board" id="evs-board"></div>
   </section>
 
   <!-- ===================== 5. 작전 목록 ===================== -->

@@ -1645,7 +1645,8 @@
     // 셰이퍼 캐스터: 자신의 잔영이 저지 중인 적은 거리와 관계없이 공격 (3스킬: 모두 동시에)
     const remB = (e) => op.def.archetype === 'soulcaster' && e.blockedBy && e.blockedBy.remOwner === op;
     if (eff(op).remAll) n = Math.max(n, S.enemies.filter((e) => e.alive && remB(e)).length);
-    const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op || remB(e) ||
+    const veiled = (e) => e.def.veil && !e.blockedBy && Math.hypot(e.x - (op.x + 0.5), e.y - (op.y + 0.5)) > e.def.veil;
+    const list = S.enemies.filter((e) => e.alive && !veiled(e) && (e.blockedBy === op || remB(e) ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord' && !eff(op).antiAir))));
     const prio = eff(op).priority || (op.def.archetype === 'deadeye' ? 'lowDef' : null);
     const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0) + (op.tal.tracker && trackedBy(e, op) ? 1 : 0) + (op.tal.contract && op.contract === e ? 1 : 0) + (op.def.summoned && op.owner && op.owner.tal.seaEcho && e.seaEchoT > 0 ? 1 : 0) + (eff(op).violPrio && violOf(e) === op ? 1 : 0);
@@ -2452,6 +2453,28 @@
     if (e.atkSlowT > 0) e.atkSlowT -= dt;
     if (e.def.sea && e.hp < e.maxHp && onBrand(e.x, e.y)) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.015 * dt);
     if (e.def.brandTrail && e.hp / e.maxHp < 0.5) setBrand(e.x, e.y);
+    // 아무도 없는 교실의 밤: 문 사이 순간이동 · 종소리
+    const ph = e.def.phase;
+    if (ph && !(e.stun > 0) && !(e.bindT > 0) && (e.phT = (e.phT ?? ph.every) - dt) <= 0) {
+      e.phT = ph.every;
+      addFx({ type: 'ring', x: e.x, y: e.y, life: 0.4, color: '#6b5a8a', r: 0.6 });
+      if (e.blockedBy) { const b = e.blockedBy; b.blocked = b.blocked.filter((o) => o !== e); e.blockedBy = null; }
+      let step = ph.dist;
+      while (step > 0 && e.pi < e.path.length - 1) {
+        const p = e.path[e.pi], d = Math.hypot(p.x - e.x, p.y - e.y);
+        if (d <= step) { e.x = p.x; e.y = p.y; step -= d; e.pi++; } else { e.x += ((p.x - e.x) / d) * step; e.y += ((p.y - e.y) / d) * step; step = 0; }
+      }
+      addFx({ type: 'ring', x: e.x, y: e.y, life: 0.4, color: '#6b5a8a', r: 0.6 });
+      addText(e.x, e.y - 0.4, '문 너머로', '#b9a6e0', 0.7);
+    }
+    const bl = e.def.bell;
+    if (bl && (e.bellT = (e.bellT ?? bl.every * 0.6) - dt) <= 0) {
+      e.bellT = bl.every;
+      addFx({ type: 'ring', x: e.x, y: e.y, life: 0.7, color: '#e8d27a', r: bl.radius });
+      addText(e.x, e.y - 0.6, '종소리', '#e8d27a', 0.9, true);
+      sfx('boss');
+      for (const op of S.ops) if (op.alive && Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y) <= bl.radius) { op.stun = Math.max(op.stun || 0, bl.stun); addText(op.x + 0.5, op.y - 0.1, '그날의 종', '#e8d27a', 0.7); }
+    }
     const na = e.def.neuralAura;
     if (na) for (const op of [...S.ops]) if (Math.hypot(op.x + 0.5 - e.x, op.y + 0.5 - e.y) <= na.radius) addNeural(op, na.amount * dt);
     const sm = e.def.summon;
@@ -3105,6 +3128,7 @@
       const prevX = e.lastX ?? e.x; if (Math.abs(e.x - prevX) > 0.002) e.faceL = e.x < prevX; e.lastX = e.x;
       ctx.save();
       if (e.flash > 0) ctx.filter = 'brightness(2.2)';
+      if (e.def.veil && !e.blockedBy) ctx.globalAlpha = 0.45;
       const top = isFly(e.def) ? cy - h * 0.55 : Y - h * 0.97;
       headY = top + h * 0.08;
       if (e.faceL) { ctx.translate(X, 0); ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, top, w, h); }

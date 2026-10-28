@@ -1633,6 +1633,18 @@ Object.assign(ENEMIES, {
   subject_l:   { code: 'EX2', name: '폭주 실험체', hp: 5750, atk: 480, def: 200, res: 30, speed: 0.5, interval: 2.0, range: 0, elite: true, enrage: { below: 0.5, atk: 0.5 }, color: '#d04040', image: 'img/enemy/host_l.png', desc: '실험이 진행된 개체. HP가 절반 아래로 떨어지면 공격력이 오른다.' },
   warden:      { code: 'IGX', name: '그레이브스 소장', hp: 28000, atk: 900, def: 600, res: 40, speed: 0.25, interval: 3.0, range: 0, aoe: 1.0, weight: 3, enrage: { below: 0.5, atk: 1.4 }, lifeCost: 3, boss: true, color: '#3a4a5a', image: 'img/enemy/avenger.png', desc: '아이언 게이트 소장. 감염자 수감자를 기업에 팔아넘겼다. HP가 절반 아래로 떨어지면 공격력이 오른다.' },
   omega:       { code: 'EXΩ', name: '실험체 Ω', hp: 30000, atk: 1000, def: 450, res: 45, speed: 0.3, interval: 3.0, range: 0, aoe: 1.2, weight: 3, revive: { atk: 1.4 }, summon: { enemy: 'subject', every: 14, count: 2 }, lifeCost: 5, boss: true, color: '#3f6fd8', image: 'img/enemy/dssalr.png', desc: '터너를 대신하려고 만들어진 실험체. 쓰러져도 한 번 일어서고, 주기적으로 실험체를 불러낸다.' },
+  // ---- 사이드 스토리 「아무도 없는 교실의 밤」 (청람 학원) ----
+  nc_guest:    { code: 'NC1', name: '홀린 축제 손님', hp: 1500, atk: 230, def: 80, res: 0, speed: 0.65, interval: 1.6, range: 0, color: '#c98a5a', desc: '등불 가면제의 손님. 학교의 종소리를 들은 뒤로 넋이 나간 채 걷는다. 하나하나는 약하지만 무리 지어 몰려온다.' },
+  nc_vendor:   { code: 'NC2', name: '홀린 노점상', hp: 3400, atk: 380, def: 260, res: 10, speed: 0.45, interval: 2.2, range: 0, weight: 2, color: '#a8754a', desc: '노점 수레째 끌려온 상인. 단단하고 무겁다.' },
+  nc_shadow:   { code: 'NC3', name: '복도의 그림자', hp: 2300, atk: 420, def: 120, res: 30, speed: 0.6, interval: 1.4, range: 0, phase: { every: 7, dist: 2.5 }, color: '#4a3f63', desc: '교실 문과 문 사이를 오가는 그림자. 일정 시간마다 저지를 무시하고 앞쪽으로 순간이동한다.' },
+  nc_shadow_l: { code: 'NC3+', name: '그림자 반장', hp: 4600, atk: 580, def: 200, res: 40, speed: 0.6, interval: 1.4, range: 0, phase: { every: 5.5, dist: 3 }, elite: true, color: '#5b4a7a', desc: '그림자들을 이끄는 반장. 더 자주, 더 멀리 순간이동한다.' },
+  nc_lantern:  { code: 'NC4', name: '떠도는 등불', hp: 1400, atk: 240, def: 50, res: 40, speed: 0.6, interval: 2.2, range: 1.6, arts: true, fly: true, color: '#e8c76a', desc: '축제 등불에 깃든 빛. 길을 무시하고 날아오며 마법 피해를 준다.' },
+  nc_bell:     { code: 'NC5', name: '종지기 성배', hp: 6000, atk: 320, def: 520, res: 20, speed: 0.3, interval: 3.0, range: 0, weight: 3, bell: { every: 9, radius: 2.2, stun: 2.5 }, elite: true, color: '#c8b26a', desc: '음악실의 종. 일정 시간마다 울려 주변 오퍼레이터를 「그날」로 끌고 가 잠시 멈추게(기절) 한다.' },
+  nc_dark:     { code: 'NC6', name: '교실의 망령', hp: 2700, atk: 460, def: 150, res: 50, speed: 0.55, interval: 1.8, range: 0, veil: 1.6, color: '#6a5f78', desc: '불 꺼진 교실에서 나온 망령. 저지당하지 않은 동안에는 바로 옆(1.6칸 안)에 있는 오퍼레이터만 공격할 수 있다.' },
+  nc_caster:   { code: 'NC7', name: '빛바랜 수업', hp: 2000, atk: 380, def: 80, res: 50, speed: 0.5, interval: 2.6, range: 2.3, arts: true, color: '#8a7fb0', desc: '칠판 앞에 남은 수업의 잔해. 먼 거리에서 마법 피해를 준다.' },
+  nc_pupil:    { code: 'NC8', name: '출석부의 잔영', hp: 950, atk: 200, def: 0, res: 30, speed: 0.75, interval: 1.5, range: 0, color: '#7fb6e0', desc: '기억 등롱이 기록한 학생의 모습. 마지막 담임이 이름을 부르면 나타난다.' },
+  nc_teacher:  { code: 'NCB', name: '마지막 담임', hp: 34000, atk: 880, def: 480, res: 40, speed: 0.28, interval: 2.6, range: 0, aoe: 1.2, weight: 3, summon: { enemy: 'nc_pupil', every: 12, count: 2 }, bell: { every: 15, radius: 2.5, stun: 2 }, revive: { atk: 1.3 }, lifeCost: 5, boss: true, color: '#d9c27a', desc: '10년 전 마지막 수업을 끝내지 못한 담임의 잔영. 출석을 부르면 학생 잔영이 나타나고, 종을 울려 주변을 멈추게 한다. 쓰러져도 한 번 「졸업식」을 위해 일어선다.' },
+  nc_teacher2: { code: 'NCB+', name: '마지막 담임 · 졸업식', hp: 48000, atk: 1100, def: 600, res: 50, speed: 0.28, interval: 2.4, range: 0, aoe: 1.4, weight: 3, summon: { enemy: 'nc_pupil', every: 9, count: 3 }, bell: { every: 11, radius: 2.8, stun: 2.5 }, revive: { atk: 1.4 }, lifeCost: 10, boss: true, color: '#f0d890', image: 'img/enemy/nc_teacher.png', desc: '하드 작전의 마지막 담임. 더 자주 출석을 부르고, 종소리가 더 멀리 퍼진다.' },
   // 훈련장 표적 (공격하지 않음)
   dummy:       { code: 'TR1', name: '훈련용 표적', hp: 20000, atk: 0, def: 0, res: 0, speed: 0.25, interval: 3.0, range: 0, color: '#c9a96a', image: 'img/enemy/dummy.png', desc: '방어력과 마법 저항이 없는 표적. 공격하지 않는다.' },
   dummy_h:     { code: 'TR2', name: '중장갑 표적', hp: 20000, atk: 0, def: 800, res: 50, speed: 0.25, interval: 3.0, range: 0, weight: 3, color: '#8a8f96', image: 'img/enemy/dummy_h.png', desc: '방어력 800 · 마법 저항 50. 공격하지 않는다.' },
@@ -2223,6 +2235,405 @@ const SKINS = [
     desc: '신이서의 여름 교복. 모자를 벗은 모습은 좀처럼 보기 힘들다. 텅 빈 교실에 남아 있던 누군가의 흔적을 조사하던 어느 여름날의 기록.' },
 ];
 
+// ---------------------------------------------------------------------
+//  사이드 스토리 이벤트 「아무도 없는 교실의 밤」
+//  기간 중에만 작전 목록 하단 「이벤트」 탭에서 열림. 이벤트 작전은 STAGES 뒤에 붙고 event: 'nc' 로 구분
+//  start/end: 'YYYY-MM-DD' (오전 4시 기준), currency: 이벤트 재화, shop: 이벤트 상점 상품 (limit: 교환 가능 횟수)
+// ---------------------------------------------------------------------
+const EVENTS = [
+  {
+    id: 'nc', name: '아무도 없는 교실의 밤', en: 'NOBODY IN THE CLASSROOM', tag: '사이드 스토리',
+    start: '2026-10-28', end: '2026-11-18', shopEnd: '2026-11-25', currency: 'lantern',
+    art: 'isseo', arts: ['img/skin/isseo_2.png', 'img/skin/yunseo_1.png'], bg: 'img/story/nc_gate.webp', color: '#e8c76a',
+    desc: '단국의 소도시, 10년 전 문을 닫은 청람 학원. 등불 가면제의 밤마다 불 꺼진 교실에 수업 종이 울린다.',
+    shop: [
+      { id: 'sk_isseo', skin: 'isseo_s2', price: 600, limit: 1 },
+      { id: 'sk_yunseo', skin: 'yunseo_s1', price: 600, limit: 1 },
+      { id: 'permit10', items: { permit10: 1 }, price: 450, limit: 1 },
+      { id: 'permit', items: { permit: 1 }, price: 60, limit: 5 },
+      { id: 'originite', items: { originite: 1 }, price: 40, limit: 10 },
+      { id: 'exp_4', items: { exp_4: 2 }, price: 15, limit: 30 },
+      { id: 'm_t3', items: { m_iron3: 1 }, price: 25, limit: 10 },
+      { id: 'm_t3b', items: { m_device3: 1 }, price: 25, limit: 10 },
+      { id: 'skill_3', items: { skill_3: 2 }, price: 12, limit: 20 },
+      { id: 'lmd', items: { lmd: 3000 }, price: 4, limit: 100 },
+    ],
+  },
+];
+
+// 출석 이벤트 (기간 중 하루 한 번, 14일). day7 · day14는 큰 보상
+const ATTENDANCE = {
+  id: 'att_nc', name: '등불 가면제 출석', start: '2026-10-28', end: '2026-11-18',
+  rewards: [
+    { orundum: 300 }, { lmd: 20000 }, { exp_4: 5 }, { lantern: 100 }, { permit: 1 }, { m_device3: 2 }, { permit10: 1 },
+    { orundum: 500 }, { skill_3: 5 }, { lantern: 150 }, { exp_4: 8 }, { permit: 2 }, { originite: 5 }, { permit10: 1, lantern: 200 },
+  ],
+};
+
+// 오늘 날짜 'YYYY-MM-DD' (원작처럼 오전 4시에 하루가 바뀜)
+const dayKey = (ms = Date.now()) => { const d = new Date(ms - 4 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// 이벤트 · 출석이 지금 열려 있는지 (끝나는 날까지 포함). key: 'end' 작전 · 'shopEnd' 상점
+const eventLive = (ev, key = 'end') => { if (!ev) return false; const t = dayKey(); return t >= ev.start && t <= (ev[key] || ev.end); };
+const liveEvent = (key = 'end') => EVENTS.find((e) => eventLive(e, key)) || null;
+
+{
+  const L = (who, text) => ({ who, text }), N = (text) => ({ text }), X = (name, text) => ({ name, text });
+  const BG = (k) => `img/story/nc_${k}.webp`;
+  const ev = (code, o) => ({ code, event: 'nc', chapter: 'nc', life: 3, ...o });
+  const lmdOf = (s) => s * 12;
+  const NC = [
+    ev('NC-1', {
+      sanity: 10, name: '등불 가면제', desc: '축제 거리. 넋이 나간 축제 손님들이 학교 쪽으로 걸어간다. 한 줄로 굽은 거리 — 사이사이 노점 지붕에서 두 줄을 동시에 노릴 수 있다.',
+      startDp: 12, deployLimit: 8, storyBg: BG('street'), pos: 50,
+      map: ['###############', 'R-.........####', '#^^^^^^^^^.^###', '#^^^^^^^^^.^###', '###........^###', '###.^^^^^^^^^##', '###...........B', '###############'],
+      waves: [
+        { t: 6, enemy: 'nc_guest', count: 4, gap: 2.5 }, { t: 22, enemy: 'nc_guest', count: 3, gap: 2 }, { t: 32, enemy: 'nc_vendor', count: 1 },
+        { t: 40, enemy: 'nc_guest', count: 5, gap: 1.8 }, { t: 58, enemy: 'nc_vendor', count: 2, gap: 6 }, { t: 66, enemy: 'nc_guest', count: 4, gap: 2 },
+        { t: 80, enemy: 'nc_vendor', count: 1 }, { t: 82, enemy: 'nc_guest', count: 3, gap: 2 },
+      ],
+      drops: { lantern: 20, lmd: lmdOf(10) }, chance: [['m_sugar', 0.3, 1], ['exp_3', 0.4, 1]],
+      before: [
+        N('단국의 소도시. 가을 마지막 보름이면 거리마다 등불이 걸린다. 죽은 이들이 길을 잃지 않도록, 산 사람은 가면을 쓰고 그들 사이에 섞인다 — 「등불 가면제」.'),
+        L('yunseo', '와아……! 선배님, 이거 봐요! 등불이 끝까지 이어져 있어요! 저기는 사탕 노점이고, 저기는…… 헤헤, 가면 노점!'),
+        L('isseo', '윤서 양. 우리는 축제 구경을 온 것이 아닐세. 조사를 하러 왔지.'),
+        L('yunseo', '아, 알아요! 알지만……! 그래도 조금은 괜찮잖아요? 조사도 체력이 있어야 하는 거고요!'),
+        L('isseo', '……흠. 반박하기 어려운 논리로군.'),
+        L('isseo', '정리하지. 10년 전 문을 닫은 「청람 학원」. 매년 이 축제의 밤 자정이 되면 불 꺼진 교실에 불이 켜지고 수업 종이 울린다네.'),
+        L('isseo', '몰래 들어간 학생들은 하룻밤 사라졌다가 이튿날 아침 정문 앞에서 발견되었지. 다치지는 않았지만, 그날 밤을 기억하는 이는 하나도 없어.'),
+        L('yunseo', '……그, 그러니까 귀신 이야기라는 거죠? 저 귀신 같은 거 안 믿어요! 정말로요!'),
+        L('isseo', '그렇다면 왜 아까부터 내 망토 자락을 잡고 걷는 겐가?'),
+        L('yunseo', '이, 이건! 사람이 많아서 길을 잃을까 봐 그런 거예요!'),
+        N('그때, 거리 어딘가에서 맑은 종소리가 울렸다. 축제 음악이 뚝 끊긴다. 가면을 쓴 손님들이 일제히 고개를 돌려 — 언덕 위의 학교를 바라본다.'),
+        L('yunseo', '……선배님. 저 사람들, 눈이…… 초점이 없어요.'),
+        L('isseo', '종소리를 들은 사람들이 학교로 걸어가는군. 흥미롭…… 아니, 위험하군. 윤서 양, 길을 막게. 다치게 하지 말고, 멈추게만.'),
+        L('yunseo', '네! 맡겨 주세요! ……놀라신다면 죄송해요!'),
+      ],
+      after: [
+        N('쓰러진 손님들은 잠시 뒤 멍하니 눈을 떴다. 무엇을 하고 있었는지 아무도 기억하지 못했다.'),
+        L('yunseo', '휴우…… 다들 다친 데는 없어 보여요. 그런데 다들 하는 말이 똑같아요. 「종소리가 들렸다」고요.'),
+        L('isseo', '종소리를 매개로 한 집단적인 아츠 간섭…… 혹은 진짜로 무언가가 부르고 있거나. 아직 어느 쪽인지 단정할 수 없네.'),
+        L('isseo', '학교로 가지. 이 현상의 중심은 저 언덕 위에 있어.'),
+      ],
+    }),
+    ev('NC-2', {
+      sanity: 12, name: '운동장의 두 줄', desc: '청람 학원 운동장. 정문과 쪽문, 두 길로 들어온 적이 운동장 가운데에서 합류한다. 축제 등불이 하늘로 날아든다.',
+      startDp: 14, deployLimit: 8, storyBg: BG('square'), pos: 30,
+      map: ['###############', 'R-........^^^##', '#^^^^^^^^.^^^##', '#^######^.^^^##', '#^######^.....B', '#^######^.^^^##', '#^^^^^^^^.^^^##', 'R-........^^^##', '###############'],
+      waves: [
+        { t: 6, enemy: 'nc_guest', count: 3, gap: 2 }, { t: 10, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 },
+        { t: 24, enemy: 'nc_lantern', count: 2, gap: 4 }, { t: 30, enemy: 'nc_vendor', count: 1, spawn: 1 },
+        { t: 36, enemy: 'nc_guest', count: 4, gap: 2 }, { t: 46, enemy: 'nc_lantern', count: 2, gap: 4, spawn: 1 },
+        { t: 52, enemy: 'nc_vendor', count: 1 }, { t: 56, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 },
+        { t: 70, enemy: 'nc_vendor', count: 2, gap: 4 }, { t: 72, enemy: 'nc_lantern', count: 3, gap: 3, spawn: 1 },
+        { t: 84, enemy: 'nc_guest', count: 5, gap: 1.5 }, { t: 86, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 },
+      ],
+      drops: { lantern: 24, lmd: lmdOf(12) }, chance: [['m_poly', 0.3, 1], ['exp_3', 0.4, 1]],
+      before: [
+        N('청람 학원 정문. 녹슨 철문에는 「출입 금지」 팻말과 함께 누군가 걸어 둔 등불이 흔들리고 있었다.'),
+        X('???', '……거기, 들어가지 마. 진짜 있어.'),
+        L('yunseo', '꺄악?! ……아, 사, 사람이다. 사람이죠? 발 있어요!'),
+        L('binari', '응. 발 있어. ……놀랐어? 미안. 놀라라고 한 말은 아니었는데.'),
+        L('isseo', '그 차림새는…… 단국의 무당이로군. 축제 날 폐교 앞에서 무엇을 하고 있는가?'),
+        L('binari', '시청에서 굿 좀 해 달래서. 매년 이맘때면 애들이 없어진다고. ……근데 들어가 보니까 좀 귀찮게 됐어.'),
+        L('binari', '신일이야. 코드네임은 비나리. ……너희는? 탐정이랑, 말 아가씨?'),
+        L('isseo', '이상현상조사부 부장, 신이서일세. 이쪽은 부원인 윤서 양.'),
+        L('yunseo', '정윤서예요! 말 아가씨 아니고요! ……아, 쿠란타긴 하지만요.'),
+        L('binari', '조사부. ……좋네. 그럼 같이 가. 혼자 들어가면 심심하잖아. 그리고 저기 봐.'),
+        N('운동장 양쪽 문으로 가면 쓴 사람들이 줄지어 들어오고 있었다. 그 위로, 축제 등불 몇 개가 바람도 없이 떠올라 학교 쪽으로 날아간다.'),
+        L('isseo', '등불이 스스로 날아다니는 건가. ……윤서 양, 수첩을 꺼내 두게. 기록할 것이 많아지겠어.'),
+        L('yunseo', '저, 저 칼 들고 있어서 손이 모자라요, 선배님!'),
+      ],
+      after: [
+        L('binari', '……등불에 뭐가 씌었네. 근데 귀신은 아니야. 귀신이면 이렇게 얌전하지 않거든.'),
+        L('isseo', '흥미로운 판단 기준이군. 그렇다면 무엇인가?'),
+        L('binari', '몰라. 그러니까 들어가 봐야지. ……아, 그리고 하나 더. 오늘 밤에 시끄러운 손님이 하나 더 올 거야.'),
+        L('yunseo', '시끄러운 손님이요?'),
+        L('binari', '응. 화 잘 내는 애.'),
+      ],
+    }),
+    ev('NC-3', {
+      sanity: 14, name: '1층 복도', desc: '긴 복도와 양쪽 교실 문. 그림자가 문 사이를 오가며 저지선을 건너뛴다. 교실 문에서도 적이 나온다.',
+      startDp: 15, deployLimit: 9, storyBg: BG('corridor'), pos: 60,
+      map: ['#################', '#################', '#^^^^R^^^^^^^^^^#', '#^^^^.^^^^^^^^^^#', 'R--.............B', '#^^^^^^^^^^.^^^^#', '#^^^^^^^^^^R^^^^#', '#################', '#################'],
+      waves: [
+        { t: 6, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 }, { t: 18, enemy: 'nc_shadow', count: 2, gap: 5 },
+        { t: 28, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 }, { t: 34, enemy: 'nc_shadow', count: 1, spawn: 2 },
+        { t: 42, enemy: 'nc_caster', count: 2, gap: 4, spawn: 1 }, { t: 50, enemy: 'nc_shadow', count: 3, gap: 4 },
+        { t: 62, enemy: 'nc_vendor', count: 2, gap: 5, spawn: 1 }, { t: 66, enemy: 'nc_shadow', count: 2, gap: 4, spawn: 2 },
+        { t: 78, enemy: 'nc_shadow_l', count: 1 }, { t: 82, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 },
+        { t: 92, enemy: 'nc_shadow', count: 2, gap: 3, spawn: 2 },
+      ],
+      drops: { lantern: 28, lmd: lmdOf(14) }, chance: [['m_iron', 0.3, 1], ['m_rock3', 0.15, 1]],
+      before: [
+        N('학교 안. 복도의 형광등은 모두 꺼져 있었지만, 이상하게도 어둡지 않았다. 교실 문 틈마다 희미한 빛이 새어 나온다.'),
+        L('yunseo', '……선배님. 방금 저 교실 문, 열렸다 닫히지 않았어요?'),
+        L('isseo', '열렸다 닫혔지. 그리고 그 안에서 나온 그림자가 세 칸 앞의 문으로 들어갔어.'),
+        L('yunseo', '그걸 그렇게 침착하게 말씀하시면 어떡해요!'),
+        N('이서의 수첩이 저절로 펄럭였다. 종이 사이에서 검은 깃털 몇 장과 흐릿한 사람 형상이 새어 나온다.'),
+        L('isseo', '……잔영이 반응하는군. 같은 종류의 기척이야. 저 그림자들과, 내 수첩 속의 것들이.'),
+        L('binari', '탐정. 너 그거 뭔지 알고 쓰는 거야?'),
+        L('isseo', '모르네. 그래서 조사하는 거지. ……자네는 저것이 영혼이라고 보는가?'),
+        L('binari', '글쎄. 영혼이면 굿을 하면 되고, 아니면 다른 방법을 찾으면 돼. ……어느 쪽이든 일은 하는 거고.'),
+        L('yunseo', '두 분 다 너무 태평하세요……! 온다, 와요! 문에서 또 나와요!'),
+        L('isseo', '그림자는 문과 문 사이를 건너뛰네. 한 곳만 막아서는 안 돼, 윤서 양. 뒤에도 한 겹 더.'),
+      ],
+      after: [
+        N('그림자들이 사라진 교실 문 하나가 끼익 열렸다. 칠판에는 10년 전 날짜와 함께 「마지막 수업」이라는 글씨가 남아 있었다.'),
+        L('isseo', '폐교 직전의 마지막 수업일이군. ……날짜가 오늘과 같아. 등불 가면제의 밤.'),
+        L('yunseo', '마지막 수업이라니…… 조금 쓸쓸하네요.'),
+        X('???', '거기 세 사람. 움직이지 마십시오. 라테라노 교회의 명으로, 이 건물은 지금부터 봉쇄합니다.'),
+      ],
+    }),
+    ev('NC-4', {
+      sanity: 15, name: '계단의 엇갈림', desc: '2층 복도에서 계단을 지그재그로 내려오는 길과, 1층으로 곧장 들어오는 길. 계단(배치 불가)에는 오퍼레이터를 놓을 수 없다.',
+      startDp: 16, deployLimit: 9, storyBg: BG('stairs'), pos: 40,
+      map: ['##############', 'R-.......--..#', '#^^^^^^^^^^^.#', '#^^^^^^^^^^^-#', '#^^^^^^^^^^^-#', '#..--........#', '#-^^^^^^^^^^^#', '#-^^^^^^^^^^^#', '#.^^^^^^^^^^^#', 'R...--.......B', '##############'],
+      waves: [
+        { t: 5, enemy: 'nc_guest', count: 4, gap: 2 }, { t: 14, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 },
+        { t: 26, enemy: 'nc_caster', count: 2, gap: 4 }, { t: 32, enemy: 'nc_vendor', count: 1, spawn: 1 },
+        { t: 40, enemy: 'nc_shadow', count: 2, gap: 5 }, { t: 48, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 },
+        { t: 58, enemy: 'nc_lantern', count: 3, gap: 3 }, { t: 66, enemy: 'nc_vendor', count: 2, gap: 4 },
+        { t: 74, enemy: 'nc_shadow', count: 2, gap: 4, spawn: 1 }, { t: 84, enemy: 'nc_caster', count: 2, gap: 3, spawn: 1 },
+        { t: 90, enemy: 'nc_shadow_l', count: 1 }, { t: 96, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 },
+      ],
+      drops: { lantern: 30, lmd: lmdOf(15) }, chance: [['m_keton', 0.3, 1], ['m_sugar3', 0.15, 1]],
+      before: [
+        N('계단참에 선 사람은 단정한 사제복 차림의 산크타였다. 머리 위의 광륜이 어둠 속에서 또렷하게 빛난다.'),
+        L('andrea', '라테라노 교회 소속, 마태오입니다. 이 건물에서 등록되지 않은 아츠 유물의 반응이 감지되어 조사하러 왔습니다.'),
+        L('andrea', '……그리고. 형제님. 형제님이 왜 여기 계십니까.'),
+        L('binari', '태오. 왔네. ……광륜 오늘도 반짝이네.'),
+        L('andrea', '광륜 이야기는 하지 마십시오. 질문에 대답하십시오.'),
+        L('binari', '굿하러. 일당 받고. 너는 유물 찾으러 왔고. ……봐, 둘 다 일하는 중이잖아. 싸우지 말자.'),
+        L('andrea', '싸우자고 한 적은 없습니다! 형제님이 매번……!'),
+        L('yunseo', '저, 저기요……? 두 분 아시는 사이……세요?'),
+        L('binari', '응. 오래됐어. 태오는 화가 많아.'),
+        L('andrea', '……신경 쓰지 마십시오. 실례했습니다. 두 분은 로도스의 조사원이십니까?'),
+        L('isseo', '이상현상조사부 부장, 신이서일세. 신부님, 그 「아츠 유물」에 관해 조금 더 들을 수 있겠는가?'),
+        L('andrea', '나중에 말씀드리겠습니다. 지금은 —'),
+        N('위층에서 종소리가 울렸다. 계단 위아래에서 동시에 발소리가 몰려온다.'),
+        L('andrea', '— 지금은 저것부터 정리하지요. 주여, 오늘 밤도 인내를 주소서.'),
+      ],
+      after: [
+        L('andrea', '감지된 반응은 이 위, 음악실 근처입니다. 오래된 라테라노식 기록 장치의 파장과 비슷합니다.'),
+        L('isseo', '라테라노식 기록 장치? 이런 시골 학교에?'),
+        L('andrea', '예. 그래서 이상한 겁니다. 폐교 당시 누군가 이곳에 들여온 것이겠지요.'),
+        L('yunseo', '……선배님, 이 사진 좀 보세요. 계단 벽에 걸려 있던 거예요.'),
+        N('빛바랜 단체 사진. 펜싱 마스크를 옆구리에 낀 아이들이 웃고 있었다. 사진 아래에는 「청람 학원 펜싱부 — 마지막 대회를 앞두고」라고 적혀 있었다.'),
+        L('yunseo', '……마지막 대회를 앞두고, 래요. 이 아이들은 그 대회에 나갔을까요?'),
+      ],
+    }),
+    ev('NC-5', {
+      sanity: 16, name: '음악실의 종', desc: '위아래 두 입구가 음악실 한가운데에서 만난다. 종지기 성배는 일정 시간마다 울려 주변 오퍼레이터를 잠시 멈추게 한다 — 길에서 떨어진 자리를 활용하라.',
+      startDp: 18, deployLimit: 9, storyBg: BG('music'), pos: 55,
+      map: ['################', 'R-.....^^^######', '#^^^^^.^^^^#####', '####^^.^^^^^^^##', '####^^.^###^^^^#', '####^^.........B', '####^^.^###^^^^#', '####^^.^^^^^^^##', '#^^^^^.^^^^#####', 'R-.....^^^######', '################'],
+      waves: [
+        { t: 6, enemy: 'nc_guest', count: 3, gap: 2 }, { t: 8, enemy: 'nc_guest', count: 3, gap: 2, spawn: 1 },
+        { t: 20, enemy: 'nc_bell', count: 1 }, { t: 28, enemy: 'nc_caster', count: 2, gap: 3, spawn: 1 },
+        { t: 38, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 }, { t: 46, enemy: 'nc_bell', count: 1, spawn: 1 },
+        { t: 52, enemy: 'nc_shadow', count: 2, gap: 4 }, { t: 62, enemy: 'nc_vendor', count: 2, gap: 4 },
+        { t: 70, enemy: 'nc_caster', count: 2, gap: 3 }, { t: 78, enemy: 'nc_bell', count: 1 },
+        { t: 80, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 }, { t: 94, enemy: 'nc_vendor', count: 1, spawn: 1 },
+        { t: 96, enemy: 'nc_shadow', count: 2, gap: 3, spawn: 1 },
+      ],
+      drops: { lantern: 32, lmd: lmdOf(16) }, chance: [['m_device', 0.3, 1], ['m_poly3', 0.15, 1]],
+      before: [
+        N('음악실. 먼지 쌓인 피아노 옆에, 커다란 종 하나가 천장에 매달려 있었다. 아무도 건드리지 않았는데 종이 천천히 흔들린다.'),
+        L('isseo', '이 종이 매년 자정에 울리던 수업 종이로군.'),
+        L('andrea', '반응이 여기서도 느껴집니다. 그러나 종 자체는 그냥 종입니다. 무언가가 종을 「울리게」 하고 있습니다.'),
+        N('— 땡.'),
+        N('눈앞이 하얗게 번졌다. 시끄러운 교실. 분필 냄새. 창밖에는 같은 등불이 걸려 있고, 누군가 웃으며 외친다. 「선생님, 오늘 마지막 수업이잖아요!」'),
+        N('— 그리고 다시, 먼지 쌓인 음악실.'),
+        L('yunseo', '……방금, 뭐였어요? 저 지금 교실에 앉아 있었어요. 다른 애들이랑…… 교복을 입고.'),
+        L('binari', '……「그날」로 끌려간 거야. 종이 울릴 때마다 잠깐씩.'),
+        L('isseo', '집단 환각으로 보기에는 지나치게 구체적이군. 냄새까지 기억나. ……마치 누군가의 기억을 재생한 것 같았어.'),
+        L('andrea', '기록 장치라면 그럴 수 있습니다. 라테라노의 오래된 「기억 등롱」은 빛과 소리로 한 장면을 통째로 담아 두지요.'),
+        L('yunseo', '그럼 종이 울리기 전에 막으면 되는 거죠? 종을 든 저것부터 —!'),
+        L('isseo', '그래. 종 가까이에 서 있으면 그날로 끌려가네. 거리를 두고 싸우게, 윤서 양.'),
+      ],
+      after: [
+        L('andrea', '확인했습니다. 원인은 「기억 등롱」입니다. 라테라노에서 반출이 금지된 구형 장치지요. 반응은 더 위 — 옥상과 교무실 쪽입니다.'),
+        L('isseo', '누군가 이 학교의 마지막 날을 기록해 두었다는 뜻이군. 그리고 그 기록이 매년 같은 밤에 재생되고 있어.'),
+        L('yunseo', '……아까 교실에서요, 옆자리 애가 그랬어요. 「내일 결승인데 학교가 없어지면 우리 어디서 연습해?」라고.'),
+        L('yunseo', '그 애들, 결국 결승에 못 나간 거예요. 학교가 문을 닫아서.'),
+        L('isseo', '…………'),
+        L('binari', '……그래서 아직 여기 있는 거구나. 못 끝낸 게 있어서.'),
+      ],
+    }),
+    ev('NC-6', {
+      sanity: 16, name: '옥상의 등불', desc: '옥상. 하늘로 날아오르던 축제 등불이 모두 이곳으로 모인다. 옥상 정문과 비상계단, 두 길이 곧 하나로 합쳐진다. 그 위를 가로질러 나는 등불을 놓치지 마라.',
+      startDp: 18, deployLimit: 9, storyBg: BG('rooftop'), pos: 35,
+      map: ['#R#############', '#-^^^^^^^^^^###', '#.^^^^^^^^^^###', 'R.........^^^^#', '#^^^^^^^^.^^^^#', '#^^^^^^^^.....B', '####^^^^^^^^^^#', '###############'],
+      waves: [
+        { t: 6, enemy: 'nc_guest', count: 4, gap: 2, spawn: 1 }, { t: 16, enemy: 'nc_lantern', count: 2, gap: 4 },
+        { t: 28, enemy: 'nc_lantern', count: 2, gap: 4, spawn: 1 }, { t: 34, enemy: 'nc_vendor', count: 1, spawn: 1 },
+        { t: 42, enemy: 'nc_guest', count: 3, gap: 3 }, { t: 50, enemy: 'nc_lantern', count: 3, gap: 3 },
+        { t: 60, enemy: 'nc_caster', count: 2, gap: 3, spawn: 1 }, { t: 68, enemy: 'nc_lantern', count: 3, gap: 3, spawn: 1 },
+        { t: 78, enemy: 'nc_vendor', count: 2, gap: 4, spawn: 1 }, { t: 86, enemy: 'nc_lantern', count: 4, gap: 2.5 },
+        { t: 98, enemy: 'nc_shadow', count: 2, gap: 4, spawn: 1 }, { t: 104, enemy: 'nc_lantern', count: 3, gap: 3, spawn: 1 },
+      ],
+      drops: { lantern: 32, lmd: lmdOf(16) }, chance: [['m_rock', 0.3, 2], ['m_device3', 0.12, 1]],
+      before: [
+        N('옥상 문을 열자, 하늘 가득 등불이 떠 있었다. 축제 거리에서 날아온 등불들이 학교 위를 천천히 맴돈다.'),
+        L('yunseo', '……예쁘다. 무서운 것도 잊어버릴 만큼요.'),
+        L('binari', '저건 길 잃은 등불이야. 원래는 하늘로 올라가야 하는데, 여기서 빙빙 돌고 있잖아.'),
+        L('andrea', '등롱의 빛에 이끌리는 것 같습니다. 반응의 중심은 바로 아래 — 교무실입니다.'),
+        L('isseo', '등롱이 등불을 붙잡고 있다는 건가. ……신부님, 등롱을 찾으면 어떻게 할 생각인가?'),
+        L('andrea', '회수하거나, 불가능하면 파괴합니다. 그것이 제 임무입니다.'),
+        L('isseo', '……파괴라. 그 안에 담긴 것도 함께 사라지겠군.'),
+        L('andrea', '이서 씨. 그것은 「기록」일 뿐입니다. 영혼이 아닙니다.'),
+        L('isseo', '증명할 수 있는가? 나는 아직 어느 쪽도 증명하지 못했네.'),
+        L('binari', '……둘 다 그만. 위에서 온다.'),
+      ],
+      after: [
+        L('andrea', '……이서 씨. 아까는 제가 너무 단정적으로 말했습니다. 사과드립니다.'),
+        L('isseo', '아닐세. 신부님의 말도 틀리지 않아. 나는 그저 — 결론을 서두르고 싶지 않을 뿐이야.'),
+        L('binari', '태오가 사과를 다 하네. 오늘 등불이 진짜 이상하긴 한가 봐.'),
+        L('andrea', '형제님은 조용히 계십시오.'),
+        L('yunseo', '헤헤…… 그럼 내려가요! 교무실이죠? 이번엔 제가 앞장설게요!'),
+      ],
+    }),
+    ev('NC-7', {
+      sanity: 18, name: '불 꺼진 교무실', desc: '책상 사이로 굽이치는 좁은 길. 교실의 망령은 어둠에 숨어, 저지당하지 않은 동안에는 바로 옆의 오퍼레이터만 공격할 수 있다.',
+      startDp: 18, deployLimit: 9, storyBg: BG('office'), pos: 55,
+      map: ['###############', 'R-..^^^^#######', '##^.^^^...^####', '##^.^^^.^.^^###', '##^.....^.^^^##', '###^^^^^^.^^^^#', '#####^^^^....^#', '#######^^^^^.^#', '#########^^^..B', '###############'],
+      waves: [
+        { t: 6, enemy: 'nc_guest', count: 4, gap: 2 }, { t: 16, enemy: 'nc_dark', count: 2, gap: 5 },
+        { t: 28, enemy: 'nc_caster', count: 2, gap: 4 }, { t: 36, enemy: 'nc_dark', count: 3, gap: 4 },
+        { t: 50, enemy: 'nc_vendor', count: 2, gap: 5 }, { t: 58, enemy: 'nc_dark', count: 2, gap: 3 },
+        { t: 66, enemy: 'nc_shadow', count: 2, gap: 4 }, { t: 76, enemy: 'nc_dark', count: 4, gap: 3 },
+        { t: 90, enemy: 'nc_bell', count: 1 }, { t: 92, enemy: 'nc_dark', count: 3, gap: 3 }, { t: 104, enemy: 'nc_shadow_l', count: 1 },
+      ],
+      drops: { lantern: 36, lmd: lmdOf(18) }, chance: [['m_iron3', 0.15, 1], ['skill_3', 0.3, 1]],
+      before: [
+        N('교무실은 완전히 어두웠다. 등불의 빛도 이 방 안에는 닿지 않는다. 책상 위에는 채점하다 만 시험지와, 반쯤 남은 찻잔이 그대로 있었다.'),
+        L('yunseo', '……아무것도 안 보여요. 선배님, 거기 계세요?'),
+        L('isseo', '여기 있네. ……망토는 잡아도 괜찮아, 윤서 양.'),
+        L('yunseo', '……네. 감사해요, 선배님.'),
+        L('andrea', '빛이 없는 곳에서는 저것들이 보이지 않습니다. 가까이 다가오기 전까지는.'),
+        L('binari', '그럼 가까이서 기다리면 되지. 부적 깔아 둘게. 밟으면 알 수 있게.'),
+        L('isseo', '담임 책상은 저쪽이군. ……출석부가 펼쳐져 있어. 마지막 장에 이름이 하나도 지워지지 않았네. 전원 출석.'),
+        N('출석부 위에 손바닥만 한 등롱 하나가 놓여 있었다. 그 안에서 작은 빛이 숨 쉬듯 깜빡인다.'),
+        L('andrea', '찾았습니다. 「기억 등롱」. ……그런데 반응이 이것 하나가 아닙니다. 본체는 따로 있습니다.'),
+        N('— 어둠 속에서 의자가 하나씩 뒤로 밀리는 소리가 났다.'),
+      ],
+      after: [
+        N('등롱 옆에는 편지가 한 장 끼워져 있었다. 담임 선생님의 글씨였다.'),
+        X('담임의 편지', '「얘들아. 학교가 없어져도 우리 반의 마지막 날은 여기 남겨 둘게. 결승에 못 나간 것도, 졸업식을 못 한 것도 미안하다. 언젠가 다 같이 다시 모일 수 있다면, 그때는 꼭 졸업식을 하자.」'),
+        L('yunseo', '…………'),
+        L('isseo', '등롱은 이 반의 마지막 날을 기록했고, 그 기록은 매년 「다시 모이는 날」을 기다리며 재생되었던 거군. 축제의 밤에 학교로 들어온 사람들을 학생으로 붙잡아서.'),
+        L('andrea', '……본체는 강당에 있습니다. 졸업식장이지요.'),
+        L('binari', '그럼 가자. 졸업식 해 줘야지.'),
+      ],
+    }),
+    ev('NC-8', {
+      sanity: 21, name: '졸업식', desc: '강당. 세 갈래 통로가 무대 앞에서 만난다. 「마지막 담임」은 출석을 불러 학생 잔영을 불러내고, 종을 울려 주변을 멈추게 한다. 쓰러져도 한 번 다시 일어선다.',
+      startDp: 20, deployLimit: 10, storyBg: BG('hall'), pos: 45,
+      map: ['#################', 'R-............^##', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-...........-..B', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-............^##', '#################'],
+      waves: [
+        { t: 6, enemy: 'nc_guest', count: 3, gap: 2 }, { t: 8, enemy: 'nc_guest', count: 3, gap: 2, spawn: 2 },
+        { t: 20, enemy: 'nc_shadow', count: 2, gap: 4, spawn: 1 }, { t: 30, enemy: 'nc_caster', count: 2, gap: 3 },
+        { t: 32, enemy: 'nc_caster', count: 2, gap: 3, spawn: 2 }, { t: 44, enemy: 'nc_teacher', count: 1, spawn: 1 },
+        { t: 52, enemy: 'nc_guest', count: 4, gap: 2 }, { t: 60, enemy: 'nc_dark', count: 2, gap: 4, spawn: 2 },
+        { t: 70, enemy: 'nc_shadow', count: 2, gap: 4 }, { t: 78, enemy: 'nc_vendor', count: 2, gap: 4, spawn: 2 },
+        { t: 90, enemy: 'nc_guest', count: 5, gap: 1.5 }, { t: 92, enemy: 'nc_shadow_l', count: 1, spawn: 2 },
+      ],
+      drops: { lantern: 42, lmd: lmdOf(21) }, chance: [['m_keton3', 0.15, 1], ['exp_4', 0.4, 1]],
+      before: [
+        N('강당. 무대 위에는 「제12회 졸업식」이라고 쓴 현수막이 걸려 있었다. 객석은 가면을 쓴 사람들로 가득했다. 모두 등을 꼿꼿이 세우고, 무대만 바라본다.'),
+        N('무대 한가운데, 커다란 등롱이 빛나고 있었다. 그 앞에 출석부를 든 사람의 형상이 서 있다.'),
+        X('마지막 담임', '……아직 수업이 끝나지 않았다. 아무도 나가면 안 된다. 다들 자리에 앉아라.'),
+        L('andrea', '등롱 본체입니다. 지금이라면 부술 수 있습니다.'),
+        L('isseo', '……신부님. 부탁이 있네. 부수지 말고, 「끝내」 줄 수는 없겠는가.'),
+        L('andrea', '끝낸다니요?'),
+        L('isseo', '저 기록은 졸업식을 기다리고 있어. 그러니 졸업식을 해 주는 거지. 마지막 수업을 끝내고, 이름을 부르고, 배웅하는 거야. ……그것이 이 현상에 대한 내 가설일세.'),
+        L('binari', '……배웅 굿이네. 그건 내 전문이고.'),
+        L('andrea', '…………'),
+        L('andrea', '……좋습니다. 형제님이 굿을 하시면, 저는 축복 기도를 올리겠습니다. 다만 저것이 멈추지 않는다면 그때는 제 방식대로 하겠습니다.'),
+        L('yunseo', '그럼 저는요? 저도 뭔가 하고 싶어요!'),
+        L('isseo', '윤서 양은 졸업생 대표를 맡게. 결승에 나가지 못한 펜싱부를 대신해서.'),
+        L('yunseo', '……네! 맡겨 주세요, 선배님!'),
+        X('마지막 담임', '출석을 부르겠다. ……대답이 없는 학생은, 이리로 데려와라.'),
+      ],
+      after: [
+        N('담임의 형상이 무릎을 꿇었다. 그러나 사라지지 않았다. 등롱의 빛이 다시 한 번 크게 일렁인다.'),
+        X('마지막 담임', '……졸업식. 졸업식을…… 해야 하는데. 아이들이 아직……'),
+        L('binari', '응. 지금부터 할 거야. 다들 앉아.'),
+        N('신일이 부채를 펼쳤다. 나른하던 목소리가 낮고 진중하게 가라앉는다. 오래된 축원의 노래가 강당을 채웠다.'),
+        L('andrea', '주여, 이곳에 머문 이들의 마지막 날을 굽어살피소서. 그들이 웃으며 떠날 수 있도록.'),
+        L('isseo', '…………그럼. 마지막 출석을 부르겠네.'),
+        N('이서가 출석부를 펼쳤다. 이름을 하나 부를 때마다 객석의 가면 하나가 툭 떨어지고, 그 자리에서 작은 빛이 하나씩 떠올랐다.'),
+        L('isseo', '……이상 전원 출석. 졸업생 대표, 정윤서.'),
+        L('yunseo', '네!'),
+        N('윤서가 무대에 올라 사브르를 세우고 경례했다. 시합 시작 전의 인사. 끝내 치르지 못한 결승전의 첫 인사였다.'),
+        L('yunseo', '……저기요. 다들 정말 수고 많으셨어요. 결승은…… 못 나갔지만요. 그래도 여기까지 온 거, 진짜 대단한 거예요. 정말로요.'),
+        X('마지막 담임', '……그래. 고맙다. 다들…… 졸업 축하한다.'),
+        N('등롱의 빛이 흩어졌다. 수백 개의 작은 빛이 강당 천장을 지나, 축제의 등불들과 함께 밤하늘로 올라갔다.'),
+        N('— 그리고 다음 해부터, 청람 학원의 종은 다시 울리지 않았다.'),
+      ],
+      afterBg: BG('gate'),
+      epilogue: [
+        N('새벽, 학교 정문. 깨어난 축제 손님들이 하나둘 집으로 돌아간다.'),
+        L('isseo', '……가설은 틀렸어. 영혼인지 기록인지, 끝내 증명하지 못했지. 하지만…… 기록할 가치는 있었네.'),
+        L('yunseo', '헤헤, 저는 선배님 가설 좋았는데요? 졸업식 해 주자는 거요.'),
+        L('isseo', '……그런가. 윤서 양도 오늘 수고 많았네. ……대표 인사, 훌륭했어.'),
+        L('yunseo', '…………! 네, 네! 감사합니다, 선배님!'),
+        L('andrea', '등롱의 잔해는 제가 교회로 가져가겠습니다. 보고서에는 「자연 소멸」이라고 적겠습니다.'),
+        L('binari', '태오야. 너 아까 기도하다가 울었지.'),
+        L('andrea', '울지 않았습니다.'),
+        L('binari', '울었어. 광륜이 막 깜빡거리던데.'),
+        L('andrea', '형제님!'),
+        N('— 사이드 스토리 「아무도 없는 교실의 밤」 완료 —'),
+      ],
+    }),
+    ev('NC-EX-1', {
+      sanity: 21, name: '복도의 그림자 (하드)', desc: '【하드】 1층 복도. 그림자 반장들이 문 사이를 쉴 새 없이 오간다. 배치 가능 인원이 적다.',
+      startDp: 14, deployLimit: 8, storyBg: BG('corridor'), pos: 40, hard: true, ex: true,
+      map: ['#################', '#################', '#^^^^R^^^^^^^^^^#', '#^^^^.^^^^^^^^^^#', 'R--.............B', '#^^^^^^^^^^.^^^^#', '#^^^^^^^^^^R^^^^#', '#################', '#################'],
+      waves: [
+        { t: 5, enemy: 'nc_guest', count: 5, gap: 1.5, spawn: 1 }, { t: 14, enemy: 'nc_shadow', count: 3, gap: 3 },
+        { t: 24, enemy: 'nc_shadow_l', count: 1, spawn: 2 }, { t: 30, enemy: 'nc_caster', count: 3, gap: 3, spawn: 1 },
+        { t: 40, enemy: 'nc_shadow', count: 3, gap: 3, spawn: 2 }, { t: 48, enemy: 'nc_shadow_l', count: 2, gap: 5 },
+        { t: 58, enemy: 'nc_vendor', count: 3, gap: 4, spawn: 1 }, { t: 66, enemy: 'nc_dark', count: 3, gap: 3, spawn: 1 },
+        { t: 74, enemy: 'nc_shadow_l', count: 2, gap: 4, spawn: 2 }, { t: 84, enemy: 'nc_bell', count: 1, spawn: 1 },
+        { t: 88, enemy: 'nc_shadow', count: 4, gap: 2.5 }, { t: 100, enemy: 'nc_shadow_l', count: 2, gap: 3, spawn: 1 },
+      ],
+      drops: { lantern: 48, lmd: lmdOf(21) }, chance: [['m_device3', 0.2, 1], ['skill_3', 0.4, 1]],
+      before: [N('— 하드 작전. 1층 복도의 그림자들이 더 거세게 몰려온다.')],
+      after: [],
+    }),
+    ev('NC-EX-2', {
+      sanity: 24, name: '졸업식 (하드)', desc: '【하드】 강당. 졸업식을 고집하는 마지막 담임이 더 자주 출석을 부르고, 종소리가 더 멀리 퍼진다.',
+      startDp: 18, deployLimit: 9, storyBg: BG('hall'), pos: 60, hard: true, ex: true,
+      map: ['#################', 'R-............^##', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-...........-..B', '#^^^^^^^^^^^^.^##', '#^^^^^^^^^^^^.^##', 'R-............^##', '#################'],
+      waves: [
+        { t: 5, enemy: 'nc_guest', count: 4, gap: 1.8 }, { t: 7, enemy: 'nc_guest', count: 4, gap: 1.8, spawn: 2 },
+        { t: 18, enemy: 'nc_shadow_l', count: 1, spawn: 1 }, { t: 24, enemy: 'nc_caster', count: 3, gap: 3 },
+        { t: 26, enemy: 'nc_caster', count: 3, gap: 3, spawn: 2 }, { t: 36, enemy: 'nc_teacher2', count: 1, spawn: 1 },
+        { t: 44, enemy: 'nc_dark', count: 3, gap: 3 }, { t: 50, enemy: 'nc_bell', count: 1, spawn: 2 },
+        { t: 60, enemy: 'nc_shadow_l', count: 2, gap: 4 }, { t: 68, enemy: 'nc_vendor', count: 3, gap: 3, spawn: 2 },
+        { t: 78, enemy: 'nc_lantern', count: 5, gap: 2, spawn: 1 }, { t: 88, enemy: 'nc_guest', count: 6, gap: 1.2 },
+        { t: 90, enemy: 'nc_shadow_l', count: 2, gap: 3, spawn: 2 },
+      ],
+      drops: { lantern: 55, lmd: lmdOf(24) }, chance: [['m_keton3', 0.2, 1], ['exp_4', 0.5, 2]],
+      before: [N('— 하드 작전. 졸업식은 한 번 더 열린다. 이번에는 아무도 빠짐없이.')],
+      after: [],
+    }),
+  ];
+  // 마지막 작전은 결말 후 정문 장면까지 이어서
+  const fin = NC.find((s) => s.code === 'NC-8');
+  fin.after = fin.after.concat([{ bg: fin.afterBg, ...fin.epilogue[0] }], fin.epilogue.slice(1));
+  delete fin.epilogue; delete fin.afterBg;
+  STAGES.push(...NC);
+}
+
+// 이벤트 의상 (이벤트 상점에서 교환, 상점이 닫힌 뒤에는 오리지늄으로 구매)
+SKINS.push(
+  { id: 'isseo_s2', op: 'isseo', name: '가면제의 사립탐정', brand: '등불 가면제', image: 'img/skin/isseo_2.png', price: 18, event: 'nc',
+    desc: '신이서가 등불 가면제의 밤에 입은 탐정 차림. 베레모와 외알 안경, 길게 떨어지는 트렌치코트. 「언젠가 사립탐정이 되면 입겠다」며 오래전부터 준비해 둔 옷이라고 한다. 머리의 깃털 장식은 축제 가면 대신이라고.' },
+  { id: 'yunseo_s1', op: 'yunseo', name: '결승전의 첫 인사', brand: '등불 가면제', image: 'img/skin/yunseo_1.png', price: 18, event: 'nc',
+    desc: '정윤서가 가면제 무대에서 입은 붉은 망토의 예복. 끝내 결승에 나가지 못한 청람 학원 펜싱부를 대신해 졸업생 대표로 올랐던 밤의 차림. 리본은 그날 펜싱부 사진 속 아이들이 달던 것과 같은 색이다.' },
+);
+
 const ITEMS = {
   orundum:   { name: '합성옥', short: '합성옥', color: '#e8505b', desc: '헤드헌팅에 사용하는 재화. 600개로 헤드헌팅 1회를 진행할 수 있다.' },
   originite: { name: '오리지늄', short: '오리지늄', color: '#ffcf3a', desc: '오리지늄 결정체. 합성옥 180개로 교환하거나, 이성을 전부 회복할 수 있다.' },
@@ -2231,6 +2642,7 @@ const ITEMS = {
   lmd:       { name: '용문폐', short: '용문폐', color: '#cfd3d6', desc: '용문에서 통용되는 화폐. 작전을 완료하면 얻을 수 있다.' },
   cert_hi:   { name: '고급 자격증', short: '고급 자격증', color: '#ffd23a', desc: '5·6성 오퍼레이터의 잠재력이 가득 찬 뒤 중복 획득하면 얻는다.' },
   cert_lo:   { name: '초급 자격증', short: '초급 자격증', color: '#9fd6ff', desc: '3·4성 오퍼레이터를 획득하면 얻는다.' },
+  lantern:   { name: '등불 조각', short: '등불 조각', color: '#e8c76a', desc: '사이드 스토리 「아무도 없는 교실의 밤」의 이벤트 재화. 꺼진 축제 등불의 조각. 이벤트 상점에서 의상과 물자로 교환할 수 있다.' },
 };
 
 // ---------------------------------------------------------------------
