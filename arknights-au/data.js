@@ -793,7 +793,7 @@ const OPERATORS = [
     skills: [
       { name: '탄도 보정', desc: '다음 공격 시 공격력의 200%로 공격하고 대상 주변의 적에게도 폭발 피해', sp: 3, initSp: 0, duration: 0, spType: 'attack', trigger: 'auto', effect: { nextHit: 2, nextSplash: 0.9 } },
       { name: '파라벨룸', desc: '20초간 공격력 +50%·공격 속도 상승. 공격 시 크기가 다른 탄환 2발을 연속 발사 — 첫 발은 대상에게 공격력의 130% 물리 피해, 두 번째 발은 대상 주변에 공격력의 80% 범위 물리 피해', sp: 30, initSp: 15, duration: 20, trigger: 'auto', effect: { atk: 1.5, interval: 0.75, twinShot: { mul: 1.3, blast: 0.8, radius: 1 } } },
-      { name: 'PARABELLUM BULLET', desc: '15초간 공격 범위 확대, 공격력 +80%·공격 속도 대폭 상승. 범위 안의 적 최대 4명에게 푸른 탄환을 일제 사격, 각 탄환은 착탄 지점에 범위 물리 피해. 탄환 일부는 무게가 가장 무거운 적에게 집중(추가 1발)', sp: 50, initSp: 30, duration: 15, trigger: 'manual', effect: { range: area(0, 4, -1, 1), atk: 1.8, interval: 0.5, targets: 4, splash: 0.8, heavyFocus: 1 } },
+      { name: 'PARABELLUM BULLET', desc: '15초간 공격 범위 확대, 공격력 +80%·공격 속도 대폭 상승. 범위 안의 적 최대 4명에게 푸른 탄환을 일제 사격, 각 탄환은 착탄 지점에 범위 물리 피해. 탄환 일부는 무게가 가장 무거운 적에게 집중(추가 1발)', sp: 50, initSp: 30, duration: 15, trigger: 'manual', effect: { range: area(1, 5, -2, 2), atk: 1.8, interval: 0.5, targets: 4, splash: 0.8, heavyFocus: 1 } },
     ],
     voice: {
       obtain: '……리안 터너. 코드네임은 터너야. 스나이퍼로 등록하면 된다고 들었어. ……아, 맞다. 앞으로 잘 부탁해, 박사.',
