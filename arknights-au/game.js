@@ -684,6 +684,10 @@
       if (op.blessBy.alive && eff(op.blessBy).blessAspd) add('aspd', eff(op.blessBy).blessAspd);
     }
     if (op.hopeT > 0) add('aspd', op.hopeAspd * op.hopeN);
+    if (op.rescueT > 0 && t.rescue) add('aspd', t.rescue.aspd);
+    if (op.payN && t.upkeepPay) add('atk', t.upkeepPay.atk * op.payN);
+    if (op.payDodgeT > 0 && t.upkeepPay) { add('dodge', t.upkeepPay.dodge); add('artsDodge', t.upkeepPay.dodge); }
+    if (op.ckT > 0 && ef.contractKillAspd) add('aspd', ef.contractKillAspd.aspd);
     if (op.def.summoned && op.owner && op.owner.alive) {
       const oe = eff(op.owner);
       if (oe.guardAtk) add('atk', oe.guardAtk - 1);
@@ -1086,6 +1090,40 @@
     if (n) summonRemnants(ow, n, e.x, e.y);
   }
 
+  // ---------- 사냥꾼(드리프트우드): 탄약 · 추적 ----------
+  const trackedBy = (e, op) => e.trackedUntil > S.time && e.trackedBy === op;
+  function huntPick(op) {
+    const t = S.enemies.filter((e) => e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y)))).sort((a, b) => b.maxHp - a.maxHp)[0];
+    op.huntT = t || null;
+    if (t) {
+      const tr = op.tal.tracker;
+      op.trTarget = t; op.trN = tr ? tr.max : 5;
+      t.trackedUntil = S.time + (tr ? tr.dur : 10); t.trackedBy = op;
+      addText(t.x, t.y - 0.5, '최우선 구조 위협 대상', '#6fa8ff', 0.9, true);
+    }
+    return t;
+  }
+  // ---------- 상인(그린우드): 유지비 · 의뢰 대상 ----------
+  const contractOf = (e) => e.contractBy && e.contractBy.alive && e.contractBy.contract === e;
+  function pickContract(op) {
+    const t = S.enemies.filter((e) => e.alive && op.range.has(key(Math.floor(e.x), Math.floor(e.y)))).sort((a, b) => b.maxHp - a.maxHp)[0];
+    if (!t) return;
+    op.contract = t; t.contractBy = op; op.ctWait = null;
+    addText(t.x, t.y - 0.5, '의뢰 대상', '#7fd06b', 0.8, true);
+  }
+  function payUpkeep(op) {
+    const cost = eff(op).upkeepDp || op.def.upkeep.dp;
+    if (S.dp < cost) { addText(op.x + 0.5, op.y - 0.1, '유지비 부족', '#ff6b6e', 1, true); removeOp(op, false); return; }
+    S.dp -= cost;
+    const tp = op.tal.upkeepPay, ef = eff(op);
+    if (tp) {
+      op.payN = Math.min(tp.max, (op.payN || 0) + 1);
+      healOp(op, op.maxHp * ((ef.payHeal || tp.heal) + (ef.payHeal2 || 0)), true);
+      if (op.hp / op.maxHp <= tp.below && S.time >= (op.payDodgeCd || 0)) { op.payDodgeT = tp.dur; op.payDodgeCd = S.time + tp.cd; addText(op.x + 0.5, op.y - 0.1, '위험수당', '#7fd06b', 0.8, true); }
+    }
+    if (ef.payNext) op.nextAmp = ef.payNext;
+  }
+
   // ---------- 후크마스터(판도라): 끌어당기기 · 행운 · 불운 ----------
   const misOf = (e) => e.misT > 0 && e.misBy;
   function applyMis(op, e, dur) { if (!e.alive) return; e.misT = Math.max(e.misT || 0, dur || (op.tal.luckSteal ? op.tal.luckSteal.dur : 10)); e.misBy = op; }
@@ -1139,6 +1177,8 @@
       blocked: [], alive: true, flash: 0, born: S.time,
     };
     op.onHigh = S.map[ty][tx] === '^';
+    // 사냥꾼: 정예화 단계별 탄창
+    if (def.ammo) { const el = def.trained ? def.trained.elite : 2; op.ammoMax = def.ammo.max[Math.min(2, el)]; op.ammo = op.ammoMax; op.reloadT = 0; }
     setRange(op, def.range);
     S.ops.push(op);
     if (r.owner) op.owner = r.owner;
@@ -1333,6 +1373,11 @@
     relicSkill(op);
     charSkill(op);
     op.skillT = sk.duration === -1 ? Infinity : sk.duration || 0;
+    // 장기 경계 태세: 두 번째 발동부터 무한 지속
+    if (ef.secondInfinite) { op.s2n = (op.s2n || 0) + 1; if (op.s2n >= 2) op.skillT = Infinity; }
+    // 끝까지 쫓겠습니다: 범위 안 최대 HP가 가장 높은 적을 목표로 지정, 추적 5중첩
+    if (ef.hunt) { op.huntT = null; huntPick(op); }
+    if (ef.contractNow) op.ctForce = true;
     op.charges = ef.charges || 0;
     if (ef.range && op.skillT > 0) setRange(op, ef.range);
     // 발동 순간 이 스킬의 공격 범위를 1.5초간 판 위에 표시
@@ -1444,8 +1489,11 @@
 
   // 같은 학교 친구들 (김가을 「패턴 학습」 공통 시너지)
   const SCHOOL = ['gaeul', 'iai', 'simhae', 'byeol'];
-  const SWORD_HITS = { count: 2, mul: 1 };   // 소드마스터: 일반 공격 2연격
+  const SWORD_HITS = { count: 2, mul: 1 };
+  const DUAL_HITS = { count: 2, mul: 1 };   // 장기 경계 태세: 목표가 하나면 그 적에게 2연격   // 소드마스터: 일반 공격 2연격
   function pickTargets(op, n) {
+    // 끝까지 쫓겠습니다: 지정한 목표는 범위 밖이어도 계속 공격
+    if (eff(op).hunt) { if (!(op.huntT && op.huntT.alive)) huntPick(op); if (op.huntT) return [op.huntT]; }
     const ground = isGroundOp(op);
     const antiAir = op.def.class === 'sniper';
     // 공격수: 저지 중인 적 전부 동시 공격
@@ -1456,7 +1504,7 @@
     const list = S.enemies.filter((e) => e.alive && (e.blockedBy === op || remB(e) ||
       (op.range.has(key(Math.floor(e.x), Math.floor(e.y))) && !((ground || op.def.groundOnly) && isFly(e.def) && op.def.archetype !== 'sentry' && op.def.archetype !== 'lord' && !eff(op).antiAir))));
     const prio = eff(op).priority || (op.def.archetype === 'deadeye' ? 'lowDef' : null);
-    const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0);
+    const stb = (e) => (op.tal.starMark && starOf(e, op) && e.blockedBy ? 1 : 0) + (op.tal.tracker && trackedBy(e, op) ? 1 : 0) + (op.tal.contract && op.contract === e ? 1 : 0);
     list.sort((a, b) =>
       stb(b) - stb(a) ||
       (prio === 'lowDef' ? a.def.def - b.def.def : 0) ||
@@ -1488,6 +1536,35 @@
     op.chill = Math.max(0, op.chill - dt);
     if (op.remOwner) { op.lifeT -= dt; if (op.lifeT <= 0) { removeOp(op, false); return; } }
     if (op.blessT > 0) op.blessT -= dt * (op.skillT > 0 ? 0.5 : 1);
+    if (op.rescueT > 0) op.rescueT -= dt;
+    if (op.payDodgeT > 0) op.payDodgeT -= dt;
+    if (op.ckT > 0) op.ckT -= dt;
+    // 사냥꾼: 공격하지 않는 동안 재장전 (장기 경계 태세: 속도 +40%, 탄약이 0이면 2초마다 2발)
+    if (op.def.ammo && op.ammo < op.ammoMax) {
+      const am = op.def.ammo;
+      if (ef.autoReload && op.skillT > 0 && op.ammo <= 0) { op.arT = (op.arT || 0) + dt; if (op.arT >= ef.autoReload.every) { op.arT = 0; op.ammo = Math.min(op.ammoMax, op.ammo + ef.autoReload.n); addText(op.x + 0.5, op.y - 0.1, '재장전', '#6fa8ff', 0.6); } }
+      else if (S.time - (op.lastAtkAt ?? op.born) >= am.idle) { op.reloadT += dt * (1 + (op.skillT > 0 ? ef.reloadFast || 0 : 0)); if (op.reloadT >= am.every) { op.reloadT = 0; op.ammo++; } }
+    }
+    // 구조 우선: 범위 안 아군이 처음 HP 50% 이하가 되면 탄약 3발 · 공격 속도
+    const rs = op.tal.rescue;
+    if (rs) {
+      for (const o of S.ops) if (o.alive && o.hp / o.maxHp > rs.below) o.rescued = false;
+      if (S.time >= (op.rescueCd || 0)) {
+        const a = S.ops.find((o) => o.alive && o !== op && !o.rescued && !o.remOwner && op.range.has(key(o.x, o.y)) && o.hp / o.maxHp <= rs.below);
+        if (a) { a.rescued = true; op.rescueCd = S.time + rs.cd; op.ammo = Math.min(op.ammoMax + rs.ammo, op.ammo + rs.ammo); op.rescueAmmo = rs.ammo; op.rescueT = rs.dur; addText(op.x + 0.5, op.y - 0.15, '구조 우선', '#6fa8ff', 1, true); }
+      }
+    }
+    // 상인: 3초마다 유지비
+    if (op.def.upkeep) { op.upT = (op.upT || 0) + dt; if (op.upT >= op.def.upkeep.every) { op.upT = 0; payUpkeep(op); if (!op.alive) return; } }
+    // 의뢰 대상 지정 (사라지면 3초 뒤 새 대상, 3스킬은 즉시)
+    const ct = op.tal.contract;
+    if (ct || ef.contractNow) {
+      if (op.ctForce) { op.ctForce = false; pickContract(op); }
+      else if (!op.contract || !op.contract.alive) {
+        if (op.contract && op.ctWait == null) op.ctWait = S.time + (ef.contractNow ? 0 : ct ? ct.delay : 3);
+        if (op.ctWait == null || S.time >= op.ctWait) { op.contract = null; pickContract(op); }
+      }
+    }
     if (op.hopeT > 0) op.hopeT -= dt;
     if (ef.pullEvery && op.skillT > 0 && (op.pullT -= dt) <= 0) { op.pullT = ef.pullEvery.every; hookPulse(op, ef.pullEvery); }
     if (op.dodgeT > 0) op.dodgeT -= dt;
@@ -1599,6 +1676,9 @@
       return;
     }
 
+    // 사냥꾼: 탄약이 없으면 공격하지 않음 (3스킬은 전용 탄약)
+    const hunterAmmo = op.def.ammo && !eff(op).hunt;
+    if (hunterAmmo && op.ammo <= 0) { op.atkCd = 0.2; return; }
     const targets = pickTargets(op, n);
     if (!targets.length) return;
     if (op.ltReady) {
@@ -1661,12 +1741,25 @@
     const wasReady = !!(op.tal.stealth && op.sready);
     if (wasReady) { mul *= 1 + op.tal.stealth.bonus; op.sready = false; op.srBlock = S.time + op.tal.stealth.again; }
     const charged = !!op.charge;
+    // 사냥꾼: 탄약 1발 · 공격력 120%, 구조 우선으로 넣은 탄약은 방어력 무시
+    let rescueIgn = 0;
+    if (hunterAmmo) { op.ammo--; mul *= op.def.ammo.mul; if (op.rescueAmmo > 0) { op.rescueAmmo--; rescueIgn = op.tal.rescue ? op.tal.rescue.ignore : 0; } }
+    // 노련한 추적자: 같은 적 연속 공격 시 피해 증가, 최대 중첩이면 추적
+    const trk = op.tal.tracker;
+    if (trk) {
+      if (op.trTarget === targets[0]) op.trN = Math.min(trk.max, (op.trN || 0) + 1); else { op.trTarget = targets[0]; op.trN = 1; }
+      const e2 = op.def.trained && op.def.trained.elite >= 2;
+      mul *= 1 + (e2 ? trk.step2 : trk.step) * op.trN;
+      if (op.trN >= trk.max) { if (!trackedBy(targets[0], op)) addText(targets[0].x, targets[0].y - 0.45, '추적', '#6fa8ff', 0.6); targets[0].trackedUntil = S.time + trk.dur; targets[0].trackedBy = op; }
+    }
+    if (op.nextAmp) { mul *= 1 + op.nextAmp; op.nextAmp = 0; }
     if (op.charge) { mul *= op.charge; op.charge = 0; if (op.chargeStun) { stunHit = Math.max(stunHit, op.chargeStun); op.chargeStun = 0; } nsplash = (op.skill.effect || {}).nextSplash || 0; op.zoneBoost = (op.skill.effect || {}).nextZone; }
     const fin = eff(op).finisher;
     const finish = fin && ++op.finN % fin.every === 0;
     const sh = eff(op).shell;
     const shell = sh && ++op.shellN % sh.every === 0;
-    const hits = op.burst || eff(op).hits || oeff(op).devHits || (op.def.archetype === 'sword' ? SWORD_HITS : null);
+    const nh = charged && (op.skill.effect || {}).nextHits;
+    const hits = op.burst || (nh ? { count: nh, mul: 1 } : null) || eff(op).hits || oeff(op).devHits || (eff(op).dualShot && targets.length === 1 ? DUAL_HITS : null) || (op.def.archetype === 'sword' ? SWORD_HITS : null);
     op.burst = null;
     const count = hits ? hits.count : 1, hitMul = hits ? hits.mul : 1;
     const atk = opAtk(op) * mul * hitMul, splash = eff(op).splash || op.def.splash || nsplash;
@@ -1692,11 +1785,21 @@
         const starMul = starred ? 1 + (sm ? sm.amp : 0) + (ef0.starAmp || 0) : 1;
         const starIgn = starred ? (sm && t.blockedBy ? sm.ignore : 0) + (ef0.starIgnore || 0) : 0;
         const blkMul = (ef0.blockedMul && t.blockedBy ? ef0.blockedMul : 1) * (op.tal.remnant && t.blockedBy && t.blockedBy.remOwner === op ? 1 + op.tal.remnant.amp : 1);
-        const nIgn = charged ? (op.skill.effect || {}).nextIgnore || 0 : 0;
-        const dmg = atk * crit * lordMul * anaMul * starMul * blkMul * (t === targets[0] ? bsMul : 1), ign = Math.min(1, ignOf(t) + ptIgn + starIgn + nIgn);
+        const sef = op.skill.effect || {};
+        let nIgn = (charged ? sef.nextIgnore || 0 : 0) + rescueIgn;
+        let xMul = 1;
+        // 추적 · 의뢰 대상
+        if (trk && trackedBy(t, op)) { xMul *= 1 + (op.def.trained && op.def.trained.elite >= 2 ? trk.amp2 : trk.amp); if (charged && sef.warnShot) nIgn += sef.warnShot.ignore; }
+        if (op.tal.contract && op.contract === t) { xMul *= 1 + (op.def.trained && op.def.trained.elite >= 2 ? op.tal.contract.amp2 : op.tal.contract.amp) + (ef0.contractAmp || 0); if (charged && sef.rushFee) nIgn += sef.rushFee.ignore; }
+        if (ef0.lastBullet && i === count - 1) nIgn += ef0.lastBullet.ignore;
+        const dmg = atk * crit * lordMul * anaMul * starMul * blkMul * xMul * (t === targets[0] ? bsMul : 1), ign = Math.min(1, ignOf(t) + ptIgn + starIgn + nIgn);
         S.noDodge = charged && wasReady && !!(op.skill.effect || {}).starHit;
         hitEnemy(t, dmg, type, crit > 1, op, ign);
         S.noDodge = false;
+        if (ef0.lastBullet && i === count - 1 && t.alive) stunEnemy(t, ef0.lastBullet.stun);
+        if (ef0.hitStunChance && i === 0 && t.alive && Math.random() < ef0.hitStunChance.p) stunEnemy(t, ef0.hitStunChance.d);
+        if (charged && i === 0 && sef.warnShot) { if (t.alive) slowEnemy(t, 1 - sef.warnShot.slow, sef.warnShot.dur); else op.ammo = Math.min(op.ammoMax || 0, (op.ammo || 0) + sef.warnShot.ammo); }
+        if (charged && i === count - 1 && sef.rushFee && !t.alive) healOp(op, op.maxHp * sef.rushFee.heal);
         if (i === 0 && t.alive && charged && starred && (op.skill.effect || {}).starHit) { const sh = op.skill.effect.starHit; hitEnemy(t, opAtk(op) * sh.mul, 'phys', false, op, ign, true); if (t.alive) stunEnemy(t, sh.stun); }
         if (i === 0 && t.alive && ef0.extraShot && Math.random() < ef0.extraShot) { attackFx(op, t, 1, type, true, cx, cy); hitEnemy(t, dmg, type, false, op, ign, true); }
         // 잠깐 빌리겠슴다!: 강화 공격이 목표를 끌어당기고 불운 부여, 행운을 빼앗으면 SP +1
@@ -1757,7 +1860,7 @@
         // 실장 오퍼레이터: 공격 시 둔화
         if (eff(op).hitSlow && t.alive) slowEnemy(t, 1 - eff(op).hitSlow.rate, eff(op).hitSlow.dur);
         if (op.tal.relay && i === 0) markEnemy(op, t);
-        if (finish && i === 0 && t.alive) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#ffcf3a', r: 0.5 }); hitEnemy(t, opAtk(op) * fin.mul, 'phys', true, op, ignore, true); }
+        if (finish && i === 0 && t.alive) { addFx({ type: 'ring', x: t.x, y: t.y, life: 0.35, color: '#ffcf3a', r: 0.5 }); hitEnemy(t, opAtk(op) * fin.mul, 'phys', true, op, ignore, true); if (fin.stun && t.alive) stunEnemy(t, fin.stun); }
         if (splash) {
           for (const o of S.enemies) {
             if (o !== t && o.alive && Math.hypot(o.x - t.x, o.y - t.y) <= splash) hitEnemy(o, atk, type, false, op);
@@ -1998,6 +2101,7 @@
     if (e.rushT > 0) amp *= 1 - S.mods.eliteRush.cut;
     if (e.supDebuff) { def *= 1 - X.supporterDebuff.def; res *= 1 - X.supporterDebuff.res; }
     if (e.resDownT > 0) res = Math.max(0, res - e.resDown);
+    if (contractOf(e)) { const cb = e.contractBy; def *= 1 - ((cb.tal.contract ? cb.tal.contract.def : 0) + (eff(cb).contractDef || 0)); }
     if (misOf(e)) { if (src === e.misBy && type === 'phys' && src.tal.luckSteal) amp *= 1 + src.tal.luckSteal.amp; if (e.misBy.alive && eff(e.misBy).misAmp) amp *= 1 + eff(e.misBy).misAmp; }
     if (e.witnessT > 0 && e.witnessBy && e.witnessBy.tal.witness) res = Math.max(0, res - e.witnessBy.tal.witness.res);
     if (e.unluckyT > 0) for (const o of luckOps()) {
@@ -2060,6 +2164,19 @@
     if (sb && sb.alive && sb.tal.starMark) {
       const nx = S.enemies.filter((o) => o.alive && o !== e && sb.range.has(key(Math.floor(o.x), Math.floor(o.y)))).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
       if (nx) { nx.starUntil = S.time + sb.tal.starMark.dur; nx.starBy = sb; addText(nx.x, nx.y - 0.45, '별흔', '#bfe3ff', 0.7, true); }
+    }
+    // 의뢰 완료: 그린우드가 의뢰 대상을 처치하면 코스트
+    const cb = e.contractBy;
+    if (cb && cb.alive && cb.contract === e) {
+      if (src === cb) {
+        const ct = cb.tal.contract, ce = eff(cb);
+        let dp = 0;
+        if (ct && S.time >= (cb.ctCd || 0)) { dp += ct.dp; cb.ctCd = S.time + ct.cd; }
+        if (ce.contractDp) dp += ce.contractDp;
+        if (dp) { S.dp = Math.min(S.maxDp, S.dp + dp); addText(cb.x + 0.5, cb.y - 0.15, `의뢰 완료 +${dp}`, '#7fd06b', 0.9, true); }
+        if (ce.contractKillAspd) cb.ckT = ce.contractKillAspd.dur;
+      }
+      cb.ctWait = S.time + (eff(cb).contractNow ? 0 : cb.tal.contract ? cb.tal.contract.delay : 3);
     }
     if (!isFly(e.def)) for (const ow of S.ops) if (ow.alive && ow.def.remnant && (ow.tal.remnant || (e.witHitBy === ow && e.witHitUntil > S.time)) && ow.range.has(key(Math.floor(e.x), Math.floor(e.y)))) remnantOnKill(ow, e);
     if (src && src.def && src.tal) onOpKill(src);
@@ -2750,6 +2867,12 @@
         ctx.fillRect(bx + i * (cw + gap), cy2, cw, ch);
       }
     } else bar(bx, by + Math.max(4, T * 0.075), bw, Math.max(2, T * 0.04), spRatio, op.skillT > 0 ? '#ffcf3a' : '#8fd14f');
+    // 사냥꾼 탄창 (스킬 전용 탄약을 쓰는 중이 아닐 때)
+    if (op.ammoMax && !ammo) {
+      const n = op.ammoMax, gap = Math.max(1, bw * 0.012), cw = (bw - gap * (n - 1)) / n, ch = Math.max(2, T * 0.035), cy3 = by + Math.max(7, T * 0.13);
+      ctx.fillStyle = 'rgba(0,0,0,.85)'; ctx.fillRect(bx - 1, cy3 - 1, bw + 2, ch + 2);
+      for (let i = 0; i < n; i++) { ctx.fillStyle = i < op.ammo ? '#9fd0ff' : '#3a3f47'; ctx.fillRect(bx + i * (cw + gap), cy3, cw, ch); }
+    }
     // 판도라의 행운 중첩 · 행운의 가호 · 남겨진 희망 표시
     if (op.tal.luckSteal && op.luck) { ctx.font = `900 ${Math.max(10, T * 0.16)}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffd86b'; ctx.fillText('♣' + op.luck, bx + bw + 3, by + 2); }
     if (op.blessT > 0 || op.hopeT > 0) { ctx.font = `900 ${Math.max(9, T * 0.14)}px sans-serif`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffd86b'; ctx.fillText(op.blessT > 0 ? '✦' + op.blessN : '♡' + op.hopeN, bx - 3, by + 2); }
@@ -2828,6 +2951,8 @@
     }
     const bw = T * (e.def.boss ? 0.8 : 0.5);
     bar(X - bw / 2, headY - T * 0.12, bw, Math.max(3, T * 0.05), e.hp / e.maxHp, e.revived ? '#aee3ff' : '#ff4d57');
+    if (contractOf(e)) { ctx.font = `900 ${T * 0.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#7fd06b'; ctx.fillText('$', X - bw / 2 - T * 0.25, headY - T * 0.1); }
+    if (e.trackedUntil > S.time) { ctx.font = `900 ${T * 0.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#6fa8ff'; ctx.fillText('◎', X + bw / 2 + T * 0.25, headY - T * 0.1); }
     if (misOf(e)) { ctx.font = `900 ${T * 0.2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#b07bff'; ctx.fillText('☂', X - bw / 2 - T * 0.1, headY - T * 0.1); }
     if (e.starUntil > S.time) { ctx.font = `900 ${T * 0.22}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfe3ff'; ctx.fillText('★', X + bw / 2 + T * 0.1, headY - T * 0.1); }
     if (e.analysis > 0 && e.ana) {
