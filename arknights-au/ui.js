@@ -270,6 +270,7 @@
       if (k >= 0) history.length = k;
       else if (current !== 'battle' && name !== 'battle') history.push(current);
     }
+    if (opts.back) { const k = history.indexOf(name); if (k >= 0) history.length = k; }
     if (name === 'home') history.length = 0;
     current = name;
     document.querySelectorAll('.screen').forEach((el) => el.classList.toggle('active', el.id === 'screen-' + name));
@@ -281,7 +282,10 @@
   // 통합전략: 로비 「海愿」, 지도 「深蓝之树」 · 심해(3층~) 「族群歌谣」 (원작 미즈키 통합전략)
   const isMapBgm = () => (window.IS && IS.run && IS.run.floor >= IS.DEEP ? 'isdeep' : 'ismap');
   const screenBgm = (name) => (name === 'isrun' ? isMapBgm() : { store: 'shop', headhunt: 'shop', base: 'base', is: 'is', isth: 'is' }[name] || 'home');
+  // 화면 안의 단계(장 선택 → 스테이지 등)는 먼저 그 화면 안에서 한 단계 뒤로
+  const BACK = {};
   function back() {
+    if (BACK[current] && BACK[current]()) return;
     const prev = history.pop() || 'home';
     go(prev, undefined, { back: true });
   }
@@ -980,6 +984,17 @@
   const redeployText = (s) => (s <= 25 ? '빠름' : s <= 35 ? '보통' : '느림');
 
   let skView = null, modPanel = false, modView = null;
+  BACK.detail = () => {
+    const tv = $('#train-view');
+    if (!tv.classList.contains('hidden')) { tv.classList.add('hidden'); RENDER.detail(); return true; }
+    if (modPanel) { modPanel = false; modView = null; RENDER.detail(); return true; }
+    return false;
+  };
+  BACK.formation = () => {
+    const pv = $('#pick-view');
+    if (!pv.classList.contains('hidden')) { pv.classList.add('hidden'); return true; }
+    return false;
+  };
   RENDER.detail = (id) => {
     if (id && id !== detailId) { skView = null; modPanel = false; modView = null; }
     if (id) detailId = id;
@@ -1011,7 +1026,7 @@
     $('#detail-skill').innerHTML = `<div class="drs-head"><span>▲ 스킬</span><button id="sk-zoom" aria-label="스킬 상세">${icon('search')}</button></div>
       <div class="drs-icons">${list.map((sk0, i) => { const sk = tlist[i] || sk0; return `
       <button class="drs-ico ${i === sv ? 'on' : ''} ${i > pg.elite ? 'locked' : ''}" data-skill="${i}"><span class="drs-img"><img src="${skillIcon(sk0, i, o)}" alt="">
-        <span class="drs-sp">${sk.initSp ? `<i>▸</i>${sk.initSp}` : ''}<i class="z">ϟ</i>${sk.spType === 'deploy' ? '-' : sk.sp}</span>${i === cur ? '<i class="drs-chk">✓</i>' : ''}${pg.mst[i] && i <= pg.elite ? `<em class="drs-m">${pg.mst[i]}</em>` : ''}${i > pg.elite ? `<span class="drs-lock">${eliteIcon(i)}</span>` : ''}</span><b>${esc(sk0.name)}</b></button>`; }).join('')}</div>
+        <span class="drs-sp">${sk.initSp ? `<i>▸</i>${sk.initSp}` : ''}<i class="z">ϟ</i>${sk.spType === 'deploy' ? '-' : sk.sp}</span>${i === cur ? '<i class="drs-chk">✓</i>' : ''}${pg.mst[i] && i <= pg.elite ? `<em class="drs-m">${pg.mst[i]}</em>` : ''}${i > pg.elite ? `<span class="drs-lock">${eliteIcon(i)}</span>` : ''}${(TRAIN.training() || {}).id === base.id && TRAIN.training().i === i ? '<span class="drs-tr">훈련 중</span>' : ''}</span><b>${esc(sk0.name)}</b></button>`; }).join('')}</div>
       <div class="drs-desc"><div class="drs-h">${spTag(sel)}</div><p>${esc(sel0.desc || '')}</p>${sel.power && sel.power < 1 && sv <= pg.elite ? `<small class="sk-pow">현재 위력 ${Math.round(sel.power * 100)}% (설명은 특화 3 기준)</small>` : ''}</div>
       <button class="drs-def" id="sk-default" ${sv === cur || sv > pg.elite || !owned(base.id) ? 'disabled' : ''}>${sv === cur ? '디폴트 스킬' : '디폴트 스킬로 설정'}</button>
       ${owned(base.id) ? `<div class="drs-rankrow"><span>RANK <b>${pg.slv}</b></span><button class="drs-rank" id="sk-train"><b>＋</b>랭크 업</button></div>` : ''}`;
@@ -1124,6 +1139,7 @@
     v.dataset.miss = missOk ? '1' : '';
   }
   // 21. 잠재능력 화면 — 중복으로 얻은 잠재력 증표를 직접 써서 올린다
+  let potUse = 'own';
   function openPot() {
     const def = OPS[detailId], pot = ACCOUNT.potOf(def.id), tok = ACCOUNT.tokenOf(def.id);
     if (!pot) { toast('보유하지 않은 오퍼레이터입니다'); return; }
@@ -1132,13 +1148,18 @@
     v.style.setProperty('--c', def.color);
     const pct = (x) => `${Math.round(x * 1000) / 10}%`;
     const fx = (b) => [b.cost && `배치 코스트 -${b.cost}`, b.redeploy && `재배치 시간 -${b.redeploy}초`, b.atk && `공격력 +${pct(b.atk)}`, b.hp && `체력 +${pct(b.hp)}`, b.def && `방어력 +${pct(b.def)}`].filter(Boolean).join(' · ');
-    const can = tok > 0 && pot < 6;
+    const ck = 'tok_' + def.class, cNeed = TRAIN_RULE.classTokenNeed[def.rarity || 6] || 4, cHave = ACCOUNT.bal(ck);
+    if (potUse === 'own' && !tok && cHave >= cNeed) potUse = 'class';
+    if (potUse === 'class' && cHave < cNeed && tok) potUse = 'own';
+    const can = pot < 6 && (potUse === 'class' ? cHave >= cNeed : tok > 0);
+    const useName = potUse === 'class' ? (ITEMS[ck] ? ITEMS[ck].name : '직군 증표') : `${def.name}의 증표`;
     v.innerHTML = `<button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
       <div class="tv-art big">${artHTML(def)}</div>
       <div class="pu-band"><img class="pu-ico" src="img/ui/pot_${pot}.png" alt=""><div class="pu-n"><b>${pot}</b><span>잠재능력</span></div>
         <div class="pu-list">${TRAIN.potList(def).map((b, i) => `<div class="${pot >= i + 2 ? 'on' : pot + 1 === i + 2 ? 'next' : ''}">${fx(b)}</div>`).join('')}</div></div>
-      <div class="pu-toks"><div class="pu-tok ${tok ? 'on' : ''}"><span class="pu-gem"><img src="${esc(def.image || def.baseImage || '')}" alt=""></span><div><b>${esc(def.name)}의 증표</b><small>${tok}/1</small></div><i class="pu-chk">${tok ? '✓' : ''}</i></div><span class="pu-arr">›››</span></div>
-      <div class="el-ask"><p>${pot >= 6 ? '이미 최대 잠재능력입니다' : can ? `<em>${esc(def.name)}의 증표</em>를 사용해<br>잠재능력을 상승하시겠습니까?` : '잠재력 증표가 없습니다.<br>헤드헌팅에서 중복으로 얻으면 증표를 받습니다'}</p>
+      <div class="pu-toks"><button class="pu-tok ${potUse === 'own' ? 'on' : ''}" data-potuse="own"><span class="pu-gem"><img src="${esc(def.image || def.baseImage || '')}" alt=""></span><div><b>${esc(def.name)}의 증표</b><small class="${tok ? '' : 'bad'}">${tok}/1</small></div><i class="pu-chk">${potUse === 'own' ? '✓' : ''}</i></button>
+        ${ITEMS[ck] ? `<button class="pu-tok ${potUse === 'class' ? 'on' : ''}" data-potuse="class" data-src="${esc(ck)}"><span class="pu-cls"><i class="ri ${esc(ck)}"></i></span><div><b>${esc(ITEMS[ck].name)}</b><small class="${cHave >= cNeed ? '' : 'bad'}">${cHave}/${cNeed}</small></div><i class="pu-chk">${potUse === 'class' ? '✓' : ''}</i></button>` : ''}<span class="pu-arr">›››</span></div>
+      <div class="el-ask"><p>${pot >= 6 ? '이미 최대 잠재능력입니다' : can ? `<em>${esc(useName)}</em>를 사용해<br>잠재능력을 상승하시겠습니까?` : potUse === 'class' ? '직군 증표가 부족합니다.<br>자격증 교환소에서 얻을 수 있습니다' : '잠재력 증표가 없습니다.<br>헤드헌팅에서 중복으로 얻으면 증표를 받습니다'}</p>
         <div class="el-btns"><button class="el-no" data-tvclose aria-label="취소">✕</button><button class="el-yes" id="pu-go" ${can ? '' : 'disabled'} aria-label="확인">✓</button></div></div>`;
   }
   // ---------- 육성: 레벨 · 정예화 ----------
@@ -1150,7 +1171,7 @@
       <div class="lvw-exp"><small>EXP</small><span><em>${pg.level < max ? pg.exp : '-'}</em>/${pg.level < max ? need : 'MAX'}</span><i style="width:${need ? (pg.exp / need) * 100 : 100}%"></i></div>
       <button class="lvw-plus" id="lv-open" ${own && pg.level < max ? '' : 'disabled'} aria-label="레벨업">＋</button>
       <div class="lvw-row"><button class="lvw-elite e${pg.elite}" id="elite-open" ${own ? '' : 'disabled'}>${eliteIcon(pg.elite)}<span>정예화<small>${pg.elite >= 2 ? 'MAX' : `${pg.elite}단계`}</small></span></button>
-        <button class="lvw-pot" id="pot-open">${ACCOUNT.potOf(def.id) ? `<img src="img/ui/pot_${ACCOUNT.potOf(def.id)}.png" alt="">` : ''}<span>잠재능력<b>＋</b></span>${ACCOUNT.tokenOf(def.id) && ACCOUNT.potOf(def.id) < 6 ? '<i class="lvw-dot"></i>' : ''}</button></div>`;
+        <button class="lvw-pot" id="pot-open">${ACCOUNT.potOf(def.id) ? `<img src="img/ui/pot_${ACCOUNT.potOf(def.id)}.png" alt="">` : ''}<span>잠재능력<b>＋</b></span>${ACCOUNT.potOf(def.id) && ACCOUNT.potOf(def.id) < 6 && (ACCOUNT.tokenOf(def.id) || ACCOUNT.bal('tok_' + def.class) >= (TRAIN_RULE.classTokenNeed[def.rarity || 6] || 4)) ? '<i class="lvw-dot"></i>' : ''}</button></div>`;
   }
   let lvTarget = 1;
   const statRows = (a, b) => [['최대 체력', 'hp'], ['공격', 'atk'], ['방어', 'def'], ['마법 저항', 'res']].map(([n, k]) => `<div><span>${n}</span><b>${a[k] || 0}</b><i>→</i><b class="${(b[k] || 0) > (a[k] || 0) ? 'up' : ''}">${b[k] || 0}</b></div>`).join('');
@@ -1228,7 +1249,7 @@
   $('#detail-lv').addEventListener('click', (e) => {
     if (e.target.closest('#lv-open')) { lvTarget = 0; openLevelUp(); }
     else if (e.target.closest('#elite-open')) openElite();
-    else if (e.target.closest('#pot-open')) openPot();
+    else if (e.target.closest('#pot-open')) { potUse = 'own'; openPot(); }
   });
   $('#train-view').addEventListener('click', (e) => {
     if (e.target.closest('[data-tvclose]')) { closeTrain(); return; }
@@ -1289,7 +1310,10 @@
     const fmtN = (n) => Number(n).toLocaleString('ko-KR');
     const items = cost ? Object.entries(cost.items).map(([k, n]) => { const have = ACCOUNT.bal(k); return `<div class="tv-item" data-src="${esc(k)}" title="${esc(ITEMS[k].name)}"><span class="tv-ring"><i class="ri ${esc(k)} big"></i></span><small class="tag ${have >= n ? '' : 'bad'}"><em>${have}</em>/${n}</small><span class="tv-iname">${esc(ITEMS[k].name)}</span></div>`; })
       .concat(cost.lmd ? [`<div class="tv-item" data-src="lmd"><span class="tv-ring"><i class="ri lmd big"></i></span><small class="tag ${ACCOUNT.bal('lmd') >= cost.lmd ? '' : 'bad'}">${fmtN(cost.lmd)}</small></div>`] : []) : [];
-    const ok = cost && ACCOUNT.canPay({ lmd: cost.lmd, ...cost.items });
+    const tr = TRAIN.training(), hrs = (TRAIN_RULE.masteryHours || [8, 12, 16]);
+    const left = (t) => { const m = Math.max(0, Math.ceil((t.end - Date.now()) / 60000)); return `${Math.floor(m / 60)}시간 ${m % 60}분`; };
+    const busy = mastery && tr, mine = busy && tr.id === def.id;
+    const ok = cost && !busy && ACCOUNT.canPay({ lmd: cost.lmd, ...cost.items });
     const why = cost ? '' : mastery ? (p.mst[stSel] >= 3 ? '이 스킬은 최고 특화 단계입니다' : '2차 정예화가 필요합니다') : p.slv >= max ? '1차 정예화를 하면 레벨 7까지 올릴 수 있습니다' : '';
     const cards = list.map((sk, i) => {
       const locked = i > p.elite, sk2 = tl[i] || sk;
@@ -1298,6 +1322,7 @@
         <div class="sv-top"><img src="${skillIcon(sk, i, t)}" alt=""><div><b>${esc(sk.name)}</b><div class="drs-h"><span class="sp-${sk2.spType || 'time'}">${SP_TYPE[sk2.spType || 'time']}</span><span class="tg">${sk2.trigger === 'auto' ? '자동 발동' : '수동 발동'}</span></div>
           <small>초기 SP ${sk2.initSp || 0} · 필요 SP ${sk2.spType === 'deploy' ? '-' : sk2.sp}${sk2.duration > 0 ? ` · 지속 ${sk2.duration}초` : ''}</small></div></div>
         <p>${esc(sk.desc || '')}</p>
+        ${mine && tr.i === i ? `<div class="sv-tr">특화 ${tr.to} 훈련 중 · ${left(tr)} 남음</div>` : ''}
         <div class="sv-m">${locked ? `${eliteIcon(i)} ${i}차 정예화 후 열림` : [1, 2, 3].map((m) => `<i class="${p.mst[i] >= m ? 'on' : ''}"></i>`).join('') + ` 특화 ${p.mst[i]}/3 · 위력 ${Math.round(TRAIN.skillPower(p.slv, p.mst[i]) * 100)}%`}</div></button>`;
     }).join('');
     v.innerHTML = `<button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
@@ -1307,19 +1332,24 @@
         <p>${mastery ? '스킬 카드를 눌러 특화할 스킬을 고르세요' : '스킬 레벨은 모든 스킬에 함께 적용됩니다'}</p></div>
       <div class="sv-cards">${cards}</div>
       <div class="el-req">${items.join('')}</div>
-      <div class="el-ask"><p>${cost ? (mastery ? `S${stSel + 1} 특화 ${from} → ${to}<br>계속하시겠습니까?` : `레벨 ${from} → ${to}<br>계속하시겠습니까?`) : esc(why)}</p>
-        <div class="el-btns"><button class="el-no" data-tvclose aria-label="취소">✕</button><button class="el-yes" id="sv-go" ${ok ? '' : 'disabled'} aria-label="확인">✓</button></div></div>`;
+      <div class="el-ask"><p>${busy ? (mine ? `S${tr.i + 1} 특화 ${tr.to} 훈련 중<br><small>남은 시간 ${left(tr)}</small>` : `훈련실 사용 중: ${esc((OPS[tr.id] || {}).name || '')} S${tr.i + 1} 특화 ${tr.to}<br><small>남은 시간 ${left(tr)}</small>`)
+        : cost ? (mastery ? `S${stSel + 1} 특화 ${from} → ${to}<br><small>훈련 시간 ${hrs[from]}시간 (훈련실)</small>` : `레벨 ${from} → ${to}<br>계속하시겠습니까?`) : esc(why)}</p>
+        <div class="el-btns">${mine ? '<button class="el-no sv-cancel" data-svcancel aria-label="훈련 중단">훈련 중단</button>' : '<button class="el-no" data-tvclose aria-label="취소">✕</button>'}<button class="el-yes" id="sv-go" ${ok ? '' : 'disabled'} aria-label="확인">✓</button></div></div>`;
   }
   $('#train-view').addEventListener('click', (e) => {
     const v = $('#train-view');
     if (!v.classList.contains('skillv')) return;
     const c = e.target.closest('[data-stsel]');
     if (c) { openSkillTrain(+c.dataset.stsel); return; }
+    if (e.target.closest('[data-svcancel]')) {
+      if (TRAIN.cancelTraining()) { toast('특화 훈련을 중단했습니다. 재료를 돌려받았습니다'); openSkillTrain(); }
+      return;
+    }
     if (e.target.closest('#sv-go')) {
       const def = OPS[detailId], p = TRAIN.prog(def.id);
       const r = p.slv >= 7 ? TRAIN.master(def, stSel) : TRAIN.skillUp(def);
       if (!r.ok) { toast(r.why); return; }
-      sfx('levelup'); track('train'); toast(p.slv >= 7 ? `S${stSel + 1} 특화 ${p.mst[stSel] + 1} 완료` : `스킬 레벨 ${p.slv + 1}`);
+      sfx('levelup'); track('train'); toast(p.slv >= 7 ? `S${stSel + 1} 특화 ${p.mst[stSel] + 1} 훈련 시작 (${(TRAIN_RULE.masteryHours || [8, 12, 16])[p.mst[stSel]]}시간)` : `스킬 레벨 ${p.slv + 1}`);
       openSkillTrain();
     }
   });
@@ -1355,8 +1385,11 @@
       sfx('levelup'); track('train'); toast('모듈이 강화되었습니다');
       openModList(); return;
     }
+    const pu = e.target.closest('[data-potuse]');
+    if (pu) { potUse = pu.dataset.potuse; openPot(); return; }
     if (e.target.closest('#pu-go')) {
-      const r = ACCOUNT.usePotToken(detailId);
+      const d = OPS[detailId];
+      const r = potUse === 'class' ? ACCOUNT.usePotToken(detailId, 'tok_' + d.class, TRAIN_RULE.classTokenNeed[d.rarity || 6] || 4) : ACCOUNT.usePotToken(detailId);
       if (!r.ok) { toast(r.why); return; }
       sfx('levelup'); toast(`잠재능력 ${r.pot} 달성`);
       openPot(); return;
@@ -1839,6 +1872,13 @@
   let chapterSel = null;
   // 하단 탭: main(메인 스토리) · supply(물자 비축) · chip(칩 탐색). seriesSel: 고른 시리즈 (없으면 카드 목록)
   let opsMode = 'home', seriesSel = null, chapOpen = false;
+  BACK.operations = () => {
+    if (opsMode === 'event') { go('event', undefined, { back: true }); return true; }
+    if (opsMode === 'main' && chapOpen) { chapOpen = false; RENDER.operations(undefined, { back: true }); return true; }
+    if (opsMode !== 'main' && opsMode !== 'home' && seriesSel) { seriesSel = null; RENDER.operations(undefined, { back: true }); return true; }
+    if (opsMode !== 'home') { opsMode = 'home'; seriesSel = null; chapOpen = false; RENDER.operations(undefined, { back: true }); return true; }
+    return false;
+  };
   const chapters = () => (typeof CHAPTERS !== 'undefined' && CHAPTERS.length ? CHAPTERS : [{ id: undefined, code: 'EP', name: GAME_INFO.chapter || GAME_INFO.title }]).filter((c) => c.id !== 'supply');
   const stagesOf = (ch) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => !st.supply && (st.chapter === ch.id || ch.id === undefined));
   const seriesStages = (id) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => st.supply === id);

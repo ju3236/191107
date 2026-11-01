@@ -14,6 +14,7 @@
   const clampR = (r) => Math.max(1, Math.min(6, r || 6));
   const maxElite = (r) => R.maxElite[clampR(r)];
   function prog(id) {
+    if (P().mtrain) finishTraining();
     const p = (P().prog || {})[id], r = rarOf(id);
     const elite = Math.max(0, Math.min(maxElite(r), (p && p.elite) | 0));
     const level = Math.max(1, Math.min(maxLevel(elite, r), (p && p.level) | 0 || 1));
@@ -74,10 +75,34 @@
     if (!c) return { ok: false, why: p.elite < 1 ? '스킬 레벨 5부터는 1차 정예화가 필요합니다' : '최대 스킬 레벨입니다' };
     return payAnd(c, () => setProg(def.id, { ...p, slv: p.slv + 1 }));
   }
+  // 특화 훈련 (원작: 훈련실에서 한 명씩, 특화 1 · 2 · 3에 8 · 12 · 16시간). 끝나면 자동으로 반영
+  const training = () => P().mtrain || null;
+  function finishTraining() {
+    const t = P().mtrain;
+    if (!t || Date.now() < t.end) return null;
+    delete P().mtrain;
+    const raw = (P().prog || {})[t.id];
+    if (raw) { raw.mst = raw.mst || [0, 0, 0]; raw.mst[t.i] = Math.max(raw.mst[t.i] | 0, t.to); }
+    ACCOUNT.save();
+    if (window.UI && UI.toast && OPERATORS.find((o) => o.id === t.id)) UI.toast(`특화 훈련 완료: ${OPERATORS.find((o) => o.id === t.id).name} S${t.i + 1} 특화 ${t.to}`, 3000);
+    return t;
+  }
   function master(def, i) {
+    finishTraining();
     const p = prog(def.id), c = masteryCost(def, i, p);
     if (!c) return { ok: false, why: '2차 정예화 · 스킬 레벨 7이 필요합니다' };
-    return payAnd(c, () => { const mst = [...p.mst]; mst[i]++; setProg(def.id, { ...p, mst }); });
+    if (training()) return { ok: false, why: '훈련실에서 다른 특화 훈련이 진행 중입니다' };
+    const h = (R.masteryHours || [8, 12, 16])[p.mst[i]];
+    return payAnd(c, () => { P().mtrain = { id: def.id, i, to: p.mst[i] + 1, end: Date.now() + h * 3600e3, cost: c }; ACCOUNT.save(); });
+  }
+  // 훈련 중단: 재료 반환
+  function cancelTraining() {
+    const t = training();
+    if (!t) return false;
+    delete P().mtrain;
+    ACCOUNT.earn({ ...(t.cost.items || {}), ...(t.cost.lmd ? { lmd: t.cost.lmd } : {}) });
+    ACCOUNT.save();
+    return true;
   }
   function maxLevel(e, r = 6) { return R.maxLevelBy[clampR(r)][e]; }
   const expNeed = (e, lv) => R.expTable[e][Math.max(0, lv - 1)] || 0;
@@ -348,5 +373,5 @@
     }
     ACCOUNT.save();
   }
-  window.TRAIN = { addTrust, trustPts, trustCum, trustGain, modsOf, modState, modStage, modNext, modUp, setModCur, modCost, potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, maxElite, rarOf, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
+  window.TRAIN = { addTrust, trustPts, trustCum, trustGain, modsOf, modState, modStage, modNext, modUp, setModCur, modCost, potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, maxElite, rarOf, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master, training, finishTraining, cancelTraining };
 })();

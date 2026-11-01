@@ -3310,3 +3310,35 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .ins-stats span { min-width: 74px; justify-content: space-between; }
 .rs-left .panel-btns { flex-direction: row; gap: 10px; }
 .rs-left .panel-btns .btn { flex: none; width: auto; min-width: 150px; }
+/* 기반시설 사기 */
+.bs-mor { display: block; width: 90%; height: 4px; background: rgba(255,255,255,.15); position: relative; }
+.bs-mor u { position: absolute; left: 0; top: 0; bottom: 0; background: #6fe0b8; }
+.bs-mor.low u { background: #ffcf3a; } .bs-mor.zero u { background: #ff6b6e; }
+.bs-morn { font-size: 10px; color: #aaa; }
+.bs-slot.tired { border-color: #ff6b6e; } .bs-slot.tired .bs-av { filter: grayscale(.8); }
+.bs-pk .bs-morn { color: #aaa; }
+
+/* 직군 증표 */
+.ri.ri.tok_vanguard::before { background: url(img/item/tok_vanguard.png) center / contain no-repeat; }
+.ri.ri.tok_guard::before { background: url(img/item/tok_guard.png) center / contain no-repeat; }
+.ri.ri.tok_defender::before { background: url(img/item/tok_defender.png) center / contain no-repeat; }
+.ri.ri.tok_sniper::before { background: url(img/item/tok_sniper.png) center / contain no-repeat; }
+.ri.ri.tok_caster::before { background: url(img/item/tok_caster.png) center / contain no-repeat; }
+.ri.ri.tok_medic::before { background: url(img/item/tok_medic.png) center / contain no-repeat; }
+.ri.ri.tok_supporter::before { background: url(img/item/tok_supporter.png) center / contain no-repeat; }
+.ri.ri.tok_specialist::before { background: url(img/item/tok_specialist.png) center / contain no-repeat; }
+.pu-tok { color: #fff; text-align: left; }
+.pu-tok small.bad { color: #ff6b6e; }
+.pu-cls { width: 76px; height: 76px; flex: none; display: flex; align-items: center; justify-content: center; }
+.pu-cls .ri { width: 70px; height: 70px; }
+.pu-toks { flex-wrap: wrap; max-width: 60%; }
+@media (max-width: 900px), (max-height: 500px) { .pu-cls, .pu-cls .ri { width: 48px; height: 48px; } }
+.sv-tr { background: #1a6fa8; color: #fff; font-size: 12px; padding: 3px 8px; font-weight: 700; }
+.el-ask p small { font-size: 14px; color: #aaa; font-weight: 400; }
+.sv-cancel { font-size: 14px; font-weight: 700; color: #ff9a9a; }
+.drs-tr { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(26,111,168,.9); font-size: 10px; text-align: center; color: #fff; }
+/* 헤드헌팅 3성 대체 보상 */
+.g-sub { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.g-sub .ri { width: 220px; height: 220px; }
+.g-subcard { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(180deg, #3a4650, #1d2228); color: #fff; font-size: 12px; }
+.g-subcard .ri { width: 54px; height: 54px; }

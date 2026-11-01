@@ -2720,6 +2720,7 @@ const TRAIN_RULE = {
   // 잠재 (헤드헌팅 중복): 잠재 2~6에서 차례로 얻는 효과 (누적). 오퍼레이터에 potentials: [{…} ×5]를 넣으면 직접 지정
   //  cost: 배치 코스트 감소 · redeploy: 재배치 시간 감소(초) · atk/hp/def: 비율 증가
   // 원작 6성 기본형: 코스트 -1 → 재배치 -4초 → 공격력 → 제1재능 강화(여기서는 능력치로 대신) → 코스트 -1
+  classTokenNeed: { 6: 4, 5: 3, 4: 2, 3: 1 },   // 직군 증표로 잠재 1단계 올릴 때 필요 개수
   potential: [{ cost: 1 }, { redeploy: 4 }, { atk: 0.035 }, { atk: 0.02, hp: 0.03 }, { cost: 1 }],
   // 신뢰도 보너스: 신뢰도 0~100%에 비례해 최대 이만큼 (직군별 · 오퍼레이터에 trustBonus: { … }로 직접 지정 가능)
   trustBonus: {
@@ -2729,6 +2730,7 @@ const TRAIN_RULE = {
   // 프로필 문단: 첫 문단은 처음부터, 나머지는 신뢰도에 따라 차례로 열림 (25% ~ 100%)
   recordTrust: [25, 100],
   // 스킬 특화 1~3 (원작: 스킬개론 3권 + 고급 재료, 칩 · 용문폐 없음) — 레어도별
+  masteryHours: [8, 12, 16],   // 원작 특화 훈련 시간 (훈련실 1명씩)
   masteryCost: {
     6: [{ lmd: 0, book: 8, mat: 3 }, { lmd: 0, book: 12, mat: 4 }, { lmd: 0, book: 15, mat: 6 }],
     5: [{ lmd: 0, book: 8, mat: 3 }, { lmd: 0, book: 12, mat: 4 }, { lmd: 0, book: 15, mat: 6 }],
@@ -2762,6 +2764,10 @@ const TRAIN_RULE = {
   add('mod_block', { name: '모듈 데이터 블록', short: '모듈 데이터 블록', color: '#5fc8e8', desc: '오퍼레이터 모듈을 개방(STAGE 1)할 때 쓰는 데이터 블록. 자격증 교환소 · 통합전략에서 얻을 수 있다.' });
   add('mod_stick', { name: '데이터 증강 칩', short: '데이터 증강 칩', color: '#6fb8ff', desc: '오퍼레이터 모듈을 STAGE 2로 강화할 때 쓰는 증강 칩. 자격증 교환소에서 얻을 수 있다.' });
   add('mod_inst', { name: '데이터 증강 장치', short: '데이터 증강 장치', color: '#ffcf3a', desc: '오퍼레이터 모듈을 STAGE 3으로 강화할 때 쓰는 증강 장치. 자격증 교환소에서 얻을 수 있다.' });
+  for (const [cls, v] of Object.entries(CLASSES)) {
+    if (cls === 'device') continue;
+    add('tok_' + cls, { name: `${v.name} 로열 증표`, short: `${v.name} 증표`, color: '#c8a03c', classToken: cls, desc: `${v.name} 오퍼레이터의 잠재능력을 올릴 때 전용 증표 대신 쓸 수 있는 직군 공용 증표. 6성 4개 · 5성 3개 · 4성 2개가 필요하다. 자격증 교환소(고급)에서 얻을 수 있다.` });
+  }
   add('chip_cat', { name: '칩 촉매제', short: '칩 촉매제', color: '#9fe0ff', desc: '칩셋을 듀얼칩으로 가공할 때 쓰는 촉매제. 주간 임무 · 이벤트 상점에서 얻을 수 있다.' });
 })();
 // ---------------------------------------------------------------------
@@ -2785,6 +2791,8 @@ const WORKSHOP = [
 // ---------------------------------------------------------------------
 const BASE = {
   opEff: 0.35, classEff: 0.2, eliteEff: 0.05,
+  // 원작 사기(체력): 최대 24, 시설에서 일하면 시간당 1 감소, 0이 되면 일하지 않음. 숙소에서 회복
+  morale: 24, drain: 1,
   facilities: [
     { id: 'trade', name: '무역소', en: 'TRADING POST', out: 'lmd', color: '#4fa0d9', classes: ['vanguard', 'supporter'],
       desc: '용문폐를 벌어 온다. 뱅가드 · 서포터가 잘한다.',
@@ -2798,6 +2806,10 @@ const BASE = {
       desc: '배치한 오퍼레이터와 박사가 이야기를 나눈다. 배치한 오퍼레이터의 신뢰도가 오른다.',
       rate: [20, 30, 40], cap: [12, 16, 24], slots: [2, 3, 4],
       upgrade: [{ lmd: 20000, items: { m_sugar: 6, m_keton: 4 } }, { lmd: 60000, items: { m_sugar3: 4, m_keton3: 3 } }] },
+    { id: 'dorm', name: '숙소', en: 'DORMITORY', out: 'rest', color: '#8a6fd0', classes: [],
+      desc: '오퍼레이터가 쉬며 사기를 회복한다. 시설에서 일하는 오퍼레이터는 시간당 사기 1을 쓴다.',
+      rate: [1.5, 2, 2.5], cap: [24, 24, 24], slots: [3, 4, 5],
+      upgrade: [{ lmd: 15000, items: { m_rock: 6, m_sugar: 4 } }, { lmd: 45000, items: { m_rock3: 3, m_sugar3: 3 } }] },
   ],
 };
 
@@ -2868,6 +2880,7 @@ const MODULE_RULE = {
 
 const CERT_SHOP = {
   cert_hi: [
+    ...['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist'].map((c) => ({ id: 'h_tok_' + c, items: { ['tok_' + c]: 1 }, price: 30, limit: 2 })),
     { id: 'h_modb', items: { mod_block: 1 }, price: 20, limit: 4 },
     { id: 'h_mods', items: { mod_stick: 5 }, price: 15, limit: 4 },
     { id: 'h_modi', items: { mod_inst: 1 }, price: 12, limit: 4 },

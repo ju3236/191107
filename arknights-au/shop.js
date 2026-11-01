@@ -377,7 +377,7 @@
     for (const o of pool()) (by[o.rarity || 3] = by[o.rarity || 3] || []).push(o);
     openModal(`<div class="modal-title">확률 정보</div><div class="modal-sub">원작과 같은 확률 · 50회 연속 6성이 나오지 않으면 이후 1회마다 6성 확률 +2% (상시 · 일반 픽업은 공유, 한정은 따로) · 헤드헌팅마다 첫 10회 안에 5성 이상 확정 · 확률 UP: 5 · 6성 50%, 한정 6성 70%</div>
       <div class="rate-list">${[6, 5, 4, 3].map((r) => `<div class="rate-row"><b class="r${r}">★${r}</b><span>${Math.round(GACHA.rates[r] * 100)}%</span>
-        <small>${(by[r] || []).map((o) => esc(o.name)).join(', ') || '해당 등급 오퍼레이터 없음 (다른 등급으로 대체)'}</small></div>`).join('')}</div>`);
+        <small>${(by[r] || []).map((o) => esc(o.name)).join(', ') || (r === 3 ? '3성 오퍼레이터 추가 전까지 하급 자격증 5개로 대체' : '해당 등급 오퍼레이터 없음 (다른 등급으로 대체)')}</small></div>`).join('')}</div>`);
   }
 
   function tryPull(n) {
@@ -450,6 +450,15 @@
         else if (g >= GACHA.newbieGuarantee) r = Math.random() < GACHA.rates[6] / (GACHA.rates[6] + GACHA.rates[5]) ? 6 : 5;
         p.g10[bn.key] = g;
       }
+      // 3성 오퍼레이터가 아직 없으면: 원작 3성 중복과 같은 하급 자격증 5개 (확률은 원작 그대로 유지)
+      if (r === 3 && !by[3]) {
+        setPity(bn.key, pityOf(bn.key) + 1);
+        if (bn.limited) p.spark[bn.key] = (p.spark[bn.key] || 0) + 1;
+        p.earned.cert_lo = (p.earned.cert_lo || 0) + 5;
+        p.pulls.push({ id: null, r: 3, at: Date.now() });
+        out.push({ def: SUB3, isNew: false, sub: true, cert: { cert_lo: 5 } });
+        continue;
+      }
       if (!by[r]) {   // 그 등급이 없으면 가까운 등급으로
         const alt = [r - 1, r - 2, r - 3, r + 1, r + 2, r - 4, r + 3].find((x) => by[x]);
         r = alt || Object.keys(by)[0];
@@ -472,6 +481,8 @@
   }
 
   // ---------- 헤드헌팅 연출 ----------
+  // 3성 대체 보상용 가짜 카드 (오퍼레이터 목록에는 없음)
+  const SUB3 = { id: '__sub3', name: '하급 자격증', en: 'COMMENDATION', rarity: 3, class: 'device', color: '#6f8a9a', summoned: true, skills: [], talents: [] };
   function playGacha(results) {
     const ov = $('#gacha'), stage = $('#gacha-stage');
     const top = Math.max(...results.map((r) => r.def.rarity || 3));
@@ -490,13 +501,13 @@
       sfx('rev' + Math.min(6, Math.max(3, rr)));
       stage.innerHTML = `<div class="g-reveal">
         <div class="g-flash"></div>
-        <div class="g-art">${artHTML(d)}</div>
+        <div class="g-art">${r.sub ? `<div class="g-sub"><i class="ri cert_lo"></i></div>` : artHTML(d)}</div>
         <div class="g-meta">
           <div class="g-stars">${stars(rr)}</div>
           <div class="g-en">${esc(d.en || '')}</div>
           <div class="g-name">${esc(d.name)}</div>
-          <div class="g-class">${icon(d.class)}<span>${esc(CLASSES[d.class].name)}</span></div>
-          <div class="g-badge">${r.isNew ? '<span class="new">NEW</span>' : `${r.token ? '잠재력 증표 +1' : `잠재 MAX`}${r.cert ? ' · ' + esc(itemsText(r.cert)) : ''}`}</div>
+          ${r.sub ? '<div class="g-class"><span>3성 대체 보상</span></div>' : `<div class="g-class">${icon(d.class)}<span>${esc(CLASSES[d.class].name)}</span></div>`}
+          <div class="g-badge">${r.sub ? '하급 자격증 +5' : r.isNew ? '<span class="new">NEW</span>' : `${r.token ? '잠재력 증표 +1' : `잠재 MAX`}${r.cert ? ' · ' + esc(itemsText(r.cert)) : ''}`}</div>
           ${r.isNew ? `<div class="g-quote">“${esc(UI.line(d, 'obtain'))}”</div>` : ''}
         </div>
         <div class="g-count">${i + 1} / ${results.length}</div>
@@ -507,7 +518,7 @@
       ov.className = `overlay gacha summary`;
       stage.innerHTML = `<div class="g-summary">
         <div class="g-sum-title">헤드헌팅 결과</div>
-        <div class="g-sum-grid">${results.map((r) => `<div class="g-sum-card r${r.def.rarity || 3}">${cardHTML(r.def, 'small')}${r.isNew ? '<img class="new" src="img/ui/gacha_new.png" alt="NEW">' : ''}</div>`).join('')}</div>
+        <div class="g-sum-grid">${results.map((r) => `<div class="g-sum-card r${r.def.rarity || 3}">${r.sub ? '<div class="op-card small g-subcard"><i class="ri cert_lo"></i><b>하급 자격증 ×5</b></div>' : cardHTML(r.def, 'small')}${r.isNew ? '<img class="new" src="img/ui/gacha_new.png" alt="NEW">' : ''}</div>`).join('')}</div>
         <button class="btn primary" id="g-close">확인</button>
       </div>`;
       $('#g-close').addEventListener('click', close);
@@ -532,7 +543,7 @@
   // =====================================================================
   // 창고 (원작: 상단 분류 탭 · 둥근 아이템 아이콘 · 개수)
   const DP_TABS = [['all', '전부'], ['use', '소모 물품'], ['base', '기초 물품'], ['grow', '육성 재료']];
-  const dpCat = (k) => (['permit', 'permit10', 'chip_cat'].includes(k) ? 'use' : ['orundum', 'originite', 'lmd', 'cert_hi', 'cert_lo', 'lantern'].includes(k) ? 'base' : 'grow');
+  const dpCat = (k) => (['permit', 'permit10', 'chip_cat'].includes(k) || k.startsWith('tok_') ? 'use' : ['orundum', 'originite', 'lmd', 'cert_hi', 'cert_lo', 'lantern'].includes(k) ? 'base' : 'grow');
   const dpTier = (k) => { const it = ITEMS[k] || {}; return k.startsWith('dual_') || k === 'exp_4' || k === 'skill_3' || it.tier === 3 || ['originite', 'cert_hi', 'permit10'].includes(k) ? 'r5' : k.startsWith('pack_') || k === 'exp_3' || k === 'skill_2' || it.tier === 2 ? 'r4' : k.startsWith('chip_') || k === 'exp_2' ? 'r3' : 'r2'; };
   const shortNum = (n) => (n >= 1e4 ? `${Math.floor(n / 1e3) / 10}만` : fmt(n));
   let dpTab = 'all';

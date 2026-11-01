@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  잿빛 등대 — 기반시설 (무역소 · 제조소 · 응접실)
+//  잿빛 등대 — 기반시설 (무역소 · 제조소 · 응접실 · 숙소)
 //  계정 데이터 player.base = { lv, ops, at, acc } (시설 id별)
 // =====================================================================
 (() => {
@@ -14,7 +14,7 @@
 
   function state() {
     const b = save.base = save.base || {};
-    for (const k of ['lv', 'ops', 'at', 'acc']) b[k] = b[k] || {};
+    for (const k of ['lv', 'ops', 'at', 'acc', 'mor']) b[k] = b[k] || {};
     const now = Date.now();
     for (const f of FAC) {
       b.lv[f.id] = Math.max(1, Math.min(MAX_LV, b.lv[f.id] | 0 || 1));
@@ -29,16 +29,28 @@
   const effOf = (f, b) => b.ops[f.id].reduce((s, id) => s + opEff(f, id), 0);
   const rateOf = (f, b) => f.rate[b.lv[f.id] - 1] * (f.out === 'trust' ? 1 : effOf(f, b));
   const capOf = (f, b) => f.rate[b.lv[f.id] - 1] * f.cap[b.lv[f.id] - 1];
+  const MOR = BASE.morale || 24;
+  const morOf = (id, b = state()) => (b.mor[id] == null ? MOR : b.mor[id]);
   // 지난 시간만큼 생산 (보관 한도까지). 응접실은 바로 신뢰도에 반영
+  //  원작처럼 일하는 오퍼레이터는 사기를 쓰고(0이면 일하지 않음), 숙소에서 회복
   function settle(b = state()) {
     const now = Date.now();
     for (const f of FAC) {
-      const h = Math.min(f.cap[b.lv[f.id] - 1], Math.max(0, (now - b.at[f.id]) / 3600e3));
+      const all = Math.max(0, (now - b.at[f.id]) / 3600e3), h = Math.min(f.cap[b.lv[f.id] - 1], all);
       b.at[f.id] = now;
-      if (!b.ops[f.id].length || h <= 0) continue;
-      if (f.out === 'trust') {
-        for (const id of b.ops[f.id]) TRAIN.addTrust(id, rateOf(f, b) * h);
-      } else b.acc[f.id] = Math.min(capOf(f, b), b.acc[f.id] + rateOf(f, b) * h);
+      if (!b.ops[f.id].length || all <= 0) continue;
+      if (f.out === 'rest') {
+        for (const id of b.ops[f.id]) b.mor[id] = Math.min(MOR, morOf(id, b) + f.rate[b.lv[f.id] - 1] * all);
+        continue;
+      }
+      let prod = 0;
+      for (const id of b.ops[f.id]) {
+        const m = morOf(id, b), work = Math.min(all, m / (BASE.drain || 1)), ph = Math.min(h, work);
+        b.mor[id] = Math.max(0, m - work * (BASE.drain || 1));
+        if (f.out === 'trust') TRAIN.addTrust(id, f.rate[b.lv[f.id] - 1] * ph);
+        else prod += f.rate[b.lv[f.id] - 1] * opEff(f, id) * ph;
+      }
+      if (f.out !== 'trust') b.acc[f.id] = Math.min(capOf(f, b), b.acc[f.id] + prod);
     }
     writeSave();
     return b;
@@ -73,20 +85,23 @@
     const el = $('#base-badge');
     if (!el) return;
     const b = settle();
-    el.classList.toggle('hidden', !FAC.some((f) => f.out !== 'trust' && b.acc[f.id] >= capOf(f, b) * 0.5));
+    el.classList.toggle('hidden', !FAC.some((f) => (f.out === 'lmd' || f.out === 'exp') && b.acc[f.id] >= capOf(f, b) * 0.5) && !FAC.some((f) => f.out !== 'rest' && b.ops[f.id].some((id) => morOf(id, b) <= 0)));
   }
   const avatar = (id) => {
     const o = OPS[id];
     return `<span class="bs-av" style="--c:${o.color}">${o.image ? `<img src="${esc(o.image)}" alt="">` : esc(o.name[0])}</span>`;
   };
-  const outText = (f, v) => (f.out === 'lmd' ? `용문폐 ${fmt(v)}` : f.out === 'exp' ? `경험치 ${fmt(v)}` : `신뢰 포인트 ${v}`);
+  const outText = (f, v) => (f.out === 'lmd' ? `용문폐 ${fmt(v)}` : f.out === 'exp' ? `경험치 ${fmt(v)}` : f.out === 'rest' ? `사기 회복 ${v}` : `신뢰 포인트 ${v}`);
+  const morBar = (id, b) => { const m = morOf(id, b); return `<i class="bs-mor ${m <= 0 ? 'zero' : m < 8 ? 'low' : ''}"><u style="width:${(m / MOR) * 100}%"></u></i><small class="bs-morn">사기 ${Math.floor(m)}/${MOR}</small>`; };
 
   RENDER.base = () => {
     const b = settle();
     $('#bs-body').innerHTML = FAC.map((f) => {
       const lv = b.lv[f.id], slots = f.slots[lv - 1], ops = b.ops[f.id], eff = effOf(f, b);
       const cap = capOf(f, b), acc = b.acc[f.id], up = f.upgrade[lv - 1];
-      const store = f.out === 'trust'
+      const store = f.out === 'rest'
+        ? `<div class="bs-rate">배치 오퍼레이터 사기 <b>+${f.rate[lv - 1]}</b>/시간 <small>(최대 ${MOR})</small></div>`
+        : f.out === 'trust'
         ? `<div class="bs-rate">배치 오퍼레이터 신뢰 포인트 <b>+${f.rate[lv - 1]}</b>/시간 <small>(최대 ${f.cap[lv - 1]}시간씩 쌓임)</small></div>`
         : `<div class="bs-rate">${ops.length ? `시간당 <b>${outText(f, rateOf(f, b))}</b> · 효율 ${Math.round(eff * 100)}%` : '<span class="bad">오퍼레이터를 배치해야 가동합니다</span>'}</div>
            <div class="bs-store"><i class="ri ${f.out === 'lmd' ? 'lmd' : 'exp_4'}"></i><div class="bs-bar"><i style="width:${(acc / cap) * 100}%"></i></div><small>${fmt(acc)} / ${fmt(cap)}</small>
@@ -96,9 +111,9 @@
         <p class="bs-desc">${esc(f.desc)}</p>
         ${store}
         <div class="bs-slots">${Array.from({ length: slots }, (_, i) => ops[i]
-          ? `<button class="bs-slot on" data-slot="${f.id}">${avatar(ops[i])}<span>${esc(OPS[ops[i]].name)}</span><em>+${Math.round(opEff(f, ops[i]) * 100)}%</em></button>`
+          ? `<button class="bs-slot on ${f.out !== 'rest' && morOf(ops[i], b) <= 0 ? 'tired' : ''}" data-slot="${f.id}">${avatar(ops[i])}<span>${esc(OPS[ops[i]].name)}</span>${f.out === 'rest' || f.out === 'trust' ? '' : `<em>+${Math.round(opEff(f, ops[i]) * 100)}%</em>`}${morBar(ops[i], b)}</button>`
           : `<button class="bs-slot" data-slot="${f.id}"><span class="bs-plus">＋</span><span>배치</span></button>`).join('')}</div>
-        <div class="bs-up">${up ? `<span>Lv.${lv + 1}: 배치 ${f.slots[lv]}명 · 생산 ${outText(f, f.rate[lv])}${f.out === 'trust' ? '' : '/시간'} · 보관 ${f.cap[lv]}시간</span>
+        <div class="bs-up">${up ? `<span>Lv.${lv + 1}: 배치 ${f.slots[lv]}명 · ${outText(f, f.rate[lv])}${f.out === 'lmd' || f.out === 'exp' ? `/시간 · 보관 ${f.cap[lv]}시간` : '/시간'}</span>
           <div class="bs-cost">${Object.entries({ lmd: up.lmd, ...up.items }).map(([k, v]) => `<span class="${ACCOUNT.bal(k) >= v ? '' : 'bad'}" data-src="${k}"><i class="ri ${k}"></i>${k === 'lmd' ? fmt(v) : `${ACCOUNT.bal(k)}/${v}`}</span>`).join('')}</div>
           <button class="btn small primary" data-up="${f.id}">확장</button>` : '<span>최대 레벨</span>'}</div>
       </section>`;
@@ -116,7 +131,7 @@
     openModal(`<div class="modal-title">${esc(f.name)} — 오퍼레이터 배치</div><div class="modal-sub">${b.ops[fid].length}/${slots}명 · 눌러서 배치 / 해제 · ${f.classes.length ? `${f.classes.map((c) => CLASSES[c].name).join(' · ')} 효율 +${Math.round(BASE.classEff * 100)}%, ` : ''}정예화 단계마다 +${Math.round(BASE.eliteEff * 100)}%</div>
       <div class="bs-pick">${list.map((o) => {
         const w = where[o.id];
-        return `<button class="bs-pk ${w === f ? 'on' : ''}" data-pick="${o.id}">${avatar(o.id)}<b>${esc(o.name)}</b><small>${f.out === 'trust' ? `신뢰도 ${Math.floor((save.trust || {})[o.id] || 0)}%` : `효율 +${Math.round(opEff(f, o.id) * 100)}%`}</small>${w && w !== f ? `<em>${esc(w.name)}</em>` : ''}</button>`;
+        return `<button class="bs-pk ${w === f ? 'on' : ''}" data-pick="${o.id}">${avatar(o.id)}<b>${esc(o.name)}</b><small>${f.out === 'trust' ? `신뢰도 ${Math.floor((save.trust || {})[o.id] || 0)}%` : f.out === 'rest' ? '' : `효율 +${Math.round(opEff(f, o.id) * 100)}%`}</small>${morBar(o.id, b)}${w && w !== f ? `<em>${esc(w.name)}</em>` : ''}</button>`;
       }).join('')}</div>`);
     $('#modal-body').querySelectorAll('[data-pick]').forEach((btn) => btn.addEventListener('click', () => {
       const id = btn.dataset.pick, cur = state();

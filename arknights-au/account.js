@@ -144,10 +144,18 @@
   const potOf = (id) => (player.owned[id] ? player.owned[id].pot || 1 : owns(id) ? 1 : 0);
   const tokenOf = (id) => (player.owned[id] && player.owned[id].tok) || 0;
   // 잠재력 증표 1개를 써서 잠재 +1
-  function usePotToken(id) {
+  // classItem: 직군 증표(tok_<직군>)를 need개 써서 올림
+  function usePotToken(id, classItem, need = 1) {
     const cur = player.owned[id];
-    if (!cur || !cur.tok) return { ok: false, why: '잠재력 증표가 없습니다' };
+    if (!cur) return { ok: false, why: '보유하지 않은 오퍼레이터입니다' };
     if ((cur.pot || 1) >= 6) return { ok: false, why: '이미 최대 잠재능력입니다' };
+    if (classItem) {
+      if (!spend({ [classItem]: need })) return { ok: false, why: '직군 증표가 부족합니다' };
+      player.owned[id] = { ...cur, pot: (cur.pot || 1) + 1 };
+      save();
+      return { ok: true, pot: player.owned[id].pot };
+    }
+    if (!cur.tok) return { ok: false, why: '잠재력 증표가 없습니다' };
     player.owned[id] = { ...cur, pot: (cur.pot || 1) + 1, tok: cur.tok - 1 };
     save();
     return { ok: true, pot: player.owned[id].pot };
