@@ -3396,3 +3396,32 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .cb-yes { background: linear-gradient(90deg, #1d5f86, #2b8fcf); color: #fff; }
 .cb-yes:disabled { background: #444; color: #888; }
 @media (max-width: 520px) { .cb-ico { width: 72px; height: 72px; } .cb-ico .ri { width: 60px; height: 60px; } }
+
+/* 원작 UI 아이콘 스프라이트 (img/ui_icons.webp · © Hypergryph/Yostar) */
+.oi { display: inline-block; width: 1em; height: 1em; background: url(img/ui_icons.webp) 0 0 / 1700% 100% no-repeat; vertical-align: middle; flex: none; }
+.oi.st_hp { background-position: 0.0000% 0; }
+.oi.st_atk { background-position: 6.2500% 0; }
+.oi.st_def { background-position: 12.5000% 0; }
+.oi.st_res { background-position: 18.7500% 0; }
+.oi.st_time { background-position: 25.0000% 0; }
+.oi.st_cost { background-position: 31.2500% 0; }
+.oi.st_block { background-position: 37.5000% 0; }
+.oi.st_aspd { background-position: 43.7500% 0; }
+.oi.ho_setting { background-position: 50.0000% 0; }
+.oi.ho_notice { background-position: 56.2500% 0; }
+.oi.ho_mail { background-position: 62.5000% 0; }
+.oi.ho_checkin { background-position: 68.7500% 0; }
+.oi.ho_hide { background-position: 75.0000% 0; }
+.oi.ms_daily { background-position: 81.2500% 0; }
+.oi.ms_weekly { background-position: 87.5000% 0; }
+.oi.ms_main { background-position: 93.7500% 0; }
+.oi.mod_orig { background-position: 100.0000% 0; }
+var.oi { font-style: normal; }
+.stat-grid i .oi { width: 20px; height: 20px; }
+.ml-stats .oi { width: 18px; height: 18px; margin-right: 2px; }
+.icon-btn .oi { width: 34px; height: 34px; }
+#btn-hideui .oi { width: 30px; height: 30px; }
+.mod-ico.orig .oi { width: 32px; height: 32px; }
+.ms-ico { width: 30px; height: 30px; }
+.stat-grid i:has(.oi) { background: none; border: none; width: 24px; height: 24px; }
+.stat-grid i .oi { width: 24px; height: 24px; }

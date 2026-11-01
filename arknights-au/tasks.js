@@ -125,7 +125,7 @@
       return h >= 24 ? `${Math.floor(h / 24)}일 ${h % 24}시간` : `${h}시간 ${Math.floor((ms % 3600e3) / 60e3)}분`;
     })();
     $('#ms-tabs').innerHTML = [['daily', '일간 임무', '24', c.d], ['weekly', '주간 임무', '7', c.w]]
-      .map(([id, ko, n, cnt]) => `<button class="${id === msTab ? 'on' : ''}" data-mstab="${id}"><i class="ms-cal">${n}</i><b>${ko}</b>${cnt ? `<i class="ms-dot">${cnt}</i>` : ''}</button>`).join('');
+      .map(([id, ko, n, cnt]) => `<button class="${id === msTab ? 'on' : ''}" data-mstab="${id}"><i class="oi ms-ico ${id === 'daily' ? 'ms_daily' : 'ms_weekly'}"></i><b>${ko}</b>${cnt ? `<i class="ms-dot">${cnt}</i>` : ''}</button>`).join('');
     const done = list.filter((x) => got.includes(x.id)).length, bonus = MISSIONS[weekly ? 'weeklyBonus' : 'dailyBonus'], bonusGot = weekly ? m.wbonus : m.bonus;
     const rows = [...list].sort((a, b) => {
       const sa = got.includes(a.id) ? 2 : progOf(a, weekly) >= a.n ? 0 : 1, sb = got.includes(b.id) ? 2 : progOf(b, weekly) >= b.n ? 0 : 1;

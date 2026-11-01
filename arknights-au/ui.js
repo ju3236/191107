@@ -462,18 +462,18 @@
     closeModal();
     playDialog(STAGES[+i][part], () => {}, STAGES[+i]);
   });
-  $('#btn-settings').innerHTML = icon('gear');
-  $('#btn-notice').innerHTML = icon('alert');
-  $('#btn-mail').innerHTML = icon('mail');
+  $('#btn-settings').innerHTML = '<span class="oi ho_setting"></span>';
+  $('#btn-notice').innerHTML = '<span class="oi ho_notice"></span>';
+  $('#btn-mail').innerHTML = '<span class="oi ho_mail"></span>';
   $('#btn-mail').addEventListener('click', () => { sfx('select'); go('mail'); });
   $('#btn-settings').addEventListener('click', openSettings);
   $('#btn-notice').addEventListener('click', () => openNotice());
-  $('#btn-attend').innerHTML = icon('calendar');
+  $('#btn-attend').innerHTML = '<span class="oi ho_checkin"></span>';
   $('#btn-attend').addEventListener('click', () => openAttendance(true));
   $('#home-special').addEventListener('click', () => { sfx('select'); if (liveEvent()) go('event'); else openAttendance(true); });
   $('#btn-feedback2').addEventListener('click', () => openFeedback());
   $('#home-news').addEventListener('click', () => { sfx('select'); go('store', 'packages'); });
-  $('#btn-hideui').innerHTML = icon('eye');
+  $('#btn-hideui').innerHTML = '<span class="oi ho_hide"></span>';
   $('#btn-asst').innerHTML = icon('swap');
   // 그림 보기: UI를 숨기고 아무 데나 누르면 돌아옴
   $('#btn-hideui').addEventListener('click', (e) => { e.stopPropagation(); $('#screen-home').classList.add('ui-hidden'); });
@@ -1046,10 +1046,10 @@
     renderLevel(base, pg);
     $('#detail-art').innerHTML = artHTML(o);
     $('#detail-stats').innerHTML = `
-      <span><i>＋</i><b>${o.hp}</b></span><span><i>⌛</i>${redeployText(o.redeploy)} <small>${o.redeploy}s</small></span>
-      <span><i>${o.class === 'medic' ? '✚' : '⚔'}</i><b>${o.atk}</b></span><span><i>◆</i>${o.cost}</span>
-      <span><i>⛨</i><b>${o.def}</b></span><span><i>✋</i>${o.block}</span>
-      <span><i>◈</i><b>${o.res || 0}</b></span><span><i>⚡</i>${speedText(o.interval)}</span>`;
+      <span><i><var class="oi st_hp"></var></i><b>${o.hp}</b></span><span><i><var class="oi st_time"></var></i>${redeployText(o.redeploy)} <small>${o.redeploy}s</small></span>
+      <span><i><var class="oi st_atk"></var></i><b>${o.atk}</b></span><span><i><var class="oi st_cost"></var></i>${o.cost}</span>
+      <span><i><var class="oi st_def"></var></i><b>${o.def}</b></span><span><i><var class="oi st_block"></var></i>${o.block}</span>
+      <span><i><var class="oi st_res"></var></i><b>${o.res || 0}</b></span><span><i><var class="oi st_aspd"></var></i>${speedText(o.interval)}</span>`;
     $('#detail-block').innerHTML = Array.from({ length: 3 }, (_, i) => `<i class="${i < o.block ? 'on' : ''}"></i>`).join('');
     $('#detail-stars').textContent = stars(o.rarity);
     const pot = ACCOUNT.potOf(o.id);
@@ -1088,7 +1088,8 @@
     $('#detail-assist').disabled = only || !owned(o.id);
   };
   // ---------- 모듈 (원작: 상세 화면 아래 칸 → 모듈 패널 → 모듈 상세 · 개방) ----------
-  const modBadge = (o, mod) => mod ? `<span class="mod-ico t${esc(mod.type || 'X')}">${mod.image ? `<img src="${esc(mod.image)}" alt="">` : `<b>${esc(mod.type || 'X')}</b>`}<small>${esc(mod.code || '')}</small></span>` : '<span class="mod-ico orig"><i></i><small>ORIGINAL</small></span>';
+  const oi = (k) => `<var class="oi ${k}"></var>`;
+  const modBadge = (o, mod) => mod ? `<span class="mod-ico t${esc(mod.type || 'X')}">${mod.image ? `<img src="${esc(mod.image)}" alt="">` : `<b>${esc(mod.type || 'X')}</b>`}<small>${esc(mod.code || '')}</small></span>` : '<span class="mod-ico orig"><var class="oi mod_orig"></var><small>ORIGINAL</small></span>';
   function renderModCard(base, o, pg, cls, arch) {
     const mods = TRAIN.modsOf(base), ms = TRAIN.modState(base.id), curMod = mods.find((m) => m.id === ms.cur);
     const archIco = PRO_IMG.has(o.class) && o.archetype ? `<img src="img/ui/sub_${esc(o.archetype)}.png" alt="">` : icon(o.class);
@@ -1142,7 +1143,7 @@
     };
     v.innerHTML = `<button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
       <div class="ml-left">
-        <h4>스탯</h4><div class="ml-stats">${stat('＋', '최대 체력', o.hp)}${stat('⌛', '재배치', redeployText(o.redeploy))}${stat('⚔', '공격', o.atk)}${stat('◆', '배치 코스트', o.cost)}${stat('⛨', '방어', o.def)}${stat('✋', '저지 가능 수', o.block)}${stat('◈', '마법 저항', o.res || 0)}${stat('⚡', '공격 속도', speedText(o.interval))}</div>
+        <h4>스탯</h4><div class="ml-stats">${stat(oi('st_hp'), '최대 체력', o.hp)}${stat(oi('st_time'), '재배치', redeployText(o.redeploy))}${stat(oi('st_atk'), '공격', o.atk)}${stat(oi('st_cost'), '배치 코스트', o.cost)}${stat(oi('st_def'), '방어', o.def)}${stat(oi('st_block'), '저지 가능 수', o.block)}${stat(oi('st_res'), '마법 저항', o.res || 0)}${stat(oi('st_aspd'), '공격 속도', speedText(o.interval))}</div>
         <h4>특성</h4><p>${esc(arch ? arch.trait : cls.trait)}${o.module && o.module.trait ? `<br><em>${esc(o.module.trait)}</em>` : ''}</p>
         <h4>재능</h4>${(def.talents || []).map((t, i) => `<div class="ml-tal ${i >= pg.elite ? 'locked' : ''}"><span>${esc(t.name)}</span><p>${esc(t.desc)}</p></div>`).join('') || '<p>재능 없음</p>'}
       </div>
