@@ -534,28 +534,66 @@
   // =====================================================================
   //  화면: 통합전략 메인
   // =====================================================================
+  // 통합전략 테마 선택 (원작: 위에 고른 테마 소개, 아래에 테마 카드)
   RENDER.is = () => {
-    const r = R(), rc = rec();
+    const r = R(), rc = rec(), total = ALL_RELICS.filter((x) => !x.na).length;
     $('#is-hub').innerHTML = `
-      <div class="is-hero">
-        <div class="is-code">${esc(D.code)}</div>
-        <h1 class="is-title">${esc(D.title)}</h1>
-        <div class="is-en">${esc(D.en)}</div>
-        <p class="is-intro">${esc(D.intro)}</p>
-        <div class="is-rec"><span>탐색 <b>${rc.runs}</b>회</span><span>완주 <b>${rc.wins}</b>회</span><span>최고 점수 <b>${rc.best}</b></span><span>완주한 최고 난이도 <b>${rc.diffMax >= 0 ? rc.diffMax : '-'}</b></span><span>소장품 도감 <b>${rc.seen.length}</b>/${ALL_RELICS.filter((x) => !x.na).length}</span>${rc.bank ? `<span>투자금 <b>${rc.bank}</b></span>` : ''}</div>
+      <div class="ist-top">
+        <div class="ist-title"><small>${esc(D.code)}</small><b>${esc(D.title)}</b><span>${esc(D.en)}</span></div>
+        <div class="ist-info">
+          <p class="ist-ok"><i>✓</i>${rc.seen.length >= total ? '모든 콘텐츠 수록 완료' : `소장품 수록 ${rc.seen.length}/${total}`}</p>
+          <div class="ist-btns"><button id="is-help">${UI.icon('book')}진행 방법</button><button id="is-dex">${UI.icon('depot')}소장품</button></div>
+          <p class="ist-intro">${esc(D.intro)}</p>
+        </div>
       </div>
-      <div class="is-actions">
-        ${r ? `<div class="is-cur">진행 중 · ${esc(diffOf(r).name)}${diffOf(r).grade >= 0 ? ` ${diffOf(r).grade}` : ''} · ${r.floor + 1}층 ${esc(D.floors[r.floor].name)} · 목표 HP ${r.life} · 분대 ${r.ops.length}명</div>
-          <button class="btn primary big" id="is-continue">탐색 계속</button>
-          <button class="btn danger" id="is-abandon">탐색 포기</button>`
-        : '<button class="btn primary big" id="is-start">탐색 시작</button>'}
-        <button class="btn" id="is-dex">소장품 도감</button>
-        <button class="btn" id="is-help">진행 방법</button>
+      <div class="ist-cards">
+        <div class="ist-col">
+          <div class="ist-lv"><small>LV</small><b>${rc.wins}</b><span>탐색 기록</span></div>
+          <button class="ist-card on" id="is-enter"><span class="ist-art" style="background-image:url(img/homebg/bg_rogue_2.webp)"></span><b>${esc(D.title)}</b><small>${esc(D.en)}</small></button>
+          <div class="ist-foot">${r ? '<span class="ist-tag">탐색 중</span>' : ''}<b>테마 진입 »</b></div>
+        </div>
+        ${[1, 2].map(() => `<div class="ist-col locked"><div class="ist-lv"><small>LV</small><b>-</b><span>준비 중</span></div><div class="ist-card"><span class="ist-art"></span><b>???</b><small>COMING SOON</small></div><div class="ist-foot"><span>추후 공개</span></div></div>`).join('')}
       </div>`;
   };
-  let abandonArmed = false;
+  // 테마 메인 (원작: 큰 테마 그림, 왼쪽 메뉴, 오른쪽 진행 상태 · 계속 탐험)
+  RENDER.isth = () => {
+    const r = R(), rc = rec(), total = ALL_RELICS.filter((x) => !x.na).length;
+    const dt = (t) => { const d = new Date(t); return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; };
+    $('#isth-main').innerHTML = `
+      <button class="isth-port" id="is-help">${UI.icon('info') || ''}<b>정보 안내 포트</b></button>
+      <div class="isth-lv"><small>LV</small><b>${rc.wins}</b><span>소장품 도감<br><em>${rc.seen.length}/${total}</em></span></div>
+      <div class="isth-title"><b>${esc(D.title)}</b><span>${esc(D.en)}</span><small>Integrated Strategies</small></div>
+      <nav class="isth-menu">
+        <button id="is-dex"><i>◈</i><span>소장품 도감</span></button>
+        <button id="is-rec"><i>✦</i><span>탐색 기록<small>완주 ${rc.wins}회 · 최고 점수 ${rc.best}</small></span></button>
+        <button id="is-bank"><i>△</i><span>미래를 위한 투자<small>${rc.bank || 0}</small></span></button>
+      </nav>
+      <div class="isth-run">
+        ${r ? `<button class="isth-quit" id="is-abandon"><i>✕</i><b>탐험 포기</b></button>
+          <div class="isth-st"><span>시작</span><b>${dt(r.started || Date.now())}</b></div>
+          <div class="isth-st"><span>현재</span><b>${r.floor + 1}층 ${esc(D.floors[r.floor].name)}</b></div>
+          <div class="isth-diff"><em>${diffOf(r).grade >= 0 ? diffOf(r).grade : '-'}</em>${esc(diffOf(r).name)}</div>
+          <button class="isth-go" id="is-continue"><b>계속<br>탐험</b></button>`
+        : `<div class="isth-diff"><em>${rc.diffMax >= 0 ? rc.diffMax : '-'}</em>완주한 최고 난이도</div>
+          <button class="isth-go" id="is-start"><b>탐험<br>시작</b></button>`}
+      </div>
+      <nav class="isth-tabs"><button class="on"><i>◇</i>정기 작전</button></nav>`;
+  };
   $('#is-hub').addEventListener('click', (e) => {
     const t = e.target;
+    if (t.closest('#is-enter')) { sfx('select'); go('isth'); return; }
+    if (t.closest('.ist-col.locked')) { UI.toast('추후 공개될 테마입니다'); }
+  });
+  function openRec() {
+    const rc = rec();
+    openModal(`<div class="modal-title">탐색 기록</div><div class="modal-sub">${esc(D.title)}</div>
+      <div class="is-rec"><span>탐색 <b>${rc.runs}</b>회</span><span>완주 <b>${rc.wins}</b>회</span><span>최고 점수 <b>${rc.best}</b></span><span>완주한 최고 난이도 <b>${rc.diffMax >= 0 ? rc.diffMax : '-'}</b></span><span>소장품 도감 <b>${rc.seen.length}</b>/${ALL_RELICS.filter((x) => !x.na).length}</span><span>투자금 <b>${rc.bank || 0}</b></span></div>`);
+  }
+  let abandonArmed = false;
+  const isClick = (e) => {
+    const t = e.target;
+    if (t.closest('#is-rec')) { openRec(); return; }
+    if (t.closest('#is-bank')) { openRec(); return; }
     if (t.closest('#is-start')) { openDiffPick(); return; }
     if (t.closest('#is-continue')) { go('isrun'); return; }
     if (t.closest('#is-abandon')) {
@@ -567,7 +605,9 @@
     }
     if (t.closest('#is-dex')) { openDex(); return; }
     if (t.closest('#is-help')) { openHelp(); }
-  });
+  };
+  $('#is-hub').addEventListener('click', isClick);
+  $('#isth-main').addEventListener('click', isClick);
 
   // 난이도 → 분대 → (탐색 시작) 초기 모집 → 출발 전 준비
   let pickDiff = null;
@@ -640,7 +680,7 @@
   // =====================================================================
   RENDER.isrun = () => {
     const r = R();
-    if (!r) { go('is'); return; }
+    if (!r) { go('isth'); return; }
     refresh();
     resumePanel();
   };
@@ -746,7 +786,7 @@
     sfx('select');
     resumePanel();
   });
-  $('#is-top').addEventListener('click', (e) => { if (e.target.closest('#isb-exit')) go('is'); });
+  $('#is-top').addEventListener('click', (e) => { if (e.target.closest('#isb-exit')) go('isth'); });
   $('#is-bottom').addEventListener('click', (e) => {
     const t = e.target;
     if (t.closest('#isb-squad')) openSquad();
@@ -1551,7 +1591,7 @@
       P().is = null;
       save();
       hidePanel();
-      go('is');
+      go('isth');
     }
   }
 

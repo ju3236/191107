@@ -2847,3 +2847,72 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .ops-panel .op-actions { order: 2; margin-top: 4px; }
 .op-node .node-label { background: rgba(20,20,22,.85); color: #fff; }
 .op-node.sel .node-label { background: #fff; color: #111; }
+
+/* ===== 통합전략 테마 선택 · 테마 메인 (원작 배치) ===== */
+#screen-is .is-bg { background: radial-gradient(ellipse at 40% 30%, rgba(40,90,110,.35), transparent 60%), #0b0c0e; }
+#screen-is .is-hub { inset: 64px 0 0 0; display: flex; flex-direction: column; gap: 10px; padding: 10px max(40px, env(safe-area-inset-left, 0px)) 20px; }
+.ist-top { flex: 1; min-height: 0; display: flex; gap: 40px; align-items: center; }
+.ist-title { flex: 1.2; display: flex; flex-direction: column; padding-left: 8%; color: #fff; text-shadow: 0 0 20px rgba(80,200,230,.5); }
+.ist-title small { font-family: var(--f-en); letter-spacing: .3em; color: #6fd3e6; }
+.ist-title b { font-size: 42px; font-weight: 300; letter-spacing: .05em; }
+.ist-title span { font-family: Georgia, serif; font-size: 30px; letter-spacing: .12em; opacity: .9; }
+.ist-info { flex: 1; color: #ddd; }
+.ist-ok { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; margin: 0 0 14px; }
+.ist-ok i { width: 26px; height: 26px; border-radius: 50%; background: #ddd; color: #111; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 15px; }
+.ist-btns { display: flex; gap: 14px; margin-bottom: 14px; }
+.ist-btns button { display: flex; align-items: center; gap: 8px; padding: 6px 26px; border: 2px solid #777; border-radius: 22px; color: #eee; background: rgba(255,255,255,.05); font: inherit; font-weight: 700; cursor: pointer; }
+.ist-btns button svg { width: 20px; height: 20px; }
+.ist-intro { font-size: 15px; line-height: 1.7; margin: 0; white-space: pre-line; }
+.ist-cards { display: flex; gap: 40px; height: 44%; min-height: 200px; }
+.ist-col { flex: 0 0 min(30%, 380px); display: flex; flex-direction: column; gap: 6px; }
+.ist-lv { display: flex; align-items: flex-end; gap: 10px; color: #ddd; }
+.ist-lv small { font-family: var(--f-en); font-size: 10px; }
+.ist-lv b { font-family: var(--f-en); font-size: 32px; font-weight: 400; line-height: 1; margin-left: -6px; }
+.ist-lv span { background: rgba(255,255,255,.08); padding: 2px 10px; font-size: 14px; }
+.ist-card { position: relative; flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 12px 16px; border: 3px solid transparent; color: #fff; text-align: left; font: inherit; cursor: pointer; background: #1b1d21; }
+.ist-card.on { border-color: #eee; }
+.ist-art { position: absolute; inset: 0; background: #222 center / cover; }
+.ist-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.7)); z-index: 1; }
+.ist-card > *:not(.ist-art) { position: relative; z-index: 2; }
+.ist-card b { font-size: 24px; font-weight: 300; }
+.ist-card small { font-family: Georgia, serif; letter-spacing: .1em; opacity: .85; }
+.ist-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; color: #fff; font-size: 17px; }
+.ist-tag { background: #1e78d6; padding: 1px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+.ist-col.locked { opacity: .45; }
+.ist-col.locked .ist-foot { color: #999; font-size: 13px; }
+#screen-isth { background: #070a14; overflow: hidden; }
+.isth-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(4,6,14,.8) 85%), url(img/homebg/bg_rogue_2.webp) center / cover; }
+.isth-main { position: absolute; inset: 0; color: #fff; }
+.isth-port { position: absolute; top: 14px; left: 240px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 18px; border-radius: 20px; background: rgba(0,0,0,.45); color: #fff; border: 0; font: inherit; cursor: pointer; }
+.isth-port svg { width: 20px; height: 20px; }
+.isth-lv { position: absolute; top: 14px; right: max(20px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 8px; text-shadow: 0 2px 6px #000; }
+.isth-lv small { font-family: var(--f-en); font-size: 11px; align-self: flex-start; }
+.isth-lv b { font-family: var(--f-en); font-size: 38px; font-weight: 400; color: #6fc6ff; line-height: 1; }
+.isth-lv span { font-size: 15px; line-height: 1.2; }
+.isth-lv em { font-style: normal; font-family: var(--f-en); color: #9fd8ff; }
+.isth-title { position: absolute; left: 50%; top: 42%; transform: translate(-30%, -50%); display: flex; flex-direction: column; text-shadow: 0 0 24px rgba(120,180,255,.7); }
+.isth-title b { font-size: 46px; font-weight: 300; }
+.isth-title span { font-family: Georgia, serif; font-size: 34px; letter-spacing: .12em; }
+.isth-title small { font-family: Georgia, serif; font-style: italic; font-size: 13px; opacity: .8; align-self: flex-end; }
+.isth-menu { position: absolute; left: max(60px, 5%); top: 26%; display: flex; flex-direction: column; gap: 30px; }
+.isth-menu button { display: flex; align-items: center; gap: 12px; color: #fff; background: none; border: 0; font: inherit; cursor: pointer; text-align: left; text-shadow: 0 2px 6px #000; }
+.isth-menu i { font-style: normal; width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; background: radial-gradient(circle, rgba(255,255,255,.18), rgba(255,255,255,.04)); border: 1px solid rgba(255,255,255,.35); }
+.isth-menu span { display: flex; flex-direction: column; font-size: 19px; font-weight: 700; }
+.isth-menu small { font-size: 12px; font-weight: 400; opacity: .8; }
+.isth-run { position: absolute; right: max(20px, env(safe-area-inset-right, 0px)); bottom: 70px; width: 260px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.isth-quit { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 14px; color: #fff; background: none; border: 0; font: inherit; cursor: pointer; text-shadow: 0 2px 6px #000; }
+.isth-quit i { font-style: normal; font-size: 46px; color: #d4243b; line-height: 1; }
+.isth-quit b { font-size: 22px; }
+.isth-st { display: flex; align-items: center; gap: 10px; }
+.isth-st span { font-size: 16px; font-weight: 700; }
+.isth-st b { min-width: 150px; text-align: center; padding: 3px 12px; background: linear-gradient(90deg, rgba(255,255,255,.12), rgba(255,255,255,.3)); font-family: var(--f-en); }
+.isth-diff { display: flex; align-items: center; gap: 10px; padding: 3px 14px 3px 4px; border-radius: 16px; background: rgba(20,40,70,.85); font-weight: 700; }
+.isth-diff em { font-style: normal; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: #2a3a55; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.isth-go { margin-top: 10px; width: 170px; height: 170px; border-radius: 50%; border: 0; cursor: pointer; font: inherit; color: #fff; background: radial-gradient(circle, rgba(60,200,180,.25), rgba(10,40,60,.6) 65%, transparent 70%); text-shadow: 0 0 12px rgba(80,220,200,.9); }
+.isth-go b { font-size: 40px; font-weight: 900; line-height: 1.1; }
+.isth-go:hover { filter: brightness(1.25); }
+.isth-tabs { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: flex; }
+.isth-tabs button { display: flex; align-items: center; gap: 10px; padding: 14px 40px; color: #fff; font-size: 20px; font-weight: 700; background: linear-gradient(0deg, rgba(40,120,230,.45), transparent); border: 0; border-bottom: 3px solid #4aa3ff; font: inherit; }
+.isth-tabs i { font-style: normal; }
+@media (max-width: 760px) { .ist-top { flex-direction: column; gap: 10px; } .ist-cards { gap: 12px; } .ist-col { flex-basis: 80%; } .isth-menu { top: 18%; gap: 14px; } .isth-title { left: 8%; transform: none; top: 46%; } .isth-title b { font-size: 26px; } .isth-title span { font-size: 18px; } .isth-port { left: 16px; top: 64px; } }
+@media (max-height: 480px) { .ist-title b { font-size: 28px; } .ist-title span { font-size: 18px; } .ist-intro { font-size: 12px; } .isth-go { width: 110px; height: 110px; } .isth-go b { font-size: 26px; } .isth-run { bottom: 52px; } .isth-tabs button { padding: 6px 20px; font-size: 15px; } .isth-menu { gap: 10px; } .isth-menu i { width: 36px; height: 36px; font-size: 18px; } .isth-title b { font-size: 30px; } }
