@@ -124,30 +124,31 @@
       const ms = d.getTime() + 4 * 3600e3 - Date.now(), h = Math.floor(ms / 3600e3);
       return h >= 24 ? `${Math.floor(h / 24)}일 ${h % 24}시간` : `${h}시간 ${Math.floor((ms % 3600e3) / 60e3)}분`;
     })();
-    $('#ms-tabs').innerHTML = [['daily', '일일 임무', 'DAILY', c.d], ['weekly', '주간 임무', 'WEEKLY', c.w]]
-      .map(([id, ko, en, n]) => `<button class="${id === msTab ? 'on' : ''}" data-mstab="${id}"><small>${en}</small><b>${ko}</b>${n ? `<i class="ms-dot">${n}</i>` : ''}</button>`).join('');
+    $('#ms-tabs').innerHTML = [['daily', '일간 임무', '24', c.d], ['weekly', '주간 임무', '7', c.w]]
+      .map(([id, ko, n, cnt]) => `<button class="${id === msTab ? 'on' : ''}" data-mstab="${id}"><i class="ms-cal">${n}</i><b>${ko}</b>${cnt ? `<i class="ms-dot">${cnt}</i>` : ''}</button>`).join('');
     const done = list.filter((x) => got.includes(x.id)).length, bonus = MISSIONS[weekly ? 'weeklyBonus' : 'dailyBonus'], bonusGot = weekly ? m.wbonus : m.bonus;
     const rows = [...list].sort((a, b) => {
       const sa = got.includes(a.id) ? 2 : progOf(a, weekly) >= a.n ? 0 : 1, sb = got.includes(b.id) ? 2 : progOf(b, weekly) >= b.n ? 0 : 1;
       return sa - sb;
     }).map((x) => {
-      const p = progOf(x, weekly), fin = p >= x.n, has = got.includes(x.id);
+      const p = progOf(x, weekly), fin = p >= x.n, has = got.includes(x.id), rw = Object.entries(x.reward);
       return `<div class="ms-row ${has ? 'got' : fin ? 'ready' : ''}">
-        <div class="ms-info"><b>${esc(x.text)}</b><div class="ms-bar"><i style="width:${(p / x.n) * 100}%"></i></div><small>${fmt(p)}/${fmt(x.n)}</small></div>
-        <div class="ms-rew">${Object.entries(x.reward).map(([k, v]) => `<span title="${esc(ITEMS[k].name)}">${ico(k)}${fmt(v)}</span>`).join('')}</div>
-        <button class="ms-claim" data-claim="${x.id}" ${fin && !has ? '' : 'disabled'}>${has ? '수령 완료' : fin ? '수령' : '진행 중'}</button>
+        <span class="ms-chk">${has || fin ? '✓' : ''}</span>
+        <div class="ms-info"><small class="ms-req">requirement</small><b>${esc(x.text)}</b></div>
+        <button class="ms-act" data-claim="${x.id}" ${fin && !has ? '' : 'disabled'}>
+          ${has ? '<span class="ms-st">수령 완료</span>' : fin ? '<span class="ms-st">수령하기</span>' : `<span class="ms-prog"><small>${fmt(p)}/${fmt(x.n)}</small><span class="ms-bar"><i style="width:${(p / x.n) * 100}%"></i></span></span>`}
+          <span class="ms-rw">${rw.slice(0, 2).map(([k, v]) => `<span title="${esc(ITEMS[k].name)}">${ico(k)}<em>×${fmt(v)}</em></span>`).join('')}</span>
+        </button>
       </div>`;
     }).join('');
+    // 왼쪽: 보상 세트 (임무마다의 보상 · 모두 완료 보상)
+    const sets = list.map((x, i) => `<div class="ms-set ${got.includes(x.id) ? 'got' : ''}"><small>reward set - ${String(i).padStart(3, '0')}</small><span class="ms-set-st">${got.includes(x.id) ? '완료' : progOf(x, weekly) >= x.n ? '수령 가능' : '진행 중'}</span><span class="ms-set-rw">${Object.entries(x.reward).map(([k, v]) => `<span>${ico(k)}<em>${fmt(v)}</em></span>`).join('')}</span></div>`).join('')
+      + `<div class="ms-set bonus ${bonusGot ? 'got' : done >= list.length ? 'ready' : ''}"><small>${weekly ? '주간' : '일간'} 임무 모두 완료 ${done}/${list.length}</small><span class="ms-set-rw">${Object.entries(bonus).map(([k, v]) => `<span>${ico(k)}<em>${fmt(v)}</em></span>`).join('')}</span>
+        <button data-claim="${weekly ? 'wbonus' : 'bonus'}" ${!bonusGot && done >= list.length ? '' : 'disabled'}>${bonusGot ? '완료' : '수령'}</button></div>`;
     $('#ms-main').innerHTML = `
-      <div class="ms-head">
-        <div class="ms-all"><small>${weekly ? '주간' : '일일'} 임무 완료</small><b>${done}<span>/${list.length}</span></b></div>
-        <div class="ms-bonus ${bonusGot ? 'got' : done >= list.length ? 'ready' : ''}">
-          <small>모두 완료 보상</small><div>${Object.entries(bonus).map(([k, v]) => `<span>${ico(k)}${fmt(v)}</span>`).join('')}</div>
-          <button data-claim="${weekly ? 'wbonus' : 'bonus'}" ${!bonusGot && done >= list.length ? '' : 'disabled'}>${bonusGot ? '수령 완료' : '수령'}</button>
-        </div>
+      <aside class="ms-side"><div class="ms-sets">${sets}</div>
         <div class="ms-reset">초기화까지 <b>${nextReset}</b></div>
-        <button class="ms-claim-all" id="ms-claim-all" ${(weekly ? c.w : c.d) ? '' : 'disabled'}>모두 수령</button>
-      </div>
+        <button class="ms-claim-all" id="ms-claim-all" ${(weekly ? c.w : c.d) ? '' : 'disabled'}>모두 수령</button></aside>
       <div class="ms-list">${rows}</div>`;
     badge();
   };

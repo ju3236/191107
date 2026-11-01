@@ -2827,6 +2827,15 @@ const TRAIN_GIFT = { exp_4: 40, exp_3: 30, lmd: 150000, m_rock: 10, m_sugar: 10,
 // 처음 시작할 때 주는 재화
 const STARTER_GIFT = { orundum: 6000, permit10: 1, lmd: 10000 };
 
+// 우편함 — 운영 메일. start 날짜(오전 4시)부터 days일 동안 받을 수 있음 (계정 생성일보다 오래된 메일도 받음)
+//  from: 보낸 오퍼레이터 id · items: 첨부 보상 (없으면 안내 메일)
+const MAILS = [
+  { id: 'm_welcome', from: 'byeol', title: '로도스 아일랜드에 오신 것을 환영합니다', start: '2026-10-01', days: 3650,
+    body: '박사님, 잿빛 등대에 오신 것을 환영합니다. 작전에 필요한 물자를 조금 준비해 두었어요. 앞으로 잘 부탁드립니다!', items: { orundum: 600, permit: 1 } },
+  { id: 'm_lv_reset', from: 'russell', title: '박사 레벨 체계 변경 안내', start: '2026-11-01', days: 30,
+    body: '박사 레벨이 별 개수가 아니라 작전에서 사용한 이성에 따라 오르도록 바뀌었습니다. 모든 계정의 레벨이 1부터 다시 시작되어, 불편을 드린 점에 대한 보상을 첨부합니다.', items: { originite: 3, exp_4: 5 } },
+];
+
 // 자격증 교환소 (구매센터 탭) — 원작처럼 고급 자격증(5 · 6성 중복) · 초급 자격증(3 · 4성 중복)으로 교환. 매달 1일 오전 4시에 수량 초기화
 //  op: 이달의 오퍼레이터 (레어도별로 매달 바뀜, 헤드헌팅에 나오는 오퍼레이터 중에서) · items: 아이템 · limit: 한 달 교환 가능 수
 const CERT_SHOP = {

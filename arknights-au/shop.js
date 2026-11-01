@@ -315,6 +315,7 @@
   const opImg = (o) => (o.image ? `<img src="${esc(o.image)}" alt="" draggable="false">` : `<span class="hh-ph" style="--c:${o.color}">${esc(o.name[0])}</span>`);
   RENDER.headhunt = () => {
     UI.renderResources();
+    $('#hh-res').innerHTML = [['permit', 'permit'], ['permit10', 'permit10'], ['originite', 'originite'], ['orundum', 'orundum']].map(([k]) => `<span class="hh-r">${ico(k)}<b>${fmt(ACCOUNT.bal(k))}</b></span>`).join('');
     const list = banners();
     if (!hhSel || !list.find((x) => x.key === hhSel)) hhSel = list[0].key;
     const k = list.findIndex((x) => x.key === hhSel), bn = list[k];
@@ -337,13 +338,15 @@
           <div class="hh-desc">
             <p>${feat.length ? `${feat.filter((o) => o.rarity === 6).map((o) => esc(o.name)).join(' · ') || feat.map((o) => esc(o.name)).join(' · ')} 출현 확률 UP — 해당 등급을 얻으면 ${bn.limited ? '6성 70% · 5성 50%' : '50%'} 확률로 등장${bn.limited ? ' · 한정 헤드헌팅 (천장 따로 · 300회 교환)' : ''}` : '이 헤드헌팅은 모든 오퍼레이터가 같은 확률로 등장합니다'}</p>
             <p>${end}</p>
-            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">6성 미획득 누적 횟수 <b>${pityOf(bn.key)}</b>${bn.limited ? ' (이 배너)' : ''}</span></div>
+            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">${bn.limited ? '한정 헤드헌팅' : '표준 셀렉션'} 누적 횟수 <b>${pityOf(bn.key)}</b>${bn.limited ? ' (이 배너)' : ''}</span></div>
           </div>
         </div>
         <div class="hh-pull">
-          <div class="hh-ribbon"><b>${Math.round(rate6(bn.key) * 100)}%</b> 다음 6성 확률 <small>50회 이후 1회마다 +2%</small></div>
+          ${g10Of(bn.key) < GACHA.newbieGuarantee
+            ? `<div class="hh-ribbon g10"><b>${GACHA.newbieGuarantee}</b>회 이내 <b>5★이상</b> 확정 획득 <small>${g10Of(bn.key)}/${GACHA.newbieGuarantee}</small><span class="g10-badge">1회 한정<br>신규혜택</span></div>`
+            : `<div class="hh-ribbon"><b>${Math.round(rate6(bn.key) * 100)}%</b> 다음 6성 확률 <small>50회 이후 1회마다 +2%</small></div>`}
           ${bn.limited && feat.some((o) => o.rarity === 6) ? sparkHTML(bn) : ''}
-          ${g10Of(bn.key) < GACHA.newbieGuarantee ? `<div class="hh-newbie">이 헤드헌팅의 첫 ${GACHA.newbieGuarantee}회 안에 5성 이상 1명 확정 <b>${g10Of(bn.key)}/${GACHA.newbieGuarantee}</b></div>` : ''}
+
           <div class="hh-costs"><span>${payLabel(1)}</span><span>${payLabel(10)}</span></div>
           <div class="hh-pbtns"><button class="hh-p1" data-pull="1">1회 진행</button><button class="hh-p10" data-pull="10">10회 진행</button></div>
         </div>

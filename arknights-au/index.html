@@ -19,24 +19,32 @@
     <div class="home-icons">
       <button class="icon-btn" id="btn-settings" aria-label="설정"></button>
       <button class="icon-btn" id="btn-notice" aria-label="공지" title="공지"></button>
+      <button class="icon-btn" id="btn-mail" aria-label="우편함" title="우편함"></button>
       <button class="icon-btn hidden" id="btn-attend" aria-label="출석" title="출석 이벤트"></button>
-      <button class="icon-btn" id="btn-archive" aria-label="기록"></button>
       <button class="icon-btn" id="btn-boss" aria-label="화면 숨기기" title="화면 숨기기"></button>
       <button class="icon-btn" id="btn-feedback" aria-label="버그 신고 · 건의" title="버그 신고 · 건의"></button>
       <button class="icon-btn hidden" id="btn-fullscreen" aria-label="전체 화면"></button>
     </div>
 
     <div class="home-side">
-      <div class="home-banner" id="home-banner"></div>
-      <button class="home-event hidden" id="home-event"></button>
+      <button class="home-special hidden" id="home-special"><span class="hs-ico" data-ico="calendar"></span><b>스페셜<br>이벤트</b></button>
+      <div class="home-banner hidden" id="home-banner"></div>
       <div class="home-level">
         <div class="lv-ring"><b id="home-lv">1</b><small>LV</small></div>
       </div>
-      <div class="home-name"><b id="home-name"></b><small id="home-id"></small></div>
+      <div class="home-name"><b id="home-name"></b><small id="home-id"></small>
+        <span class="home-rbtns"><button id="btn-hideui" aria-label="그림 보기" title="그림 보기"></button><button id="btn-asst" aria-label="비서 교체" title="비서 교체"></button></span></div>
       <button class="home-voice" id="home-voice">
         <span class="voice-tag">VOICE</span>
         <span id="home-voice-text"></span>
       </button>
+      <div class="home-news">
+        <button class="hn-pack" id="home-news"></button>
+        <div class="hn-side">
+          <button class="hn-tile" id="btn-feedback2"><b>FEEDBACK</b><small>건의</small></button>
+          <button class="hn-tile" id="btn-archive"><b>ARCHIVES</b><small>파일</small></button>
+        </div>
+      </div>
     </div>
 
     <div class="home-panel">
@@ -44,30 +52,43 @@
         <span class="hp-clock" id="home-clock"></span>
         <div class="resbar" data-resbar></div>
       </div>
-      <button class="tile tile-terminal" data-go="operations" data-bg="terminal">
-        <div class="tt-gauge">
-          <div class="tt-num" id="home-progress">0</div>
-          <div class="tt-sub" id="home-progress-max">/3</div>
-          <div class="tt-cap">CLEAR</div>
+      <div class="tile-row tr-terminal">
+        <button class="tile tile-terminal" data-go="operations" data-bg="terminal">
+          <div class="tt-gauge">
+            <div class="tt-num" id="home-sanity">0</div>
+            <div class="tt-sub" id="home-sanity-max">이성/82</div>
+            <div class="tt-cap">SANITY</div>
+          </div>
+          <div class="tt-body">
+            <div class="tile-en">TERMINAL</div>
+            <div class="tile-ko">작전</div>
+            <div class="tt-current"><span class="chip">현재</span><span id="home-current"></span></div>
+            <span class="hidden" id="home-progress"></span><span class="hidden" id="home-progress-max"></span>
+          </div>
+        </button>
+        <div class="tt-side">
+          <button class="home-event hidden" id="home-event"></button>
+          <button class="home-mini" id="home-is" data-go="is"><span class="hm-bg"></span><small>INTEGRATED STRATEGIES</small><b>통합전략</b></button>
         </div>
-        <div class="tt-body">
-          <div class="tile-en">TERMINAL</div>
-          <div class="tile-ko">작전</div>
-          <div class="tt-current"><span class="chip">현재</span><span id="home-current"></span></div>
-        </div>
-      </button>
+      </div>
       <div class="tile-row">
         <button class="tile" data-go="formation" data-bg="squads"><span class="tile-ico" data-ico="users"></span><span><span class="tile-en">SQUADS</span><span class="tile-ko">편성</span></span></button>
         <button class="tile" data-go="roster" data-bg="operator"><span class="tile-ico" data-ico="guard"></span><span><span class="tile-en">OPERATOR</span><span class="tile-ko">오퍼레이터</span></span></button>
       </div>
       <div class="tile-row">
         <button class="tile tile-store" data-go="store" data-bg="store"><span class="tile-ico" data-ico="store"></span><span><span class="tile-en">STORE</span><span class="tile-ko">구매센터</span></span></button>
-        <button class="tile tile-accent" data-go="headhunt" data-bg="headhunt"><span class="tile-ico" data-ico="headhunt"></span><span><span class="tile-en">HEADHUNT</span><span class="tile-ko">헤드헌팅</span></span></button>
+        <div class="recruit-band">
+          <span class="rb-head">RECRUITMENT</span>
+          <div class="rb-row">
+            <button class="tile tile-cert" data-go="store" data-arg="cert"><span class="tile-ico" data-ico="store"></span><span><span class="tile-en">EXCHANGE</span><span class="tile-ko">자격증 교환소</span></span></button>
+            <button class="tile tile-accent" data-go="headhunt" data-bg="headhunt"><span class="tile-ico" data-ico="headhunt"></span><span><span class="tile-en">HEADHUNT</span><span class="tile-ko">헤드헌팅</span></span></button>
+          </div>
+        </div>
       </div>
       <div class="tile-row">
-        <button class="tile tile-base" data-go="base" data-bg="base"><span class="tile-ico" data-ico="base"></span><span><span class="tile-en">BASE</span><span class="tile-ko">기반시설</span></span><span class="tile-badge hidden" id="base-badge">!</span></button>
-        <button class="tile" data-go="depot" data-bg="depot"><span class="tile-ico" data-ico="depot"></span><span><span class="tile-en">DEPOT</span><span class="tile-ko">창고</span></span></button>
         <button class="tile tile-mission" data-go="missions" data-bg="mission"><span class="tile-ico" data-ico="mission"></span><span><span class="tile-en">MISSION</span><span class="tile-ko">임무</span></span><span class="tile-badge hidden" id="mission-badge"></span></button>
+        <button class="tile tile-base" data-go="base" data-bg="base"><span class="tile-ico" data-ico="base"></span><span><span class="tile-en">BASE</span><span class="tile-ko">기반시설</span></span><span class="tile-badge hidden" id="base-badge">!</span></button>
+        <button class="tile tile-depot" data-go="depot" data-bg="depot"><span class="tile-ico" data-ico="depot"></span><span><span class="tile-en">DEPOT</span><span class="tile-ko">창고</span></span></button>
         <button class="tile tile-admin hidden" id="tile-admin" data-go="admin"><span class="tile-ico" data-ico="admin"></span><span><span class="tile-en">ADMIN</span><span class="tile-ko">관리자</span></span></button>
       </div>
     </div>
@@ -169,6 +190,16 @@
     <div class="formation-foot" id="formation-foot"></div>
   </section>
 
+  <!-- ===================== 우편함 ===================== -->
+  <section id="screen-mail" class="screen mail-screen">
+    <header class="mail-top">
+      <button class="nav-btn" data-back aria-label="뒤로"></button>
+      <nav class="mail-tabs" id="mail-tabs"></nav>
+    </header>
+    <div class="mail-list" id="mail-list"></div>
+    <footer class="mail-foot" id="mail-foot"></footer>
+  </section>
+
   <!-- ===================== 사이드 스토리 이벤트 (홈 배너에서 진입) ===================== -->
   <section id="screen-event" class="screen ev-screen">
     <div class="evh-bg" id="evh-bg"></div>
@@ -245,7 +276,7 @@
         <button class="nav-btn" data-back aria-label="뒤로"></button>
         <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
       </div>
-      <div class="resbar" data-resbar></div>
+      <div class="hh-res" id="hh-res"></div>
     </header>
     <div class="hh-body">
       <nav class="hh-banners" id="hh-banners"></nav>
@@ -302,11 +333,10 @@
       <div class="nav-group">
         <button class="nav-btn" data-back aria-label="뒤로"></button>
         <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
-        <span class="topbar-title light-title">임무</span>
       </div>
+      <nav class="ms-tabs" id="ms-tabs"></nav>
     </header>
     <div class="ms-body">
-      <nav class="ms-tabs" id="ms-tabs"></nav>
       <div class="ms-main" id="ms-main"></div>
     </div>
   </section>

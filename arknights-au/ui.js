@@ -75,6 +75,9 @@
     gear: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
     mail: '<path d="M3 6h18v12H3z"/><path d="m3 6 9 7 9-7"/>',
     calendar: '<rect x="3" y="5" width="18" height="16"/><path d="M3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/>',
+    alert: '<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/>',
+    eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20 20 4"/>',
+    swap: '<path d="M20 11a8 8 0 0 0-14-5L4 8M4 4v4h4M4 13a8 8 0 0 0 14 5l2-2M20 20v-4h-4"/>',
     book: '<path d="M3 5c3-1.2 6-1.2 9 1 3-2.2 6-2.2 9-1v14c-3-1.2-6-1.2-9 1-3-2.2-6-2.2-9-1z"/><path d="M12 6v14"/>',
     alert: '<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/>',
     users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.8 2.9-6 6.5-6s6.5 2.2 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.3c2 .7 3.5 2.6 3.5 5.7"/>',
@@ -272,7 +275,7 @@
   }
   document.addEventListener('click', (e) => {
     const g = e.target.closest('[data-go]');
-    if (g) { go(g.dataset.go); return; }
+    if (g) { go(g.dataset.go, g.dataset.arg); return; }
     if (e.target.closest('[data-back]')) { back(); return; }
     const src = e.target.closest('[data-src]');
     if (src && ITEMS[src.dataset.src]) openSource(src.dataset.src);
@@ -324,8 +327,8 @@
     fixPlayer();
     const a = OPS[save.assistant];
     $('#home-art').innerHTML = artHTML(a);
-    $('#home-banner').innerHTML = `<small>${esc(GAME_INFO.subtitle)}</small><b>${esc(GAME_INFO.title)}</b>`;
     renderHomeEvent();
+    mailDot();
     const ts = totalStars();
     const pl = ACCOUNT.level();
     $('#home-lv').textContent = pl.lv;
@@ -337,11 +340,17 @@
     $('#tile-admin').classList.toggle('hidden', !ACCOUNT.isAdmin);
     // 인사: 게임을 켜고 처음 메인 화면에 왔을 때
     if (!greeted) { greeted = true; if (!assistantLine) assistantLine = line(a, 'greet') || null; }
-    const done = STAGES.filter(cleared).length;
-    $('#home-progress').textContent = done;
-    $('#home-progress-max').textContent = '/' + STAGES.length;
-    const cur = STAGES.find((st) => !cleared(st)) || STAGES[STAGES.length - 1];
-    $('#home-current').textContent = `${cur.code} ${cur.name}`;
+    const main = STAGES.filter((st) => !st.supply && !st.event);
+    const cur = main.find((st) => !cleared(st));
+    $('#home-current').textContent = cur ? `${cur.code} ${cur.name}` : '올 클리어';
+    $('#home-sanity').textContent = ACCOUNT.sanity();
+    $('#home-sanity-max').textContent = `이성/${ACCOUNT.SANITY_MAX}`;
+    // 왼쪽 아래: 구매센터 패키지 소식 · 통합전략 진행 상태
+    const pk = SHOP.packages.find((p) => p.tag && p.tag.includes('한정')) || SHOP.packages[0];
+    $('#home-news').innerHTML = pk ? `<span class="hn-art">${Object.keys(pk.items).slice(0, 2).map((k) => `<i class="ri ${k}"></i>`).join('')}</span><small>PACK</small><b>${esc(pk.name)}</b><em>₩${pk.price.toLocaleString('ko-KR')}</em>` : '';
+    $('#home-news').dataset.pkg = pk ? pk.id : '';
+    const isOn = window.IS && IS.run;
+    $('#home-is').innerHTML = `<span class="hm-bg"></span>${isOn ? '<span class="hm-tag">탐험 중</span>' : ''}<small>INTEGRATED STRATEGIES</small><b>통합전략</b>`;
     setVoice(false);
   };
   $('#home-voice').addEventListener('click', () => setVoice(true));
@@ -416,13 +425,92 @@
     playDialog(STAGES[+i][part], () => {}, STAGES[+i]);
   });
   $('#btn-settings').innerHTML = icon('gear');
-  $('#btn-notice').innerHTML = icon('mail');
-  $('#btn-archive').innerHTML = icon('book');
+  $('#btn-notice').innerHTML = icon('alert');
+  $('#btn-mail').innerHTML = icon('mail');
+  $('#btn-mail').addEventListener('click', () => { sfx('select'); go('mail'); });
   $('#btn-settings').addEventListener('click', openSettings);
   $('#btn-notice').addEventListener('click', () => openNotice());
   $('#btn-attend').innerHTML = icon('calendar');
   $('#btn-attend').addEventListener('click', () => openAttendance(true));
+  $('#home-special').addEventListener('click', () => { sfx('select'); if (liveEvent()) go('event'); else openAttendance(true); });
+  $('#btn-feedback2').addEventListener('click', () => openFeedback());
+  $('#home-news').addEventListener('click', () => { sfx('select'); go('store', 'packages'); });
+  $('#btn-hideui').innerHTML = icon('eye');
+  $('#btn-asst').innerHTML = icon('swap');
+  // 그림 보기: UI를 숨기고 아무 데나 누르면 돌아옴
+  $('#btn-hideui').addEventListener('click', (e) => { e.stopPropagation(); $('#screen-home').classList.add('ui-hidden'); });
+  $('#screen-home').addEventListener('click', (e) => { if ($('#screen-home').classList.contains('ui-hidden')) { e.stopPropagation(); $('#screen-home').classList.remove('ui-hidden'); } }, true);
+  // 비서 교체: 등록한 비서들을 차례로
+  $('#btn-asst').addEventListener('click', () => {
+    const list = (save.assistants || []).filter((id) => OPS[id]);
+    if (list.length < 2) { toast('오퍼레이터 상세에서 비서를 더 추가하면 바꿀 수 있습니다'); return; }
+    save.assistant = list[(list.indexOf(save.assistant) + 1) % list.length];
+    writeSave(); sfx('select'); greeted = false; RENDER.home();
+  });
   $('#home-event').addEventListener('click', () => { sfx('select'); go('event'); });
+
+  // ---------- 우편함 ----------
+  const mailSave = () => { save.mail = save.mail || { read: [], got: [], del: [] }; return save.mail; };
+  const mailExp = (m) => new Date(`${m.start}T04:00:00`).getTime() + m.days * 864e5;
+  const mailsLive = () => (typeof MAILS !== 'undefined' ? MAILS : []).filter((m) => dayKey() >= m.start && Date.now() < mailExp(m));
+  let mailTab = 'mail';
+  function mailDot() {
+    const sv = mailSave(), n = mailsLive().filter((m) => !sv.del.includes(m.id) && (!sv.read.includes(m.id) || (m.items && !sv.got.includes(m.id)))).length;
+    $('#btn-mail').classList.toggle('has-new', n > 0);
+  }
+  RENDER.mail = () => {
+    const sv = mailSave();
+    $('#mail-tabs').innerHTML = [['mail', '메일', 'mail'], ['box', '보관함', 'book']].map(([k, n, ic]) => `<button class="${k === mailTab ? 'on' : ''}" data-mtab="${k}">${icon(ic)}<span>${n}</span></button>`).join('');
+    const live = mailsLive();
+    const list = mailTab === 'mail' ? live.filter((m) => !sv.del.includes(m.id)) : (typeof MAILS !== 'undefined' ? MAILS : []).filter((m) => sv.got.includes(m.id));
+    $('#mail-list').innerHTML = list.map((m) => {
+      const o = OPS[m.from], left = Math.max(0, Math.ceil((mailExp(m) - Date.now()) / 864e5)), got = sv.got.includes(m.id), read = sv.read.includes(m.id);
+      return `<div class="mail-row ${read && (!m.items || got) ? 'read' : ''}">
+        <div class="mail-av">${o && o.image ? `<img src="${esc(o.image)}" alt="">` : ''}</div>
+        <div class="mail-main"><b>${esc(m.title)}</b>
+          <div class="mail-meta"><span class="mail-from">From ${esc(o ? o.name : '로도스 아일랜드')}</span>${m.items ? `<span class="mail-items">${Object.keys(m.items).map((k) => `<i class="ri ${k}"></i>`).join('')}</span>` : ''}
+          <span class="mail-exp"><em>${m.start}</em> ${mailTab === 'mail' ? `${left}일 후 유효기간 만료` : '수령 완료'}</span></div></div>
+        <div class="mail-acts"><button data-mread="${esc(m.id)}">확인</button><button data-mget="${esc(m.id)}" ${m.items && !got && mailTab === 'mail' ? '' : 'disabled'}>${got ? '수령 완료' : '수령'}</button></div></div>`;
+    }).join('') || `<p class="mail-empty">${mailTab === 'mail' ? '받은 메일이 없습니다.' : '보관함이 비어 있습니다.'}</p>`;
+    const unread = live.filter((m) => !sv.del.includes(m.id) && !sv.read.includes(m.id)).length, claim = live.filter((m) => !sv.del.includes(m.id) && m.items && !sv.got.includes(m.id)).length;
+    $('#mail-foot').innerHTML = `<span class="mail-cnt"><b>${list.length}/100 <em>미확인 ${unread}</em></b><small>보관 한도를 초과하면 가장 오래된 메일이 삭제됩니다. 수령한 메일은 보관함에 남습니다.</small></span>
+      ${mailTab === 'mail' ? `<button id="mail-del">읽은 메일 삭제</button><button class="primary" id="mail-all" ${claim ? '' : 'disabled'}>전부 수령</button>` : ''}`;
+    mailDot();
+  };
+  function mailGet(ids) {
+    const sv = mailSave(), total = {};
+    for (const id of ids) {
+      const m = MAILS.find((x) => x.id === id);
+      if (!m || !m.items || sv.got.includes(id)) continue;
+      sv.got.push(id); if (!sv.read.includes(id)) sv.read.push(id);
+      for (const [k, n] of Object.entries(m.items)) total[k] = (total[k] || 0) + n;
+    }
+    if (!Object.keys(total).length) return;
+    ACCOUNT.earn(total); writeSave(); renderResources(); sfx('select');
+    toast(Object.entries(total).map(([k, n]) => `${ITEMS[k].name} +${n.toLocaleString('ko-KR')}`).join(' · '));
+  }
+  $('#mail-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-mtab]'); if (b) { mailTab = b.dataset.mtab; sfx('select'); RENDER.mail(); } });
+  $('#mail-list').addEventListener('click', (e) => {
+    const r = e.target.closest('[data-mread]'), g = e.target.closest('[data-mget]');
+    if (g) { mailGet([g.dataset.mget]); RENDER.mail(); return; }
+    if (!r) return;
+    const m = MAILS.find((x) => x.id === r.dataset.mread), sv = mailSave(), o = OPS[m.from];
+    if (!sv.read.includes(m.id)) { sv.read.push(m.id); writeSave(); }
+    openModal(`<div class="modal-title">${esc(m.title)}</div><div class="modal-sub">From ${esc(o ? o.name : '로도스 아일랜드')} · ${m.start}</div><p class="modal-text">${esc(m.body || '')}</p>
+      ${m.items ? `<div class="px-grid">${Object.entries(m.items).map(([k, n]) => `<div class="px-item"><i class="ri ${k} big"></i><b>${n.toLocaleString('ko-KR')}</b><span>${esc(ITEMS[k].name)}</span></div>`).join('')}</div>` : ''}
+      ${m.items && !sv.got.includes(m.id) ? '<div class="panel-btns"><button class="btn primary" id="mail-get1">수령</button></div>' : ''}`);
+    const b1 = $('#mail-get1'); if (b1) b1.addEventListener('click', () => { mailGet([m.id]); closeModal(); RENDER.mail(); });
+    RENDER.mail();
+  });
+  $('#mail-foot').addEventListener('click', (e) => {
+    const sv = mailSave();
+    if (e.target.closest('#mail-all')) { mailGet(mailsLive().filter((m) => !sv.del.includes(m.id)).map((m) => m.id)); RENDER.mail(); }
+    if (e.target.closest('#mail-del')) {
+      const del = mailsLive().filter((m) => sv.read.includes(m.id) && (!m.items || sv.got.includes(m.id)) && !sv.del.includes(m.id)).map((m) => m.id);
+      if (!del.length) { toast('삭제할 읽은 메일이 없습니다'); return; }
+      sv.del.push(...del); writeSave(); RENDER.mail(); toast(`메일 ${del.length}통을 삭제했습니다`);
+    }
+  });
 
   // ---------- 사이드 스토리 이벤트 · 이벤트 상점 · 출석 ----------
   const mdText = (d) => { const [, m, dd] = d.split('-').map(Number); return `${m}월 ${dd}일`; };
@@ -585,6 +673,7 @@
     if (ev) el.innerHTML = `<span class="he-bg" style="background-image:url('${esc(ev.bg)}')"></span><small>${esc(ev.tag)} · D-${daysLeft(ev.end)}</small><b>${esc(ev.name)}</b><em>이벤트 보기 ▶</em>`;
     const att = typeof ATTENDANCE !== 'undefined' && eventLive(ATTENDANCE);
     $('#btn-attend').classList.toggle('hidden', !att);
+    $('#home-special').classList.toggle('hidden', !ev && !att);
     if (att) $('#btn-attend').classList.toggle('has-new', attState().last !== dayKey() && attState().n < ATTENDANCE.rewards.length);
     if (att && !attPolled) { attPolled = true; pollAttendance(0); }
   }
