@@ -58,6 +58,7 @@
     out.spark = obj(o.spark);
     out.sparkGot = obj(o.sparkGot);
     out.newbie = num(o.newbie, 0, 0, 99);
+    out.g10 = obj(o.g10);
     out.certShop = o.certShop && typeof o.certShop === 'object' ? { m: str(o.certShop.m, 10), b: obj(o.certShop.b) } : null;
     out.nick = str(o.nick, 16);
     delete out.known;
@@ -288,6 +289,7 @@
     b = obj(b);
     return {
       id: str(b.id, 40) || 'b' + i, name: str(b.name, 30), tag: str(b.tag, 20),
+      limited: !!b.limited,
       until: /^\d{4}-\d{2}-\d{2}$/.test(b.until) ? b.until : '',
       featured: Array.isArray(b.featured) ? b.featured.filter((x) => typeof x === 'string').slice(0, 6) : [],
     };

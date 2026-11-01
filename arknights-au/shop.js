@@ -276,7 +276,7 @@
   function banners() {
     const list = bannerSource()
       .filter((b) => !b.until || b.until >= today())
-      .map((b) => ({ key: 'bn:' + b.id, name: b.name, until: b.until, featured: b.featured.filter((id) => OPS[id]), tag: [b.tag || '확률 UP', untilText(b.until)].filter(Boolean).join(' · ') }))
+      .map((b) => ({ key: 'bn:' + b.id, name: b.name, until: b.until, limited: !!b.limited, featured: b.featured.filter((id) => OPS[id]), tag: [b.limited ? '한정' : '', b.tag || '확률 UP', untilText(b.until)].filter(Boolean).join(' · ') }))
       .filter((b) => b.featured.length);
     list.push({ key: 'standard', name: GACHA.standardName, featured: [], tag: '상시' });
     return list;
@@ -301,9 +301,14 @@
     return `${ico(k)}<span>${ITEMS[k].short} ×${fmt(v)}</span>`;
   }
   // 천장 카운트: 상시 헤드헌팅은 하나(player.pity), 픽업 배너는 배너마다(player.pityB[key])
-  const pityOf = (key) => { const p = ACCOUNT.player; return key && key !== 'standard' ? (p.pityB[key] || 0) : p.pity; };
-  const setPity = (key, v) => { const p = ACCOUNT.player; if (key && key !== 'standard') p.pityB[key] = v; else p.pity = v; };
+  // 원작처럼 상시 · 일반 픽업 배너는 천장 공유, 한정 배너는 배너마다 따로
+  const bnOf = (key) => banners().find((x) => x.key === key);
+  const pityKey = (key) => { const b = bnOf(key); return b && b.limited ? key : 'standard'; };
+  const pityOf = (key) => { const p = ACCOUNT.player, k = pityKey(key); return k !== 'standard' ? (p.pityB[k] || 0) : p.pity; };
+  const setPity = (key, v) => { const p = ACCOUNT.player, k = pityKey(key); if (k !== 'standard') p.pityB[k] = v; else p.pity = v; };
   const rate6 = (key = hhSel) => GACHA.rates[6] + Math.max(0, pityOf(key) - GACHA.pityStart + 1) * GACHA.pityStep;
+  // 배너마다 첫 10회 안에 5성 이상 확정 (원작)
+  const g10Of = (key) => ACCOUNT.player.g10[key] || 0;
 
   // 원작 헤드헌팅 화면: 배너 넘김(« » · 상단 점), 왼쪽 큰 6성, 오른쪽 붉은 패널(나머지 확률 UP), 아래 확률 UP 문구 · 1회/10회
   const opTag = (o, big) => `<div class="hh-tag2 ${big ? 'big' : ''}"><span class="hh-stars">${'★'.repeat(o.rarity || 3)}</span><b>${icon(o.class)}${esc(o.name)}</b></div>`;
@@ -330,15 +335,15 @@
         <div class="hh-copy">
           <div class="hh-headline">${feat.length ? '상기 캐릭터 출현 확률 UP!!!' : '모든 오퍼레이터 같은 확률!!!'}</div>
           <div class="hh-desc">
-            <p>${feat.length ? `${feat.filter((o) => o.rarity === 6).map((o) => esc(o.name)).join(' · ') || feat.map((o) => esc(o.name)).join(' · ')} 출현 확률 UP — 해당 등급을 얻으면 50% 확률로 등장` : '이 헤드헌팅은 모든 오퍼레이터가 같은 확률로 등장합니다'}</p>
+            <p>${feat.length ? `${feat.filter((o) => o.rarity === 6).map((o) => esc(o.name)).join(' · ') || feat.map((o) => esc(o.name)).join(' · ')} 출현 확률 UP — 해당 등급을 얻으면 ${bn.limited ? '6성 70% · 5성 50%' : '50%'} 확률로 등장${bn.limited ? ' · 한정 헤드헌팅 (천장 따로 · 300회 교환)' : ''}` : '이 헤드헌팅은 모든 오퍼레이터가 같은 확률로 등장합니다'}</p>
             <p>${end}</p>
-            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">6성 미획득 누적 횟수 <b>${pityOf(bn.key)}</b>${bn.key !== 'standard' ? ' (이 배너)' : ''}</span></div>
+            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">6성 미획득 누적 횟수 <b>${pityOf(bn.key)}</b>${bn.limited ? ' (이 배너)' : ''}</span></div>
           </div>
         </div>
         <div class="hh-pull">
           <div class="hh-ribbon"><b>${Math.round(rate6(bn.key) * 100)}%</b> 다음 6성 확률 <small>50회 이후 1회마다 +2%</small></div>
-          ${bn.key !== 'standard' && feat.some((o) => o.rarity === 6) ? sparkHTML(bn) : ''}
-          ${(ACCOUNT.player.newbie || 0) < GACHA.newbieGuarantee ? `<div class="hh-newbie">신규 박사 혜택 · 처음 ${GACHA.newbieGuarantee}회 안에 5성 이상 확정 <b>${ACCOUNT.player.newbie || 0}/${GACHA.newbieGuarantee}</b></div>` : ''}
+          ${bn.limited && feat.some((o) => o.rarity === 6) ? sparkHTML(bn) : ''}
+          ${g10Of(bn.key) < GACHA.newbieGuarantee ? `<div class="hh-newbie">이 헤드헌팅의 첫 ${GACHA.newbieGuarantee}회 안에 5성 이상 1명 확정 <b>${g10Of(bn.key)}/${GACHA.newbieGuarantee}</b></div>` : ''}
           <div class="hh-costs"><span>${payLabel(1)}</span><span>${payLabel(10)}</span></div>
           <div class="hh-pbtns"><button class="hh-p1" data-pull="1">1회 진행</button><button class="hh-p10" data-pull="10">10회 진행</button></div>
         </div>
@@ -367,7 +372,7 @@
   function openRates() {
     const by = {};
     for (const o of pool()) (by[o.rarity || 3] = by[o.rarity || 3] || []).push(o);
-    openModal(`<div class="modal-title">확률 정보</div><div class="modal-sub">원작과 같은 확률 · 50회 연속 6성이 나오지 않으면 이후 1회마다 6성 확률 +2%</div>
+    openModal(`<div class="modal-title">확률 정보</div><div class="modal-sub">원작과 같은 확률 · 50회 연속 6성이 나오지 않으면 이후 1회마다 6성 확률 +2% (상시 · 일반 픽업은 공유, 한정은 따로) · 헤드헌팅마다 첫 10회 안에 5성 이상 확정 · 확률 UP: 5 · 6성 50%, 한정 6성 70%</div>
       <div class="rate-list">${[6, 5, 4, 3].map((r) => `<div class="rate-row"><b class="r${r}">★${r}</b><span>${Math.round(GACHA.rates[r] * 100)}%</span>
         <small>${(by[r] || []).map((o) => esc(o.name)).join(', ') || '해당 등급 오퍼레이터 없음 (다른 등급으로 대체)'}</small></div>`).join('')}</div>`);
   }
@@ -405,7 +410,7 @@
   }
   function openSpark() {
     const bn = banners().find((x) => x.key === hhSel), p = ACCOUNT.player;
-    if (!bn || bn.key === 'standard') return;
+    if (!bn || !bn.limited) return;
     const n = p.spark[bn.key] || 0, got = p.sparkGot[bn.key];
     const six = bn.featured.map((id) => OPS[id]).filter((o) => o && o.rarity === 6);
     openModal(`<div class="modal-title">300회 교환 — ${esc(bn.name)}</div>
@@ -435,21 +440,23 @@
     const p = ACCOUNT.player;
     for (let i = 0; i < n; i++) {
       let r = rollRarity(bn.key);
-      // 신규 박사: 처음 10회 안에 5성 이상이 없었다면 10번째는 5성 이상 확정
-      if ((p.newbie || 0) < GACHA.newbieGuarantee) {
-        p.newbie = (p.newbie || 0) + 1;
-        if (r >= 5) p.newbie = GACHA.newbieGuarantee;
-        else if (p.newbie >= GACHA.newbieGuarantee) r = Math.random() < GACHA.rates[6] / (GACHA.rates[6] + GACHA.rates[5]) ? 6 : 5;
+      // 배너마다 첫 10회 안에 5성 이상이 없었다면 10번째는 5성 이상 확정
+      if (g10Of(bn.key) < GACHA.newbieGuarantee) {
+        let g = g10Of(bn.key) + 1;
+        if (r >= 5) g = GACHA.newbieGuarantee;
+        else if (g >= GACHA.newbieGuarantee) r = Math.random() < GACHA.rates[6] / (GACHA.rates[6] + GACHA.rates[5]) ? 6 : 5;
+        p.g10[bn.key] = g;
       }
       if (!by[r]) {   // 그 등급이 없으면 가까운 등급으로
         const alt = [r - 1, r - 2, r - 3, r + 1, r + 2, r - 4, r + 3].find((x) => by[x]);
         r = alt || Object.keys(by)[0];
       }
       const feat = bn.featured.map((id) => OPS[id]).filter((o) => o && (o.rarity || 3) === r);
-      const list = feat.length && Math.random() < 0.5 ? feat : by[r];
+      // 확률 UP: 5성 50%, 6성 50% (한정 배너는 70%)
+      const list = feat.length && Math.random() < (r === 6 && bn.limited ? GACHA.limitedUp : 0.5) ? feat : by[r];
       const def = list[Math.floor(Math.random() * list.length)];
       setPity(bn.key, (def.rarity || 3) === 6 ? 0 : pityOf(bn.key) + 1);
-      if (bn.key !== 'standard') p.spark[bn.key] = (p.spark[bn.key] || 0) + 1;
+      if (bn.limited) p.spark[bn.key] = (p.spark[bn.key] || 0) + 1;
       const got = ACCOUNT.obtain(def);
       p.pulls.push({ id: def.id, r: def.rarity || 3, at: Date.now() });
       out.push({ def, ...got });
@@ -674,6 +681,7 @@
             <label>배너 이름<input id="bn-name" maxlength="30" value="${esc(b.name)}" placeholder="예: 등대의 불빛"></label>
             <label>작은 설명<input id="bn-tag" maxlength="20" value="${esc(b.tag)}" placeholder="확률 UP"></label>
             <label>종료일 (비우면 계속)<input id="bn-until" type="date" value="${esc(b.until)}"></label>
+            <label>종류<select id="bn-limited"><option value="">일반 픽업 (천장 공유 · 확률 UP 50%)</option><option value="1" ${b.limited ? 'selected' : ''}>한정 (천장 따로 · 6성 확률 UP 70% · 300회 교환)</option></select></label>
           </div>
           <div class="bn-list">${cands.map((o) => `<label class="bn-op"><input type="checkbox" value="${esc(o.id)}" ${b.featured.includes(o.id) ? 'checked' : ''}>${cardHTML(o, 'small')}</label>`).join('')}</div>
           <div class="panel-btns"><button class="btn primary" id="bn-save">저장</button><button class="btn" id="bn-cancel">취소</button></div>`;
@@ -685,7 +693,7 @@
             const names = b.featured.map((id) => OPS[id]).filter(Boolean);
             return `<div class="bn-row ${ended ? 'ended' : ''}">
               <div class="bn-faces">${names.slice(0, 4).map((o) => cardHTML(o, 'small')).join('')}</div>
-              <div class="bn-meta"><b>${esc(b.name)}</b><small>${esc(b.tag || '확률 UP')}${b.until ? ' · ' + (ended ? '종료됨' : untilText(b.until)) : ''}</small>
+              <div class="bn-meta"><b>${esc(b.name)}</b><small>${b.limited ? '한정 · ' : ''}${esc(b.tag || '확률 UP')}${b.until ? ' · ' + (ended ? '종료됨' : untilText(b.until)) : ''}</small>
                 <span>${names.map((o) => `★${o.rarity} ${esc(o.name)}`).join(' · ') || '확률 UP 오퍼레이터 없음 (표시되지 않음)'}</span></div>
               <div class="bn-acts">
                 <button class="btn small" data-bn-up="${i}" ${i ? '' : 'disabled'}>▲</button>
@@ -776,7 +784,7 @@
       const name = $('#bn-name').value.trim();
       if (!name) { toast('배너 이름을 입력하세요'); return; }
       if (!featured.length) { toast('확률 UP 오퍼레이터를 1명 이상 고르세요'); return; }
-      const b = { ...bnEdit.data, name, tag: $('#bn-tag').value.trim(), until: $('#bn-until').value, featured };
+      const b = { ...bnEdit.data, name, tag: $('#bn-tag').value.trim(), until: $('#bn-until').value, limited: !!$('#bn-limited').value, featured };
       const list = bannerSource().map((x) => ({ ...x }));
       if (bnEdit.index < 0) list.push(b); else list[bnEdit.index] = b;
       t.disabled = true;
