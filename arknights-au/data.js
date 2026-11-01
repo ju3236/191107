@@ -1671,6 +1671,7 @@ const CHAPTERS = [
 ];
 // 물자 비축 · 칩 탐색 시리즈 (작전 목록 하단 탭). days: 개방 요일 (0=일 … 6=토, 매일 오전 4시 기준), 없으면 상시 개방
 const SUPPLY_SERIES = [
+  { id: 'AN', tab: 'supply', name: '섬멸 작전', en: 'ANNIHILATION', item: 'orundum', color: '#b8343c', gain: '합성옥 · 주간 최대 1,800' },
   { id: 'LS', tab: 'supply', name: '전술 연습', en: 'TACTICAL DRILL', item: 'exp_3', color: '#3b7fd4', gain: '작전기록' },
   { id: 'CE', tab: 'supply', name: '화물 운송', en: 'CARGO ESCORT', item: 'lmd', color: '#c79a22', gain: '용문폐', days: [2, 4, 6, 0] },
   { id: 'CA', tab: 'supply', name: '공중 위협', en: 'AERIAL THREAT', item: 'skill_2', color: '#cf5a32', gain: '스킬개론', days: [2, 3, 5, 0] },
@@ -2203,6 +2204,24 @@ const STAGES = [
   {"code": "CA-3", "chapter": "supply", "supply": "CA", "tier": 3, "sanity": 20, "name": "공중 위협 3", "desc": "비행 유닛이 많이 나오는 작전. 스킬개론을 얻는다.", "life": 3, "startDp": 28, "deployLimit": 8, "map": ["###############", "R-....^^^^^^^^#", "#^^^^.^^^^^^^^#", "#^^^^.......^^#", "#^^^^^^^^^^.^^#", "#^^.........^^#", "#^^.^^^^^^^^^^#", "#^^.......--.B#", "###############"], "waves": [{"t": 10, "enemy": "drone", "count": 5, "gap": 2}, {"t": 18, "enemy": "bombbird", "count": 3, "gap": 3}, {"t": 30, "enemy": "caster_l", "count": 2, "gap": 4}, {"t": 42, "enemy": "drone", "count": 5, "gap": 2}, {"t": 56, "enemy": "agent", "count": 1, "gap": 2}], "drops": {"skill_2": 2, "skill_1": 1}, "chance": [["skill_3", 0.3, 1]]},
   {"code": "CA-4", "chapter": "supply", "supply": "CA", "tier": 4, "sanity": 25, "name": "공중 위협 4", "desc": "비행 유닛이 많이 나오는 작전. 스킬개론을 얻는다.", "life": 3, "startDp": 28, "deployLimit": 8, "map": ["###############", "R-.....^^^^^^^#", "#^^^^^.^^^^^^^#", "#^^^^^.....^^^#", "#^^^^^^^^^.--.B", "#^^^^^.....^^^#", "#^^^^^.^^^^^^^#", "R-.....^^^^^^^#", "###############"], "waves": [{"t": 10, "enemy": "drone", "count": 6, "gap": 2}, {"t": 18, "enemy": "bombbird", "count": 4, "gap": 3}, {"t": 30, "enemy": "yeti_sniper", "count": 3, "gap": 3}, {"t": 44, "enemy": "drone", "count": 6, "gap": 2}, {"t": 58, "enemy": "avenger", "count": 1, "gap": 2}], "drops": {"skill_3": 1, "skill_2": 2}, "chance": [["skill_1", 0.5, 2]]},
   {"code": "CA-5", "chapter": "supply", "supply": "CA", "tier": 5, "sanity": 30, "name": "공중 위협 5", "desc": "비행 유닛이 많이 나오는 작전. 스킬개론을 얻는다.", "life": 3, "startDp": 28, "deployLimit": 8, "map": ["################", "R-......^^^^^^^#", "#^^^^^^.^^^^^^^#", "#^^.....^^^^^^^#", "#^^.^^^^^^^^^^^#", "#^^........--..B", "#^^.^^^^^^^^^^^#", "#^^.....^^^^^^^#", "#^^^^^^.^^^^^^^#", "R-......^^^^^^^#", "################"], "waves": [{"t": 10, "enemy": "drone", "count": 6, "gap": 2}, {"t": 16, "enemy": "bombbird", "count": 5, "gap": 2}, {"t": 30, "enemy": "artsmaster", "count": 2, "gap": 4}, {"t": 40, "enemy": "ig_drone", "count": 6, "gap": 2}, {"t": 54, "enemy": "sarkaz_caster", "count": 2, "gap": 4}, {"t": 64, "enemy": "drone", "count": 6, "gap": 2}], "drops": {"skill_3": 2, "skill_2": 1, "skill_1": 1}, "chance": [["skill_1", 0.5, 1]]},
+  // 섬멸 작전: 처치 수에 비례해 합성옥 (주간 최대 1,800). 목숨 10, 실패해도 처치한 만큼 보상
+  { code: 'AN-1', chapter: 'supply', supply: 'AN', tier: 1, sanity: 25, name: '폐허가 된 거리', desc: '체르노보그의 폐허. 세 갈래 길로 끝없이 몰려오는 적을 섬멸하라. 처치한 적이 많을수록 합성옥을 얻는다 (주간 최대 1,800).',
+    life: 10, startDp: 20, deployLimit: 10, annih: { orundum: 1500, cap: 1800, lmd: 1200 },
+    map: ['#################', 'R-......^^^^^^###', '#^^^^^^.^^^^^^###', '#^^^^^^......^###', '#^^^^^^^^^^^.^^^#', 'R-..........-...B', '#^^^^^^^^^^^.^^^#', '#^^^^^^......^###', '#^^^^^^.^^^^^^###', 'R-......^^^^^^###', '#################'],
+    waves: (() => {
+      const W = [], sp = [0, 1, 2];
+      const add = (t, enemy, count, gap, k) => W.push({ t, enemy, count, gap, spawn: sp[k % 3] });
+      // 1단계: 원석충 · 병사 · 사냥개
+      [['slug', 6], ['soldier', 4], ['hound', 4], ['slug_a', 4], ['soldier', 5], ['hound', 5], ['mob', 4], ['slug_a', 5]].forEach(([e, n], k) => add(5 + k * 11, e, n, 1.8, k));
+      // 2단계: 원거리 · 비행 · 쌍검
+      [['caster', 3], ['crossbow', 4], ['drone', 3], ['dual', 4], ['hound_pro', 4], ['mob', 5], ['caster', 3], ['drone', 4], ['crossbow', 4], ['dual', 4]].forEach(([e, n], k) => add(95 + k * 11, e, n, 2, k + 1));
+      // 3단계: 방패 · 중장갑 · 지휘관
+      [['shieldguard', 3], ['light_armor', 4], ['dual_l', 3], ['caster_l', 2], ['heavy', 2], ['breaker', 3], ['drone', 4], ['shieldguard', 3], ['light_armor', 4], ['hound_pro', 5]].forEach(([e, n], k) => add(210 + k * 12, e, n, 2.4, k + 2));
+      // 4단계: 사르카즈 · 정예
+      [['sarkaz', 2], ['agent', 2], ['artsmaster', 2], ['dual_l', 3], ['rockbreaker', 1], ['caster_l', 3], ['sarkaz', 2], ['avenger', 1]].forEach(([e, n], k) => add(335 + k * 13, e, n, 3, k));
+      return W;
+    })(),
+    drops: { orundum: 1500, lmd: 1200 } },
   {"code": "PR-A-1", "chapter": "supply", "supply": "PR-A", "tier": 1, "sanity": 18, "name": "난공불락 1", "desc": "디펜더 · 메딕 칩을 얻는 작전.", "life": 3, "startDp": 24, "deployLimit": 8, "map": ["##############", "R-......^^^^^#", "#^^^^^^.^^^^^#", "#^^.....^^^^^#", "#^^.^^^^^^^^^#", "#^^.........^#", "#^^^^^^^^^^.^#", "#^^^^^^^^^^.-B", "##############"], "waves": [{"t": 4, "enemy": "soldier", "count": 4, "gap": 2}, {"t": 16, "enemy": "shieldguard", "count": 3, "gap": 3}, {"t": 28, "enemy": "caster", "count": 3, "gap": 3}, {"t": 40, "enemy": "dual", "count": 4, "gap": 2}, {"t": 52, "enemy": "light_armor", "count": 2, "gap": 4}], "oneOf": [["chip_defender", "chip_medic"], 1], "drops": {}, "chance": []},
   {"code": "PR-A-2", "chapter": "supply", "supply": "PR-A", "tier": 2, "sanity": 36, "name": "난공불락 2", "desc": "디펜더 · 메딕 칩셋을 얻는 고난도 작전.", "life": 3, "startDp": 28, "deployLimit": 9, "map": ["###############", "R-.....^^^^^^^#", "#^^^^^.^^^^^^^#", "#^^^^^.....^^^#", "#^^^^^^^^^.--.B", "#^^^^^.....^^^#", "#^^^^^.^^^^^^^#", "R-.....^^^^^^^#", "###############"], "waves": [{"t": 4, "enemy": "sarkaz", "count": 2, "gap": 4}, {"t": 6, "enemy": "sarkaz", "count": 2, "gap": 4, "spawn": 1}, {"t": 20, "enemy": "agent", "count": 3, "gap": 4}, {"t": 32, "enemy": "heavy", "count": 2, "gap": 5, "spawn": 1}, {"t": 44, "enemy": "artsmaster", "count": 2, "gap": 4}, {"t": 56, "enemy": "avenger", "count": 1, "gap": 2}, {"t": 64, "enemy": "rockbreaker", "count": 3, "gap": 3, "spawn": 1}], "oneOf": [["pack_defender", "pack_medic"], 1], "drops": {}, "chance": []},
   {"code": "PR-B-1", "chapter": "supply", "supply": "PR-B", "tier": 1, "sanity": 18, "name": "추풍낙엽 1", "desc": "캐스터 · 스나이퍼 칩을 얻는 작전.", "life": 3, "startDp": 24, "deployLimit": 8, "map": ["###############", "R-....^^^^^^^^#", "#^^^^.^^^^^^^^#", "#^^^^.......^^#", "#^^^^^^^^^^.^^#", "#^^.........^^#", "#^^.^^^^^^^^^^#", "#^^.......--.B#", "###############"], "waves": [{"t": 4, "enemy": "soldier", "count": 4, "gap": 2}, {"t": 16, "enemy": "shieldguard", "count": 3, "gap": 3}, {"t": 28, "enemy": "caster", "count": 3, "gap": 3}, {"t": 40, "enemy": "dual", "count": 4, "gap": 2}, {"t": 52, "enemy": "light_armor", "count": 2, "gap": 4}], "oneOf": [["chip_caster", "chip_sniper"], 1], "drops": {}, "chance": []},
@@ -2808,6 +2827,27 @@ const TRAIN_GIFT = { exp_4: 40, exp_3: 30, lmd: 150000, m_rock: 10, m_sugar: 10,
 // 처음 시작할 때 주는 재화
 const STARTER_GIFT = { orundum: 6000, permit10: 1, lmd: 10000 };
 
+// 자격증 교환소 (구매센터 탭) — 원작처럼 고급 자격증(5 · 6성 중복) · 초급 자격증(3 · 4성 중복)으로 교환. 매달 1일 오전 4시에 수량 초기화
+//  op: 이달의 오퍼레이터 (레어도별로 매달 바뀜, 헤드헌팅에 나오는 오퍼레이터 중에서) · items: 아이템 · limit: 한 달 교환 가능 수
+const CERT_SHOP = {
+  cert_hi: [
+    { id: 'h_op6', op: 6, price: 180, limit: 1 },
+    { id: 'h_op5', op: 5, price: 45, limit: 1 },
+    { id: 'h_permit', items: { permit: 1 }, price: 38, limit: 5 },
+    { id: 'h_cat', items: { chip_cat: 1 }, price: 10, limit: 4 },
+    { id: 'h_t3', items: { m_device3: 2 }, price: 12, limit: 5 },
+  ],
+  cert_lo: [
+    { id: 'l_permit', items: { permit: 1 }, price: 150, limit: 2 },
+    { id: 'l_exp4', items: { exp_4: 2 }, price: 15, limit: 20 },
+    { id: 'l_skill3', items: { skill_3: 1 }, price: 12, limit: 20 },
+    { id: 'l_iron3', items: { m_iron3: 1 }, price: 20, limit: 10 },
+    { id: 'l_keton3', items: { m_keton3: 1 }, price: 20, limit: 10 },
+    { id: 'l_sugar3', items: { m_sugar3: 1 }, price: 20, limit: 10 },
+    { id: 'l_lmd', items: { lmd: 5000 }, price: 10, limit: 20 },
+  ],
+};
+
 // 구매센터 상품. price는 표시용(원)이며 실제 결제는 없습니다.
 // 「결제 요청」을 보내면 관리자가 승인했을 때 items가 지급됩니다.
 const SHOP = {
@@ -2835,6 +2875,9 @@ const GACHA = {
   cost: 600,
   rates: { 6: 0.02, 5: 0.08, 4: 0.5, 3: 0.4 },
   pityStart: 50, pityStep: 0.02,
+  // 신규 박사: 처음 10회 안에 5성 이상 1명 확정 · 픽업 배너 300회 누적 시 확률 UP 6성 1명 교환 (배너마다 1회)
+  newbieGuarantee: 10, sparkAt: 300,
+  // 천장(6성 미획득 누적)은 상시 헤드헌팅끼리 공유, 픽업 배너는 배너마다 따로
   standardName: '표준 헤드헌팅',
   // 기본 이벤트 배너 (관리자가 게임 안에서 배너를 저장하면 그 목록으로 바뀝니다)
   // { id, name, tag: 작은 설명, until: 'YYYY-MM-DD' 종료일(비우면 계속), featured: 확률 UP 오퍼레이터 id (6성·5성) }

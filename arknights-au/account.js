@@ -54,6 +54,11 @@
     out.sanity = num(o.sanity, PAP ? PAP[out.plv - 1] : 135, 0, 9999);
     out.sanityAt = num(o.sanityAt, Date.now());
     out.pity = num(o.pity, 0, 0, 999);
+    out.pityB = obj(o.pityB);
+    out.spark = obj(o.spark);
+    out.sparkGot = obj(o.sparkGot);
+    out.newbie = num(o.newbie, 0, 0, 99);
+    out.certShop = o.certShop && typeof o.certShop === 'object' ? { m: str(o.certShop.m, 10), b: obj(o.certShop.b) } : null;
     out.nick = str(o.nick, 16);
     delete out.known;
     return out;

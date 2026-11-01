@@ -27,9 +27,11 @@
     packages: '<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>',
     outfit: '<path d="M12 6a2 2 0 1 1 2-2"/><path d="M12 6v2L2 16h20L12 8"/>',
     exchange: '<path d="M4 8h14l-4-4M20 16H6l4 4"/>',
+    cert: '<path d="M5 3h14v12l-7 6-7-6z"/><path d="M9 9l2 2 4-4"/>',
     history: '<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
   };
-  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['outfit', '컬렉션'], ['exchange', '합성옥 교환'], ['history', '결제 내역']];
+  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['outfit', '컬렉션'], ['exchange', '합성옥 교환'], ['cert', '자격증 교환소'], ['history', '결제 내역']];
+  let certTab = 'cert_hi';
   let storeTab = 'recommend', pkgCat = 'all';
   const tabIco = (k) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TAB_ICO[k] || ''}</svg>`;
   const pkgArt = (p) => `<div class="pk-art ${esc(p.cat || '')}">${Object.keys(p.items).slice(0, 3).map((k, i) => `<span style="--i:${i}">${ico(k, true)}</span>`).join('')}</div>`;
@@ -66,6 +68,8 @@
     } else if (storeTab === 'outfit') {
       const list = typeof SKINS !== 'undefined' ? SKINS : [];
       main.innerHTML = list.length ? `<div class="pk-row">${list.map(skinCard).join('')}</div>` : '<p class="empty-note">판매 중인 의상이 없습니다.</p>';
+    } else if (storeTab === 'cert') {
+      main.innerHTML = certShopHTML();
     } else if (storeTab === 'exchange') {
       const have = ACCOUNT.bal('originite');
       main.innerHTML = `<div class="exchange">
@@ -92,6 +96,58 @@
     if (b) { storeTab = b.dataset.stab; RENDER.store(); }
   });
   let exN = 1;
+  // ---------- 자격증 교환소 ----------
+  const monthKey = () => { const d = new Date(Date.now() - 4 * 3600e3); return `${d.getFullYear()}-${d.getMonth() + 1}`; };
+  const certState = () => { const p = ACCOUNT.player; if (!p.certShop || p.certShop.m !== monthKey()) p.certShop = { m: monthKey(), b: {} }; return p.certShop; };
+  // 이달의 오퍼레이터: 레어도별 헤드헌팅 풀에서 달마다 차례로
+  function monthOp(r) {
+    const list = pool().filter((o) => (o.rarity || 3) === r).sort((a, b) => a.id.localeCompare(b.id));
+    if (!list.length) return null;
+    const d = new Date(Date.now() - 4 * 3600e3), k = d.getFullYear() * 12 + d.getMonth();
+    return list[(k * (r === 6 ? 7 : 5)) % list.length];
+  }
+  function certGood(g) {
+    if (g.op) { const o = monthOp(g.op); return o && { name: o.name, sub: `이달의 ${g.op}성 오퍼레이터`, op: o }; }
+    const [k, n] = Object.entries(g.items)[0];
+    return { name: ITEMS[k].name, sub: `×${fmt(n)}`, item: k, n };
+  }
+  function certShopHTML() {
+    const st = certState(), cur = certTab;
+    const end = (() => { const d = new Date(Date.now() - 4 * 3600e3); const e = new Date(d.getFullYear(), d.getMonth() + 1, 1, 4); return `${e.getMonth() + 1}월 1일 04:00 초기화`; })();
+    const cards = CERT_SHOP[cur].map((g) => {
+      const info = certGood(g); if (!info) return '';
+      const left = g.limit - (st.b[g.id] || 0);
+      return `<button class="evg ${left <= 0 ? 'sold' : ''} ${info.op ? 'skin' : ''}" data-cgood="${esc(g.id)}">
+        <b class="evg-name">${esc(info.name)}</b>
+        ${info.op ? `<small class="evg-brand">${esc(info.sub)}</small>${info.op.image ? `<img class="evg-skin" src="${esc(info.op.image)}" alt="">` : ''}` : `<span class="evg-icon">${ico(info.item, true)}<em>${info.n >= 1000 ? fmt(info.n) : info.n}</em></span>`}
+        ${left > 0 && g.limit > 1 ? `<span class="evg-left">잔여 ${left}</span>` : ''}
+        <span class="evg-price">${ico(cur)}${fmt(g.price)}</span>
+        ${left <= 0 ? '<span class="evg-sold"><i>OUT OF STOCK</i><b>매진</b><i>OUT OF STOCK</i></span>' : ''}</button>`;
+    }).join('');
+    return `<div class="cert-shop">
+      <div class="cert-head">${[['cert_hi', '고급 자격증 교환소'], ['cert_lo', '초급 자격증 교환소']].map(([k, n]) => `<button class="${k === cur ? 'on' : ''}" data-ctab="${k}">${ico(k)}<b>${n}</b><small>보유 ${fmt(ACCOUNT.bal(k))}</small></button>`).join('')}<span class="cert-reset">${end}</span></div>
+      <p class="cert-note">${cur === 'cert_hi' ? '고급 자격증은 잠재가 가득 찬 5 · 6성 오퍼레이터를 다시 얻으면 받습니다.' : '초급 자격증은 3 · 4성 오퍼레이터를 얻을 때마다 받습니다.'}</p>
+      <div class="cert-board">${cards}</div></div>`;
+  }
+  function buyCert(id) {
+    const cur = certTab, g = CERT_SHOP[cur].find((x) => x.id === id), st = certState(), info = g && certGood(g);
+    if (!info) return;
+    if ((st.b[id] || 0) >= g.limit) { toast('이번 달 교환 수량을 모두 교환했습니다'); return; }
+    if (ACCOUNT.bal(cur) < g.price) { toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
+    const go2 = () => {
+      if (!ACCOUNT.spend({ [cur]: g.price })) return;
+      st.b[id] = (st.b[id] || 0) + 1;
+      if (info.op) { const res = ACCOUNT.obtain(info.op); ACCOUNT.save(); closeModal(); playGacha([{ def: info.op, ...res }]); }
+      else { ACCOUNT.earn(g.items); ACCOUNT.save(); closeModal(); sfx('select'); toast(`${info.name} ${info.sub} 교환 완료`); }
+      RENDER.store(undefined, { back: true });
+    };
+    if (!info.op && g.price < 100) { go2(); return; }
+    openModal(`<div class="modal-title">교환 확인</div><div class="modal-sub">${ITEMS[cur].name} ${fmt(g.price)}개로 교환합니다 · 보유 ${fmt(ACCOUNT.bal(cur))}</div>
+      ${info.op ? `<div class="skin-buy">${info.op.image ? `<img src="${esc(info.op.image)}" alt="">` : ''}<div><b>${esc(info.op.name)}</b><small>${'★'.repeat(info.op.rarity || 3)} · ${esc(info.sub)}</small><p>${esc(info.op.quote || '')}</p></div></div>` : `<p class="modal-text">${esc(info.name)} ${esc(info.sub)}</p>`}
+      <div class="panel-btns"><button class="btn primary" id="cs-go">교환</button><button class="btn" id="cs-no">취소</button></div>`);
+    $('#cs-go').addEventListener('click', go2);
+    $('#cs-no').addEventListener('click', closeModal);
+  }
   $('#store-main').addEventListener('click', async (e) => {
     const q = e.target.closest('[data-exq]');
     if (q) {
@@ -109,6 +165,10 @@
       RENDER.store();
       return;
     }
+    const ct = e.target.closest('[data-ctab]');
+    if (ct) { certTab = ct.dataset.ctab; RENDER.store(); return; }
+    const cg = e.target.closest('[data-cgood]');
+    if (cg) { buyCert(cg.dataset.cgood); return; }
     const pc = e.target.closest('[data-pcat]');
     if (pc) { pkgCat = pc.dataset.pcat; RENDER.store(); return; }
     const of = e.target.closest('[data-outfit]');
@@ -240,7 +300,10 @@
     const [k, v] = Object.entries(p)[0];
     return `${ico(k)}<span>${ITEMS[k].short} ×${fmt(v)}</span>`;
   }
-  const rate6 = () => GACHA.rates[6] + Math.max(0, ACCOUNT.player.pity - GACHA.pityStart + 1) * GACHA.pityStep;
+  // 천장 카운트: 상시 헤드헌팅은 하나(player.pity), 픽업 배너는 배너마다(player.pityB[key])
+  const pityOf = (key) => { const p = ACCOUNT.player; return key && key !== 'standard' ? (p.pityB[key] || 0) : p.pity; };
+  const setPity = (key, v) => { const p = ACCOUNT.player; if (key && key !== 'standard') p.pityB[key] = v; else p.pity = v; };
+  const rate6 = (key = hhSel) => GACHA.rates[6] + Math.max(0, pityOf(key) - GACHA.pityStart + 1) * GACHA.pityStep;
 
   // 원작 헤드헌팅 화면: 배너 넘김(« » · 상단 점), 왼쪽 큰 6성, 오른쪽 붉은 패널(나머지 확률 UP), 아래 확률 UP 문구 · 1회/10회
   const opTag = (o, big) => `<div class="hh-tag2 ${big ? 'big' : ''}"><span class="hh-stars">${'★'.repeat(o.rarity || 3)}</span><b>${icon(o.class)}${esc(o.name)}</b></div>`;
@@ -269,11 +332,13 @@
           <div class="hh-desc">
             <p>${feat.length ? `${feat.filter((o) => o.rarity === 6).map((o) => esc(o.name)).join(' · ') || feat.map((o) => esc(o.name)).join(' · ')} 출현 확률 UP — 해당 등급을 얻으면 50% 확률로 등장` : '이 헤드헌팅은 모든 오퍼레이터가 같은 확률로 등장합니다'}</p>
             <p>${end}</p>
-            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">6성 미획득 누적 횟수 <b>${ACCOUNT.player.pity}</b></span></div>
+            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">6성 미획득 누적 횟수 <b>${pityOf(bn.key)}</b>${bn.key !== 'standard' ? ' (이 배너)' : ''}</span></div>
           </div>
         </div>
         <div class="hh-pull">
-          <div class="hh-ribbon"><b>${Math.round(rate6() * 100)}%</b> 다음 6성 확률 <small>50회 이후 1회마다 +2%</small></div>
+          <div class="hh-ribbon"><b>${Math.round(rate6(bn.key) * 100)}%</b> 다음 6성 확률 <small>50회 이후 1회마다 +2%</small></div>
+          ${bn.key !== 'standard' && feat.some((o) => o.rarity === 6) ? sparkHTML(bn) : ''}
+          ${(ACCOUNT.player.newbie || 0) < GACHA.newbieGuarantee ? `<div class="hh-newbie">신규 박사 혜택 · 처음 ${GACHA.newbieGuarantee}회 안에 5성 이상 확정 <b>${ACCOUNT.player.newbie || 0}/${GACHA.newbieGuarantee}</b></div>` : ''}
           <div class="hh-costs"><span>${payLabel(1)}</span><span>${payLabel(10)}</span></div>
           <div class="hh-pbtns"><button class="hh-p1" data-pull="1">1회 진행</button><button class="hh-p10" data-pull="10">10회 진행</button></div>
         </div>
@@ -294,6 +359,7 @@
     if (st) { const list = banners(), k = list.findIndex((x) => x.key === hhSel); hhSel = list[(k + +st.dataset.hhstep + list.length) % list.length].key; RENDER.headhunt(); return; }
     const op = e.target.closest('[data-hhop]');
     if (op) { go('detail', op.dataset.hhop); return; }
+    if (e.target.closest('#hh-spark')) { openSpark(); return; }
     const b = e.target.closest('[data-pull]');
     if (b) tryPull(+b.dataset.pull);
   });
@@ -332,8 +398,32 @@
     playGacha(results);
   }
 
-  function rollRarity() {
-    const r6 = rate6(), r5 = GACHA.rates[5], r4 = GACHA.rates[4];
+  // 300회 교환: 픽업 배너에서 누적 300회면 확률 UP 6성 중 1명을 고를 수 있음 (배너마다 1회)
+  function sparkHTML(bn) {
+    const p = ACCOUNT.player, n = p.spark[bn.key] || 0, got = p.sparkGot[bn.key], need = GACHA.sparkAt;
+    return `<button class="hh-spark ${n >= need && !got ? 'ready' : ''}" id="hh-spark">${got ? '300회 교환 완료' : `누적 ${Math.min(n, need)}/${need}회 · ${n >= need ? '교환 가능!' : '300회 달성 시 확률 UP 6성 1명 선택'}`}</button>`;
+  }
+  function openSpark() {
+    const bn = banners().find((x) => x.key === hhSel), p = ACCOUNT.player;
+    if (!bn || bn.key === 'standard') return;
+    const n = p.spark[bn.key] || 0, got = p.sparkGot[bn.key];
+    const six = bn.featured.map((id) => OPS[id]).filter((o) => o && o.rarity === 6);
+    openModal(`<div class="modal-title">300회 교환 — ${esc(bn.name)}</div>
+      <div class="modal-sub">이 배너에서 헤드헌팅을 ${GACHA.sparkAt}회 진행하면 확률 UP 6성 오퍼레이터 중 1명을 고를 수 있습니다 (배너마다 1회) · 현재 ${n}회</div>
+      <div class="spark-list">${six.map((o) => `<button class="spark-op" data-spark="${esc(o.id)}" ${n >= GACHA.sparkAt && !got ? '' : 'disabled'}>${o.image ? `<img src="${esc(o.image)}" alt="">` : ''}<b>${'★'.repeat(o.rarity || 6)} ${esc(o.name)}</b></button>`).join('')}</div>
+      <p class="modal-text">${got ? '이미 교환했습니다.' : n >= GACHA.sparkAt ? '교환할 오퍼레이터를 고르세요. 이미 보유 중이면 잠재가 오르거나 자격증으로 바뀝니다.' : `${GACHA.sparkAt - n}회 더 진행하면 교환할 수 있습니다.`}</p>`);
+    document.querySelectorAll('[data-spark]').forEach((b) => b.addEventListener('click', () => {
+      if ((p.spark[bn.key] || 0) < GACHA.sparkAt || p.sparkGot[bn.key]) return;
+      const def = OPS[b.dataset.spark];
+      p.sparkGot[bn.key] = def.id;
+      const res = ACCOUNT.obtain(def);
+      ACCOUNT.save(); ACCOUNT.emit('wallet');
+      closeModal();
+      playGacha([{ def, ...res }]);
+    }));
+  }
+  function rollRarity(key) {
+    const r6 = rate6(key), r5 = GACHA.rates[5], r4 = GACHA.rates[4];
     const x = Math.random();
     return x < r6 ? 6 : x < r6 + r5 ? 5 : x < r6 + r5 + r4 ? 4 : 3;
   }
@@ -344,7 +434,13 @@
     const out = [];
     const p = ACCOUNT.player;
     for (let i = 0; i < n; i++) {
-      let r = rollRarity();
+      let r = rollRarity(bn.key);
+      // 신규 박사: 처음 10회 안에 5성 이상이 없었다면 10번째는 5성 이상 확정
+      if ((p.newbie || 0) < GACHA.newbieGuarantee) {
+        p.newbie = (p.newbie || 0) + 1;
+        if (r >= 5) p.newbie = GACHA.newbieGuarantee;
+        else if (p.newbie >= GACHA.newbieGuarantee) r = Math.random() < GACHA.rates[6] / (GACHA.rates[6] + GACHA.rates[5]) ? 6 : 5;
+      }
       if (!by[r]) {   // 그 등급이 없으면 가까운 등급으로
         const alt = [r - 1, r - 2, r - 3, r + 1, r + 2, r - 4, r + 3].find((x) => by[x]);
         r = alt || Object.keys(by)[0];
@@ -352,7 +448,8 @@
       const feat = bn.featured.map((id) => OPS[id]).filter((o) => o && (o.rarity || 3) === r);
       const list = feat.length && Math.random() < 0.5 ? feat : by[r];
       const def = list[Math.floor(Math.random() * list.length)];
-      p.pity = (def.rarity || 3) === 6 ? 0 : p.pity + 1;
+      setPity(bn.key, (def.rarity || 3) === 6 ? 0 : pityOf(bn.key) + 1);
+      if (bn.key !== 'standard') p.spark[bn.key] = (p.spark[bn.key] || 0) + 1;
       const got = ACCOUNT.obtain(def);
       p.pulls.push({ id: def.id, r: def.rarity || 3, at: Date.now() });
       out.push({ def, ...got });

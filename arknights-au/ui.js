@@ -1400,8 +1400,9 @@
     $('#sanity-store').addEventListener('click', () => { closeModal(); go('store', 'originite'); });
   }
   // 전투 결과 → 보상 (game.js에서 호출)
-  function onBattleEnd(idx, win, starCount, squadIds = []) {
+  function onBattleEnd(idx, win, starCount, squadIds = [], kills = 0) {
     const st = STAGES[idx], cost = sanityCost(st);
+    if (st.annih) return annihEnd(st, cost, win, kills, squadIds);
     if (!win) { ACCOUNT.addSanity(cost - 1); track('sanity', 1); return `이성 ${cost - 1} 반환`; }
     trackBattle(st, 1);
     // 원작처럼 소모한 이성만큼 편성 오퍼레이터의 신뢰도 상승 (최대 200%)
@@ -1416,6 +1417,29 @@
     const eb = st.event ? evBonusOf(st, squadIds) : 0;
     return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 박사 경험치 +${cost * (TRAIN_RULE.playerExpPerSanity || 12)}${ups ? ` · 레벨 업! Lv.${ACCOUNT.level().lv}` : ''} · 신뢰도 +${cost}%`;
   }
+  // 섬멸 작전: 처치 수에 비례한 합성옥 (주간 상한), 실패해도 처치한 만큼 받음
+  const total = (st) => st.waves.reduce((a, w) => a + (w.count || 1), 0);
+  const weekKey = () => { const d = new Date(Date.now() - 4 * 3600e3); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  const annihState = () => { if (!save.annih || save.annih.w !== weekKey()) save.annih = { w: weekKey(), got: 0 }; return save.annih; };
+  function annihReward(st, kills) {
+    const a = st.annih, r = Math.min(1, kills / total(st)), s = annihState();
+    const oru = Math.max(0, Math.min(Math.floor(a.orundum * r), a.cap - s.got));
+    s.got += oru;
+    const out = { lmd: Math.round(a.lmd * r) };
+    if (oru) out.orundum = oru;
+    return out;
+  }
+  function annihEnd(st, cost, win, kills, squadIds) {
+    trackBattle(st, 1);
+    save.trust = save.trust || {};
+    for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
+    const reward = annihReward(st, kills);
+    ACCOUNT.earn(reward);
+    const ups = ACCOUNT.gainExp(cost);
+    if (ups) setTimeout(() => toast(`박사 레벨 업! Lv.${ACCOUNT.level().lv} · 이성 회복`), 400);
+    const s = annihState();
+    return `처치 ${kills}/${total(st)} · ` + Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v.toLocaleString('ko-KR')}`).join(' · ') + ` · 이번 주 합성옥 ${s.got}/${st.annih.cap}${s.got >= st.annih.cap ? ' (상한 도달)' : ''}`;
+  }
   // 훈련장: 지금 편성으로, 목숨이 줄지 않는 연습 작전
   function startPractice() {
     fixPlayer();
@@ -1428,6 +1452,7 @@
     });
   }
   function rewardFor(st, idx, starCount, first, squad = []) {
+    if (st.annih) return annihReward(st, total(st));
     if (st.supply) return TRAIN.supplyDrops(st, starCount);
     if (st.event) {
       const r = TRAIN.supplyDrops(st, starCount), eb = evBonusOf(st, squad);
@@ -1614,6 +1639,7 @@
           <div class="op-tag"><span class="chk"></span>목숨 ${st.life ?? 3} · 배치 가능 ${st.deployLimit ?? 8}명${st.supply || cleared(st) ? '' : ' · 첫 클리어 보상 오리지늄 1'}</div>
           ${dropsHTML(st, opSel)}
           ${st.event ? evBonusHTML(st) : ''}
+          ${st.annih ? `<div class="ev-bonus"><small>섬멸 작전</small><span class="on">적 ${total(st)}명 처치 시 합성옥 ${st.annih.orundum.toLocaleString('ko-KR')}</span><em>이번 주 <i class="ri orundum"></i> ${annihState().got}/${st.annih.cap}</em></div>` : ''}
           <p>${esc(st.desc)}</p>
           <p class="op-warn">출현 적: ${enemyIds.map((id) => ENEMIES[id] ? esc(ENEMIES[id].name) : id).join(', ')}</p>
         </div>

@@ -2658,7 +2658,7 @@
     const stars = !win ? 0 : S.leaked === 0 ? 3 : S.life >= Math.ceil(S.maxLife / 2) ? 2 : 1;
     const ext = S.ext.onEnd ? S.ext.onEnd({ win, stars, life: Math.max(0, S.life), shield: S.shield || 0, leaked: S.leaked, killed: S.killed, quit: !!S.quit }) : null;
     const firstClear = !ext && win && !(UI.save.stars[st.code] > 0);
-    const rewardText = ext ? ext.text : UI.onBattleEnd(S.idx, win, stars, S.squadIds);
+    const rewardText = ext ? ext.text : UI.onBattleEnd(S.idx, win, stars, S.squadIds, S.killed);
     if (win && !ext) {
       UI.save.stars[st.code] = Math.max(UI.save.stars[st.code] || 0, stars);
       UI.writeSave();
