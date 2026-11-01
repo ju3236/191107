@@ -1769,50 +1769,50 @@ i.relic-img { border-radius: 8px; background: radial-gradient(circle, rgba(111,2
   .ms-reset { margin-left: 0; }
 }
 
-/* 아이템 아이콘: 원작 이미지 (img/item/<아이템 id>.png · © Hypergryph/Yostar) */
-.ri.ri.cert_hi::before { background: url(img/item/cert_hi.png) center / contain no-repeat; }
-.ri.ri.cert_lo::before { background: url(img/item/cert_lo.png) center / contain no-repeat; }
-.ri.ri.chip_caster::before { background: url(img/item/chip_caster.png) center / contain no-repeat; }
-.ri.ri.chip_defender::before { background: url(img/item/chip_defender.png) center / contain no-repeat; }
-.ri.ri.chip_guard::before { background: url(img/item/chip_guard.png) center / contain no-repeat; }
-.ri.ri.chip_medic::before { background: url(img/item/chip_medic.png) center / contain no-repeat; }
-.ri.ri.chip_sniper::before { background: url(img/item/chip_sniper.png) center / contain no-repeat; }
-.ri.ri.chip_specialist::before { background: url(img/item/chip_specialist.png) center / contain no-repeat; }
-.ri.ri.chip_supporter::before { background: url(img/item/chip_supporter.png) center / contain no-repeat; }
-.ri.ri.chip_vanguard::before { background: url(img/item/chip_vanguard.png) center / contain no-repeat; }
-.ri.ri.dual_caster::before { background: url(img/item/dual_caster.png) center / contain no-repeat; }
-.ri.ri.dual_defender::before { background: url(img/item/dual_defender.png) center / contain no-repeat; }
-.ri.ri.dual_guard::before { background: url(img/item/dual_guard.png) center / contain no-repeat; }
-.ri.ri.dual_medic::before { background: url(img/item/dual_medic.png) center / contain no-repeat; }
-.ri.ri.dual_sniper::before { background: url(img/item/dual_sniper.png) center / contain no-repeat; }
-.ri.ri.dual_specialist::before { background: url(img/item/dual_specialist.png) center / contain no-repeat; }
-.ri.ri.dual_supporter::before { background: url(img/item/dual_supporter.png) center / contain no-repeat; }
-.ri.ri.dual_vanguard::before { background: url(img/item/dual_vanguard.png) center / contain no-repeat; }
-.ri.ri.exp_1::before { background: url(img/item/exp_1.png) center / contain no-repeat; }
-.ri.ri.exp_2::before { background: url(img/item/exp_2.png) center / contain no-repeat; }
-.ri.ri.exp_3::before { background: url(img/item/exp_3.png) center / contain no-repeat; }
-.ri.ri.exp_4::before { background: url(img/item/exp_4.png) center / contain no-repeat; }
-.ri.ri.lmd::before { background: url(img/item/lmd.png) center / contain no-repeat; }
-.ri.ri.m_device::before { background: url(img/item/m_device.png) center / contain no-repeat; }
-.ri.ri.m_device3::before { background: url(img/item/m_device3.png) center / contain no-repeat; }
-.ri.ri.m_iron::before { background: url(img/item/m_iron.png) center / contain no-repeat; }
-.ri.ri.m_iron3::before { background: url(img/item/m_iron3.png) center / contain no-repeat; }
-.ri.ri.m_keton::before { background: url(img/item/m_keton.png) center / contain no-repeat; }
-.ri.ri.m_keton3::before { background: url(img/item/m_keton3.png) center / contain no-repeat; }
-.ri.ri.m_poly::before { background: url(img/item/m_poly.png) center / contain no-repeat; }
-.ri.ri.m_poly3::before { background: url(img/item/m_poly3.png) center / contain no-repeat; }
-.ri.ri.m_rock::before { background: url(img/item/m_rock.png) center / contain no-repeat; }
-.ri.ri.m_rock3::before { background: url(img/item/m_rock3.png) center / contain no-repeat; }
-.ri.ri.m_sugar::before { background: url(img/item/m_sugar.png) center / contain no-repeat; }
-.ri.ri.m_sugar3::before { background: url(img/item/m_sugar3.png) center / contain no-repeat; }
-.ri.ri.originite::before { background: url(img/item/originite.png) center / contain no-repeat; }
-.ri.ri.orundum::before { background: url(img/item/orundum.png) center / contain no-repeat; }
-.ri.ri.permit::before { background: url(img/item/permit.png) center / contain no-repeat; }
-.ri.ri.permit10::before { background: url(img/item/permit10.png) center / contain no-repeat; }
-.ri.ri.sanity::before { background: url(img/item/sanity.png) center / contain no-repeat; }
-.ri.ri.skill_1::before { background: url(img/item/skill_1.png) center / contain no-repeat; }
-.ri.ri.skill_2::before { background: url(img/item/skill_2.png) center / contain no-repeat; }
-.ri.ri.skill_3::before { background: url(img/item/skill_3.png) center / contain no-repeat; }
+/* 아이템 아이콘: 원작 이미지 한 장짜리 스프라이트 (img/items.webp, 원본은 img/item/<아이템 id>.png · © Hypergryph/Yostar) */
+.ri.ri.cert_hi::before { background: url(img/items.webp) 0.0% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.cert_lo::before { background: url(img/items.webp) 11.1111% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_caster::before { background: url(img/items.webp) 22.2222% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_defender::before { background: url(img/items.webp) 44.4444% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_guard::before { background: url(img/items.webp) 55.5556% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_medic::before { background: url(img/items.webp) 66.6667% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_sniper::before { background: url(img/items.webp) 77.7778% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_specialist::before { background: url(img/items.webp) 88.8889% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_supporter::before { background: url(img/items.webp) 100.0% 0.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_vanguard::before { background: url(img/items.webp) 0.0% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_caster::before { background: url(img/items.webp) 11.1111% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_defender::before { background: url(img/items.webp) 22.2222% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_guard::before { background: url(img/items.webp) 33.3333% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_medic::before { background: url(img/items.webp) 44.4444% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_sniper::before { background: url(img/items.webp) 55.5556% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_specialist::before { background: url(img/items.webp) 66.6667% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_supporter::before { background: url(img/items.webp) 77.7778% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.dual_vanguard::before { background: url(img/items.webp) 88.8889% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.exp_1::before { background: url(img/items.webp) 100.0% 20.0% / 1000% 600% no-repeat; }
+.ri.ri.exp_2::before { background: url(img/items.webp) 0.0% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.exp_3::before { background: url(img/items.webp) 11.1111% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.exp_4::before { background: url(img/items.webp) 22.2222% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.lmd::before { background: url(img/items.webp) 44.4444% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.m_device::before { background: url(img/items.webp) 55.5556% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.m_device3::before { background: url(img/items.webp) 66.6667% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.m_iron::before { background: url(img/items.webp) 77.7778% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.m_iron3::before { background: url(img/items.webp) 88.8889% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.m_keton::before { background: url(img/items.webp) 100.0% 40.0% / 1000% 600% no-repeat; }
+.ri.ri.m_keton3::before { background: url(img/items.webp) 0.0% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.m_poly::before { background: url(img/items.webp) 11.1111% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.m_poly3::before { background: url(img/items.webp) 22.2222% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.m_rock::before { background: url(img/items.webp) 33.3333% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.m_rock3::before { background: url(img/items.webp) 44.4444% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.m_sugar::before { background: url(img/items.webp) 55.5556% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.m_sugar3::before { background: url(img/items.webp) 66.6667% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.originite::before { background: url(img/items.webp) 77.7778% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.orundum::before { background: url(img/items.webp) 88.8889% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.permit::before { background: url(img/items.webp) 77.7778% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.permit10::before { background: url(img/items.webp) 88.8889% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.sanity::before { background: url(img/items.webp) 100.0% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.skill_1::before { background: url(img/items.webp) 0.0% 100.0% / 1000% 600% no-repeat; }
+.ri.ri.skill_2::before { background: url(img/items.webp) 11.1111% 100.0% / 1000% 600% no-repeat; }
+.ri.ri.skill_3::before { background: url(img/items.webp) 22.2222% 100.0% / 1000% 600% no-repeat; }
 .ri.ri::before { clip-path: none; box-shadow: none; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
 
 /* 잠재 · 신뢰도 · 프로필 기록 */
@@ -2409,7 +2409,7 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .is-cand.promo { border-color: #ffcf3a; }
 
 /* ===== 사이드 스토리 이벤트 · 이벤트 상점 · 출석 ===== */
-.ri.ri.lantern::before { background: url(img/item/lantern.png) center / contain no-repeat; }
+.ri.ri.lantern::before { background: url(img/items.webp) 33.3333% 40.0% / 1000% 600% no-repeat; }
 #screen-operations.event-mode .ops-bg { background: linear-gradient(180deg, rgba(8,8,14,.55), rgba(8,8,14,.85)), var(--ev-bg) center / cover; }
 #screen-operations.event-mode .ops-bg > *, #screen-operations.event-mode .ops-bg::before, #screen-operations.event-mode .ops-bg::after { display: none; }
 .chapter-title .ev-head { display: flex; flex-direction: column; align-items: flex-end; padding: 4px 14px; background: linear-gradient(90deg, transparent, rgba(0,0,0,.65)); border-right: 3px solid var(--ec); }
@@ -2544,15 +2544,15 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 @media (max-width: 560px) { .evm-row { grid-template-columns: 1fr auto; } .evm-rw { grid-column: 1 / -1; } }
 
 /* 칩셋 · 칩 촉매제 */
-.ri.ri.pack_vanguard::before { background: url(img/item/pack_vanguard.png) center / contain no-repeat; }
-.ri.ri.pack_guard::before { background: url(img/item/pack_guard.png) center / contain no-repeat; }
-.ri.ri.pack_defender::before { background: url(img/item/pack_defender.png) center / contain no-repeat; }
-.ri.ri.pack_sniper::before { background: url(img/item/pack_sniper.png) center / contain no-repeat; }
-.ri.ri.pack_caster::before { background: url(img/item/pack_caster.png) center / contain no-repeat; }
-.ri.ri.pack_medic::before { background: url(img/item/pack_medic.png) center / contain no-repeat; }
-.ri.ri.pack_supporter::before { background: url(img/item/pack_supporter.png) center / contain no-repeat; }
-.ri.ri.pack_specialist::before { background: url(img/item/pack_specialist.png) center / contain no-repeat; }
-.ri.ri.chip_cat::before { background: url(img/item/chip_cat.png) center / contain no-repeat; }
+.ri.ri.pack_vanguard::before { background: url(img/items.webp) 66.6667% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.pack_guard::before { background: url(img/items.webp) 11.1111% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.pack_defender::before { background: url(img/items.webp) 0.0% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.pack_sniper::before { background: url(img/items.webp) 33.3333% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.pack_caster::before { background: url(img/items.webp) 100.0% 60.0% / 1000% 600% no-repeat; }
+.ri.ri.pack_medic::before { background: url(img/items.webp) 22.2222% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.pack_supporter::before { background: url(img/items.webp) 55.5556% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.pack_specialist::before { background: url(img/items.webp) 44.4444% 80.0% / 1000% 600% no-repeat; }
+.ri.ri.chip_cat::before { background: url(img/items.webp) 33.3333% 0.0% / 1000% 600% no-repeat; }
 /* 박사 레벨 경험치 고리 */
 .lv-ring { position: relative; }
 .lv-ring::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: conic-gradient(#fff calc(var(--lvp, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); pointer-events: none; }

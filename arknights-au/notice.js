@@ -10,7 +10,7 @@
 const NOTICES = [
   {
     id: 'p20261101a', tab: 'patch', date: '2026-11-01', short: '육성 재료\n개편',
-    title: '육성 재료 · 박사 레벨 원작화', banner: '시스템 개편', art: 'img/item/dual_guard.png', bg: 'img/homebg/bg_rhodes_night.webp',
+    title: '육성 재료 · 박사 레벨 원작화', banner: '시스템 개편', art: '', bg: 'img/homebg/bg_rhodes_night.webp',
     body: [
       { p: '작전 보상과 육성 비용을 원작 수치에 맞췄습니다. 지금까지는 재료가 원작보다 몇 배씩 많이 나왔습니다.' },
       { h: '칩 탐색 · 칩셋', li: [
