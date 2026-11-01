@@ -76,6 +76,9 @@
     mail: '<path d="M3 6h18v12H3z"/><path d="m3 6 9 7 9-7"/>',
     calendar: '<rect x="3" y="5" width="18" height="16"/><path d="M3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/>',
     alert: '<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/>',
+    terminal: '<path d="M12 2l10 10-10 10L2 12z"/><path d="M12 7l5 5-5 5-5-5z"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    isle: '<path d="M4 12a8 8 0 1 0 16 0"/><path d="M8 12l4-7 4 7M7 16h10"/>',
     eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20 20 4"/>',
     swap: '<path d="M20 11a8 8 0 0 0-14-5L4 8M4 4v4h4M4 13a8 8 0 0 0 14 5l2-2M20 20v-4h-4"/>',
     book: '<path d="M3 5c3-1.2 6-1.2 9 1 3-2.2 6-2.2 9-1v14c-3-1.2-6-1.2-9 1-3-2.2-6-2.2-9-1z"/><path d="M12 6v14"/>',
@@ -1491,6 +1494,7 @@
   // 전투 결과 → 보상 (game.js에서 호출)
   function onBattleEnd(idx, win, starCount, squadIds = [], kills = 0) {
     const st = STAGES[idx], cost = sanityCost(st);
+    save.lastStage = st.code;
     if (st.annih) return annihEnd(st, cost, win, kills, squadIds);
     if (!win) { ACCOUNT.addSanity(cost - 1); track('sanity', 1); return `이성 ${cost - 1} 반환`; }
     trackBattle(st, 1);
@@ -1570,7 +1574,7 @@
 
   let chapterSel = null;
   // 하단 탭: main(메인 스토리) · supply(물자 비축) · chip(칩 탐색). seriesSel: 고른 시리즈 (없으면 카드 목록)
-  let opsMode = 'main', seriesSel = null;
+  let opsMode = 'home', seriesSel = null, chapOpen = false;
   const chapters = () => (typeof CHAPTERS !== 'undefined' && CHAPTERS.length ? CHAPTERS : [{ id: undefined, code: 'EP', name: GAME_INFO.chapter || GAME_INFO.title }]).filter((c) => c.id !== 'supply');
   const stagesOf = (ch) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => !st.supply && (st.chapter === ch.id || ch.id === undefined));
   const seriesStages = (id) => STAGES.map((st, i) => ({ st, i })).filter(({ st }) => st.supply === id);
@@ -1582,11 +1586,20 @@
   const daysText = (sr) => (sr.days ? [1, 2, 3, 4, 5, 6, 0].filter((d) => sr.days.includes(d)).map((d) => DAY_KO[d]).join('') + '요일 개방' : '상시 개방');
   const supplyReady = () => cleared(STAGES[3]);
   RENDER.operations = (arg, opts = {}) => {
-    if (!opts.back && arg !== 'after') { opsMode = 'main'; seriesSel = null; }
+    if (!opts.back && arg !== 'after') { opsMode = 'home'; seriesSel = null; chapOpen = false; }
+    if (arg === 'main') { opsMode = 'main'; chapOpen = false; }
     if (arg === 'supply' || arg === 'chip' || arg === 'event') { opsMode = arg; seriesSel = null; }
-    if (opsMode === 'event' && !liveEvent()) opsMode = 'main';
+    if (opsMode === 'chip') opsMode = 'supply';
+    if (opsMode === 'event' && !liveEvent()) opsMode = 'home';
     document.querySelectorAll('#ops-nav [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === opsMode));
     const scr = $('#screen-operations');
+    $('#ops-sanity').innerHTML = `<i class="ri sanity"></i><b>${ACCOUNT.sanity()}</b><small>/${ACCOUNT.SANITY_MAX}</small>`;
+    scr.classList.toggle('home-mode', opsMode === 'home');
+    scr.classList.toggle('chap-mode', opsMode === 'main' && !chapOpen);
+    $('#ops-home').classList.toggle('hidden', opsMode !== 'home');
+    $('#ops-chapters').classList.toggle('hidden', !(opsMode === 'main' && !chapOpen));
+    if (opsMode === 'home') { scr.classList.remove('cards-mode', 'event-mode'); $('#ops-cards').classList.add('hidden'); $('#chapter-title').innerHTML = ''; renderOpsHome(); return; }
+    if (opsMode === 'main' && !chapOpen) { scr.classList.remove('cards-mode', 'event-mode'); $('#ops-cards').classList.add('hidden'); $('#chapter-title').innerHTML = ''; renderChapters(); return; }
     if (opsMode !== 'main' && opsMode !== 'event' && !seriesSel) { scr.classList.add('cards-mode'); renderSeriesCards(); return; }
     scr.classList.remove('cards-mode');
     scr.classList.toggle('event-mode', opsMode === 'event');
@@ -1651,21 +1664,78 @@
         </button>`;
       }).join('')}
     </div>`;
+    scr.style.setProperty('--ch-bg', `url(img/ui/story_${opsMode === 'main' && typeof chapterSel === 'number' ? chapterSel : 0}.webp)`);
     renderOpsPanel();
+    const selNode = map.querySelector('.op-node.sel');
+    if (selNode) map.scrollLeft = Math.max(0, selNode.offsetLeft - map.clientWidth / 2);
   };
+  // 작전 터미널 (원작 작전 첫 화면): 왼쪽 통합전략 · 가운데 ATTENTION(이벤트 · 메인 테마) · 오른쪽 TO-DO(섬멸 · 통합전략) · 지난 작전 바로가기
+  function renderOpsHome() {
+    const ev = liveEvent(), main = STAGES.filter((st) => !st.supply && !st.event), cur = main.find((st) => !cleared(st));
+    const ch = cur ? (CHAPTERS.find((c) => c.id === cur.chapter) || {}) : null;
+    const an = STAGES.find((st) => st.annih), anS = an ? annihState() : null;
+    const weekLeft = (() => { const d = new Date(Date.now() - 4 * 3600e3); return 7 - ((d.getDay() + 6) % 7); })();
+    const isOn = window.IS && IS.run;
+    const last = save.lastStage && STAGES.findIndex((st) => st.code === save.lastStage);
+    const lastSt = last >= 0 ? STAGES[last] : null;
+    $('#ops-home').innerHTML = `
+      <button class="oh-left" data-oh="is"><span class="oh-bg" style="background-image:url(img/ui/story_is.webp)"></span>
+        <span class="oh-mode"><small>INTEGRATED STRATEGIES</small><b>통합전략</b><em>가라앉은 등대</em></span>
+        <span class="oh-bar"><span>${isOn ? '탐험 진행 중' : '통합전략 테마 개방 중'}</span><i>›</i></span></button>
+      <div class="oh-col"><span class="oh-lab">ATTENTION</span>
+        ${ev ? `<button class="oh-att" data-oh="event"><span class="oh-side"><small>ACTIVITY</small><em class="oh-days">${daysLeft(ev.end)}일</em></span><span class="oh-img" style="background-image:url(${ev.bg})"><b>${esc(ev.name)}</b><small>${esc(ev.en)}</small></span></button>` : ''}
+        <button class="oh-att" data-oh="main"><span class="oh-side"><small>MAIN THEME</small><em>진행도</em><b>${cur ? esc(cur.code) : '올 클리어'}</b></span><span class="oh-img" style="background-image:url(img/ui/story_${typeof (cur && cur.chapter) === 'number' ? cur.chapter : 1}.webp)"><b>${esc(ch ? ch.name || '' : '메인 스토리')}</b><small>${esc(ch ? ch.code || '' : 'MAIN THEME')}</small></span></button></div>
+      <div class="oh-col narrow"><span class="oh-lab">TO-DO LIST</span>
+        ${an ? `<button class="oh-todo" data-oh="annih"><span class="oh-ti an"></span><span class="oh-tx"><small>섬멸 작전</small><b>${esc(an.name)}</b><span class="oh-pg">합성옥 ${anS.got}/${an.annih.cap}<i style="width:${(anS.got / an.annih.cap) * 100}%"></i></span></span><em class="oh-days">${weekLeft}일</em></button>` : ''}
+        <button class="oh-todo" data-oh="is"><span class="oh-ti is"></span><span class="oh-tx"><small>통합 전략</small><b>가라앉은 등대</b></span>${isOn ? '<em class="oh-days y">탐험 중</em>' : ''}</button>
+        <button class="oh-todo" data-oh="practice"><span class="oh-ti tr"></span><span class="oh-tx"><small>훈련장</small><b>연습 작전</b></span></button></div>
+      ${lastSt ? `<button class="oh-last" data-oh="last"><small>지난 작전 바로가기</small><span><em>${lastSt.event ? '이벤트' : lastSt.supply ? '물자' : '메인'}</em><b>${esc(lastSt.code)}</b><i>${esc(lastSt.name)}</i></span></button>` : ''}`;
+    $('#ops-home').onclick = (e) => {
+      const b = e.target.closest('[data-oh]'); if (!b) return;
+      sfx('select');
+      const k = b.dataset.oh;
+      if (k === 'is') go('is');
+      else if (k === 'event') go('event');
+      else if (k === 'main') { opsMode = 'main'; chapOpen = false; RENDER.operations(undefined, { back: true }); }
+      else if (k === 'annih') jumpStage(STAGES.indexOf(an));
+      else if (k === 'practice') openPracticeBanner();
+      else if (k === 'last') jumpStage(last);
+    };
+  }
+  // 메인 스토리 장 선택 (원작: 큰 정사각 카드가 가로로)
+  function renderChapters() {
+    const chs = chapters();
+    $('#ops-chapters').innerHTML = `<div class="oc-head"><small>Main Story / 메인 스토리</small><b>${esc(GAME_INFO.title)}</b></div>
+      <div class="oc-row">${chs.map((c) => {
+        const ss = stagesOf(c), first = ss[0], open = first && unlocked(first.i), done = ss.filter(({ st }) => cleared(st)).length;
+        return `<button class="oc-card ${open ? '' : 'locked'}" data-oc="${c.id}"><span class="oc-art" style="background-image:url(img/ui/story_${typeof c.id === 'number' ? c.id : 0}.webp)"></span>
+          <span class="oc-ep">${esc(c.code)}</span><b>${open ? esc(c.name) : '???'}</b><small>${open ? `${done}/${ss.length} 클리어` : '이전 에피소드 클리어 후 개방'}</small></button>`;
+      }).join('')}</div>`;
+    $('#ops-chapters').onclick = (e) => {
+      const b = e.target.closest('[data-oc]'); if (!b) return;
+      if (b.classList.contains('locked')) { toast('이전 에피소드를 완료하면 해금됩니다'); return; }
+      sfx('select');
+      const c = chs.find((x) => String(x.id) === b.dataset.oc);
+      chapterSel = c.id; chapOpen = true;
+      let last = stagesOf(c)[0].i;
+      STAGES.forEach((st, i) => { if (st.chapter === chapterSel && unlocked(i) && !st.supply && !st.event) last = i; });
+      opSel = last;
+      RENDER.operations(undefined, { back: true });
+    };
+  }
   // 물자 비축 · 칩 탐색: 요일 일정 + 시리즈 카드
   function renderSeriesCards() {
     const today = gameDay();
     const week = [1, 2, 3, 4, 5, 6, 0];
     $('#chapter-title').innerHTML = `<div class="sched"><span class="sched-t">SCHEDULE</span>${week.map((d) => `<span class="sched-d ${d === today ? 'today' : ''}">${d === today ? '<small>TODAY</small>' : ''}${DAY_KO[d]}</span>`).join('')}</div>`;
     const ready = supplyReady();
-    const cards = SUPPLY_SERIES.filter((sr) => sr.tab === opsMode);
+    const cards = SUPPLY_SERIES.filter((sr) => sr.tab === 'supply' || sr.tab === 'chip');
     $('#ops-cards').classList.remove('hidden');
     $('#ops-cards').innerHTML = cards.map((sr) => {
       const open = seriesOpen(sr);
       const done = seriesStages(sr.id).filter(({ st }) => cleared(st)).length, total = seriesStages(sr.id).length;
       const art = sr.classes ? `<span class="sc-cls">${sr.classes.map((c) => `<span class="sc-dia">${icon(c)}</span>`).join('')}</span>` : `<i class="ri ${sr.item} sc-item"></i>`;
-      return `<button class="series-card ${open && ready ? '' : 'closed'}" data-series="${sr.id}" style="--sc:${sr.color}">
+      return `<button class="series-card ${open && ready ? '' : 'closed'}" data-series="${sr.id}" style="--sc:${sr.color};--art:url(img/ui/weekly_${sr.id.toLowerCase()}.webp)">
         <span class="sc-art">${art}</span>
         <span class="sc-en">${esc(sr.en)}</span>
         <b class="sc-name">${esc(sr.name)}</b>
@@ -1693,10 +1763,8 @@
     if (!b) return;
     if (b.dataset.mode === 'is') { go('is'); return; }
     sfx('select');
-    if (b.dataset.mode === opsMode && !seriesSel) return;
     opsMode = b.dataset.mode;
-    seriesSel = null;
-    if (opsMode === 'main') { RENDER.operations(); return; }
+    seriesSel = null; chapOpen = false;
     RENDER.operations(undefined, { back: true });
   });
   $('#chapter-title').addEventListener('click', (e) => {
@@ -1738,7 +1806,7 @@
         <button class="tool-box" id="op-mapview"><span>맵</span>${icon('search')}</button>
       </div>
       <div class="op-actions">
-        <button class="act-formation" id="op-formation">${icon('users')}<span>편성</span></button>
+        <button class="act-practice" id="op-practice"><b>연습</b><small>보상 없음 · 이성 0</small></button>
         <button class="act-start" id="op-start"><b>${proxyOn && s >= 3 ? '대리 작전' : '작전개시'}</b><small>이성 -${sanityCost(st) * (proxyOn && s >= 3 ? proxyN : 1)}</small></button>
       </div>
       <div class="op-proxy ${s >= 3 ? '' : 'off'}">
@@ -1749,13 +1817,24 @@
     if (story) story.addEventListener('click', () => playDialog(st.before, () => {}, st));
     $('#op-enemy').addEventListener('click', () => openEnemies(st));
     $('#op-mapview').addEventListener('click', () => openMap(st));
-    $('#op-formation').addEventListener('click', () => go('formation', { stage: opSel }));
+    $('#op-practice').addEventListener('click', () => practiceRun(opSel));
     $('#op-start').addEventListener('click', () => {
       if (!seriesOpen(seriesOf(st))) { toast('오늘은 개방되지 않은 작전입니다'); return; }
       if (proxyOn && s >= 3) runProxy(opSel, proxyN); else go('formation', { stage: opSel });
     });
     $('#op-proxy').addEventListener('click', () => { proxyOn = !proxyOn; renderOpsPanel(); });
     document.querySelectorAll('[data-px]').forEach((b) => b.addEventListener('click', () => { proxyN = +b.dataset.px; renderOpsPanel(); }));
+  }
+  // 연습: 지금 편성으로 바로 출격, 이성 · 보상 · 별 기록 없음
+  function practiceRun(idx) {
+    fixPlayer();
+    const squad = [...save.squad];
+    if (!squad.length) { toast('편성된 오퍼레이터가 없습니다'); return; }
+    sfx('select');
+    window.Battle.begin(idx, squad, {
+      defs: squad.map((id) => TRAIN.trained(OPS[id])),
+      onEnd: (r) => ({ text: `연습 종료 · 처치 ${r.killed} · 보상 없음`, buttons: [{ label: '다시 연습', cls: 'primary', fn: () => practiceRun(idx) }, { label: '작전 목록', fn: () => go('operations', 'after') }] }),
+    });
   }
   // 드롭 표시: 고정 · 주요(별 3개 확정) · 확률
   function dropsHTML(st, idx) {
@@ -1788,7 +1867,7 @@
     const st = STAGES[i], sr = seriesOf(st);
     if (!unlocked(i)) { toast('아직 해금되지 않은 작전입니다'); return; }
     if (!seriesOpen(sr)) { toast(`${sr.name}: ${daysText(sr)} · 오늘은 진입할 수 없습니다`); return; }
-    if (sr) { opsMode = sr.tab; seriesSel = sr.id; } else if (st.event) { opsMode = 'event'; seriesSel = null; } else { opsMode = 'main'; seriesSel = null; chapterSel = st.chapter; }
+    if (sr) { opsMode = sr.tab; seriesSel = sr.id; } else if (st.event) { opsMode = 'event'; seriesSel = null; } else { opsMode = 'main'; seriesSel = null; chapterSel = st.chapter; chapOpen = true; }
     opSel = i;
     closeModal();
     $('#train-view').classList.add('hidden');
