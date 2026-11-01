@@ -126,6 +126,36 @@
   // ---------- 잠재 · 신뢰도 ----------
   const potOf = (def) => Math.max(1, Math.min(6, (window.ACCOUNT && ACCOUNT.potOf(def.id)) || 1));
   const trustOf = (def) => Math.min(200, ((P().trust || {})[def.id]) || 0);
+  // 원작 신뢰도: 신뢰 포인트를 쌓아 %가 오름. 1%당 필요 포인트는 8에서 시작해 70% 이후 155 (200% = 25,570)
+  const TRUST_CP = [[0, 0], [25, 804], [50, 2732], [70, 5420], [100, 10070], [200, 25570]];
+  function trustCum(pct) {
+    for (let i = 1; i < TRUST_CP.length; i++) {
+      const [p0, c0] = TRUST_CP[i - 1], [p1, c1] = TRUST_CP[i];
+      if (pct <= p1) return Math.round(c0 + ((c1 - c0) * (pct - p0)) / (p1 - p0));
+    }
+    return TRUST_CP[TRUST_CP.length - 1][1];
+  }
+  function trustPctOf(pt) {
+    for (let i = 1; i < TRUST_CP.length; i++) {
+      const [p0, c0] = TRUST_CP[i - 1], [p1, c1] = TRUST_CP[i];
+      if (pt <= c1) return Math.floor(p0 + ((p1 - p0) * (pt - c0)) / (c1 - c0));
+    }
+    return 200;
+  }
+  // 예전 저장(% 단위)은 같은 %의 포인트로 옮김
+  function trustPts(id) {
+    const pl = P(); pl.trustPt = pl.trustPt || {}; pl.trust = pl.trust || {};
+    if (pl.trustPt[id] == null) pl.trustPt[id] = trustCum(Math.min(200, pl.trust[id] || 0));
+    return pl.trustPt[id];
+  }
+  function addTrust(id, pts) {
+    const pl = P(), before = trustPts(id);
+    pl.trustPt[id] = Math.min(TRUST_CP[TRUST_CP.length - 1][1], before + Math.max(0, pts || 0));
+    pl.trust[id] = trustPctOf(pl.trustPt[id]);
+    return pl.trustPt[id] - before;
+  }
+  // 작전 신뢰 포인트: 소모 이성만큼 (3성 클리어), 그 외에는 절반
+  const trustGain = (sanity, stars = 3) => (stars >= 3 ? sanity : Math.floor(sanity / 2));
   const potList = (def) => def.potentials || R.potential;
   function potBonus(def, pot = potOf(def)) {
     const out = { cost: 0, redeploy: 0, atk: 0, hp: 0, def: 0 };
@@ -303,5 +333,5 @@
     }
     ACCOUNT.save();
   }
-  window.TRAIN = { modsOf, modState, modStage, modNext, modUp, setModCur, modCost, potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
+  window.TRAIN = { addTrust, trustPts, trustCum, trustGain, modsOf, modState, modStage, modNext, modUp, setModCur, modCost, potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
 })();

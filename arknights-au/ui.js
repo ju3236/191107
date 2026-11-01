@@ -1497,7 +1497,8 @@
     const fx = (b) => [b.cost && `배치 코스트 -${b.cost}`, b.redeploy && `재배치 시간 -${b.redeploy}초`, b.atk && `공격력 +${pct(b.atk)}`, b.hp && `HP +${pct(b.hp)}`, b.def && `방어력 +${pct(b.def)}`].filter(Boolean).join(' · ');
     const name = { atk: '공격력', hp: 'HP', def: '방어력' };
     const tb = TRAIN.trustBonus(o, t), tm = TRAIN.trustMax(o);
-    openModal(`<div class="modal-title">${esc(o.name)} — 잠재 · 신뢰도</div><div class="modal-sub">헤드헌팅에서 중복으로 얻으면 잠재가 오르고, 작전에서 쓴 이성만큼 신뢰도가 오릅니다</div>
+    openModal(`<div class="modal-title">${esc(o.name)} — 잠재 · 신뢰도</div><div class="modal-sub">헤드헌팅 중복으로 얻은 증표로 잠재를 올리고, 작전에서 쓴 이성만큼 신뢰 포인트를 얻습니다 (3성 미만 클리어는 절반)</div>
+      <p class="pt-note">신뢰 포인트 ${Math.floor(TRAIN.trustPts(id)).toLocaleString('ko-KR')} / 다음 1%까지 ${t >= 200 ? '-' : Math.ceil(TRAIN.trustCum(t + 1) - TRAIN.trustPts(id))}</p>
       <div class="pt-sec"><b>잠재 ${pot}/6</b><div class="pt-list">${TRAIN.potList(o).map((b, i) => `<div class="pt-row ${pot >= i + 2 ? 'on' : ''}"><span class="pt-lv">${i + 2}</span>${fx(b)}</div>`).join('')}</div></div>
       <div class="pt-sec"><b>신뢰도 ${t}%</b><div class="pt-bar"><i style="width:${Math.min(100, t / 2)}%"></i><em style="left:50%">100%</em></div>
         <p class="pt-note">신뢰도 100%까지 능력치가 오르고(현재 ${Object.keys(tm).map((k) => `${name[k]} +${pct(tb[k])} / 최대 ${pct(tm[k])}`).join(' · ')}), 100% 이후로는 음성 기록과 승진 후 대화가 열립니다.</p>
@@ -1543,7 +1544,7 @@
         return `<div class="vrow ${locked ? 'locked' : ''}"><b>${label}${list.length > 1 ? ' ' + (i + 1) : ''}</b><p>${locked ? `신뢰도 ${need}% 달성 시 해금` : esc(txt)}</p></div>`;
       });
     }).join('') + sv;
-    openModal(`<div class="modal-title">${esc(o.name)} — 음성 기록</div><div class="modal-sub">신뢰도 ${t}% · 작전에서 사용한 이성만큼 신뢰도가 오릅니다</div><div class="voice-list">${rows}</div>`);
+    openModal(`<div class="modal-title">${esc(o.name)} — 음성 기록</div><div class="modal-sub">신뢰도 ${t}% · 작전에서 사용한 이성만큼 신뢰 포인트가 쌓입니다</div><div class="voice-list">${rows}</div>`);
   });
 
   // =====================================================================
@@ -1759,8 +1760,8 @@
     if (!win) { ACCOUNT.addSanity(cost - 1); track('sanity', 1); lastResult.back = cost - 1; return `이성 ${cost - 1} 반환`; }
     trackBattle(st, 1);
     // 원작처럼 소모한 이성만큼 편성 오퍼레이터의 신뢰도 상승 (최대 200%)
-    save.trust = save.trust || {};
-    for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
+    const tg = TRAIN.trustGain(cost, starCount);
+    for (const id of squadIds) TRAIN.addTrust(id, tg);
     const first = !(save.stars[st.code] > 0);
     const reward = rewardFor(st, idx, starCount, first, squadIds);
     ACCOUNT.earn(reward);
@@ -1768,8 +1769,8 @@
     const ups = ACCOUNT.gainExp(cost);
     if (ups) setTimeout(() => toast(`박사 레벨 업! Lv.${ACCOUNT.level().lv} · 이성 회복`), 400);
     const eb = st.event ? evBonusOf(st, squadIds) : 0;
-    lastResult = { reward, trust: cost, exp: cost * (TRAIN_RULE.playerExpPerSanity || 12), ups, first };
-    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 박사 경험치 +${cost * (TRAIN_RULE.playerExpPerSanity || 12)}${ups ? ` · 레벨 업! Lv.${ACCOUNT.level().lv}` : ''} · 신뢰도 +${cost}%`;
+    lastResult = { reward, trust: tg, exp: cost * (TRAIN_RULE.playerExpPerSanity || 12), ups, first };
+    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 박사 경험치 +${cost * (TRAIN_RULE.playerExpPerSanity || 12)}${ups ? ` · 레벨 업! Lv.${ACCOUNT.level().lv}` : ''} · 신뢰 포인트 +${tg}`;
   }
   // 섬멸 작전: 처치 수에 비례한 합성옥 (주간 상한), 실패해도 처치한 만큼 받음
   const total = (st) => st.waves.reduce((a, w) => a + (w.count || 1), 0);
@@ -1785,8 +1786,7 @@
   }
   function annihEnd(st, cost, win, kills, squadIds) {
     trackBattle(st, 1);
-    save.trust = save.trust || {};
-    for (const id of squadIds) save.trust[id] = Math.min(200, (save.trust[id] || 0) + cost);
+    for (const id of squadIds) TRAIN.addTrust(id, cost);
     const reward = annihReward(st, kills);
     ACCOUNT.earn(reward);
     const ups = ACCOUNT.gainExp(cost);
@@ -2156,8 +2156,7 @@
     trackEvent(st, n, save.squad);
     const ups = ACCOUNT.gainExp(cost);
     if (ups) setTimeout(() => toast(`박사 레벨 업! Lv.${ACCOUNT.level().lv} · 이성 회복`), 400);
-    save.trust = save.trust || {};
-    for (const id of save.squad) save.trust[id] = Math.min(200, (save.trust[id] || 0) + sanityCost(st) * n);
+    for (const id of save.squad) TRAIN.addTrust(id, sanityCost(st) * n);
     writeSave();
     sfx('win');
     const rows = Object.entries(total).map(([k, v]) => `<div class="px-item"><i class="ri ${k} big"></i><b>${v.toLocaleString('ko-KR')}</b><span>${esc(ITEMS[k] ? ITEMS[k].name : k)}</span></div>`).join('');

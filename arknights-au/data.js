@@ -2792,7 +2792,7 @@ const BASE = {
       upgrade: [{ lmd: 20000, items: { m_rock: 6, m_poly: 4 } }, { lmd: 60000, items: { m_rock3: 4, m_poly3: 3 } }] },
     { id: 'recept', name: '응접실', en: 'RECEPTION ROOM', out: 'trust', color: '#d0603a', classes: [],
       desc: '배치한 오퍼레이터와 박사가 이야기를 나눈다. 배치한 오퍼레이터의 신뢰도가 오른다.',
-      rate: [2, 3, 4], cap: [12, 16, 24], slots: [2, 3, 4],
+      rate: [20, 30, 40], cap: [12, 16, 24], slots: [2, 3, 4],
       upgrade: [{ lmd: 20000, items: { m_sugar: 6, m_keton: 4 } }, { lmd: 60000, items: { m_sugar3: 4, m_keton3: 3 } }] },
   ],
 };

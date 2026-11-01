@@ -2726,7 +2726,7 @@
         <div class="rs-op"><small>OPERATION</small><b>${UI.esc(st.code)}</b><span>${UI.esc(st.name || '')}</span></div>
         <div class="rs-title ${win ? '' : 'fail'}"><b>${win ? '작전 종료' : '작전 실패'}</b><small>MISSION ${win ? 'RESULTS' : 'FAILED'}</small></div>
         ${win ? `<div class="rs-stars">${[1, 2, 3].map((i) => `<i class="${i <= stars ? 'on' : ''}"></i>`).join('')}</div>` : ''}
-        <div class="rs-row"><span class="rs-trust">신뢰도 상승 <b>+${r.trust || 0}%</b></span>
+        <div class="rs-row"><span class="rs-trust">신뢰도 상승 <b>+${r.trust || 0}</b></span>
           <span class="rs-lv"><small>LV</small><b>${lv.lv}</b><i><u style="width:${lv.need ? Math.min(100, (lv.exp / lv.need) * 100) : 100}%"></u></i><em>${r.exp ? `+${r.exp} EXP` : ''}${r.ups ? ' · 레벨 업!' : ''}</em></span></div>
         <div class="rs-items">${items || (r.back ? `<div class="rs-back">이성 ${r.back} 반환</div>` : '')}</div>
         <div class="rs-kill">처치 ${S.killed} · 돌파 ${S.leaked} · 남은 목숨 ${Math.max(0, S.life)}/${S.maxLife}</div>

@@ -37,8 +37,7 @@
       b.at[f.id] = now;
       if (!b.ops[f.id].length || h <= 0) continue;
       if (f.out === 'trust') {
-        save.trust = save.trust || {};
-        for (const id of b.ops[f.id]) save.trust[id] = Math.min(200, (save.trust[id] || 0) + rateOf(f, b) * h);
+        for (const id of b.ops[f.id]) TRAIN.addTrust(id, rateOf(f, b) * h);
       } else b.acc[f.id] = Math.min(capOf(f, b), b.acc[f.id] + rateOf(f, b) * h);
     }
     writeSave();
@@ -80,7 +79,7 @@
     const o = OPS[id];
     return `<span class="bs-av" style="--c:${o.color}">${o.image ? `<img src="${esc(o.image)}" alt="">` : esc(o.name[0])}</span>`;
   };
-  const outText = (f, v) => (f.out === 'lmd' ? `용문폐 ${fmt(v)}` : f.out === 'exp' ? `경험치 ${fmt(v)}` : `신뢰도 ${v}%`);
+  const outText = (f, v) => (f.out === 'lmd' ? `용문폐 ${fmt(v)}` : f.out === 'exp' ? `경험치 ${fmt(v)}` : `신뢰 포인트 ${v}`);
 
   RENDER.base = () => {
     const b = settle();
@@ -88,7 +87,7 @@
       const lv = b.lv[f.id], slots = f.slots[lv - 1], ops = b.ops[f.id], eff = effOf(f, b);
       const cap = capOf(f, b), acc = b.acc[f.id], up = f.upgrade[lv - 1];
       const store = f.out === 'trust'
-        ? `<div class="bs-rate">배치 오퍼레이터 신뢰도 <b>+${f.rate[lv - 1]}%</b>/시간 <small>(최대 ${f.cap[lv - 1]}시간씩 쌓임)</small></div>`
+        ? `<div class="bs-rate">배치 오퍼레이터 신뢰 포인트 <b>+${f.rate[lv - 1]}</b>/시간 <small>(최대 ${f.cap[lv - 1]}시간씩 쌓임)</small></div>`
         : `<div class="bs-rate">${ops.length ? `시간당 <b>${outText(f, rateOf(f, b))}</b> · 효율 ${Math.round(eff * 100)}%` : '<span class="bad">오퍼레이터를 배치해야 가동합니다</span>'}</div>
            <div class="bs-store"><i class="ri ${f.out === 'lmd' ? 'lmd' : 'exp_4'}"></i><div class="bs-bar"><i style="width:${(acc / cap) * 100}%"></i></div><small>${fmt(acc)} / ${fmt(cap)}</small>
            <button class="bs-get" data-get="${f.id}" ${acc >= (f.out === 'exp' ? 200 : 1) ? '' : 'disabled'}>수령</button></div>`;

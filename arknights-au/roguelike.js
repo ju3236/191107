@@ -1745,8 +1745,7 @@
     ACCOUNT.earn({ lmd });
     // 탐색에 참가한 오퍼레이터 신뢰도 상승
     const save2 = UI.save;
-    save2.trust = save2.trust || {};
-    for (const o of r.ops) if (ACCOUNT.owns(o.id)) save2.trust[o.id] = Math.min(200, (save2.trust[o.id] || 0) + 5 + floors * 3);
+    for (const o of r.ops) if (ACCOUNT.owns(o.id)) TRAIN.addTrust(o.id, 40 + floors * 20);
     const rc = rec();
     rc.best = Math.max(rc.best, score);
     // 원작: 3층(구역) 이상 도달하면 다음 탐색 시작 시 추가 보상 선택
