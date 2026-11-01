@@ -83,6 +83,45 @@
     const [a, b] = R.statRange[e], m = R.maxLevel[e];
     return a + ((b - a) * (lv - 1)) / (m - 1);
   }
+  // ---------- 모듈 ----------
+  const modsOf = (def) => ((typeof MODULES !== 'undefined' && MODULES[def.id]) || []);
+  function modState(id) {
+    const m = (P().mods || {})[id] || {};
+    return { cur: m.cur || null, st: { ...(m.st || {}) } };
+  }
+  function setModState(id, v) { P().mods = P().mods || {}; P().mods[id] = v; ACCOUNT.save(); }
+  const modStage = (id, modId) => modState(id).st[modId] || 0;
+  const modRar = (def) => Math.max(4, Math.min(6, def.rarity || 4));
+  const modCost = (def, stage) => (MODULE_RULE.cost[modRar(def)] || [])[stage - 1] || null;
+  // 다음 단계 조건: { stage, lvNeed, eliteOk, lvOk, trustOk, cost } — 임무는 화면에서 따로 확인
+  function modNext(def, modId) {
+    const p = prog(def.id), stage = modStage(def.id, modId) + 1, r = modRar(def);
+    if (stage > 3) return null;
+    const lvNeed = stage === 1 ? MODULE_RULE.level[r] : MODULE_RULE.stage2Level[r];
+    return { stage, lvNeed, eliteOk: p.elite >= 2, lvOk: p.elite >= 2 && p.level >= lvNeed, trustOk: trustOf(def) >= MODULE_RULE.trust, cost: modCost(def, stage) };
+  }
+  function modUp(def, modId, missionsOk = true) {
+    const n = modNext(def, modId);
+    if (!n) return { ok: false, why: '최고 단계입니다' };
+    if (!n.eliteOk) return { ok: false, why: '2차 정예화가 필요합니다' };
+    if (!n.lvOk) return { ok: false, why: `레벨 ${n.lvNeed}이 필요합니다` };
+    if (n.stage === 1 && !n.trustOk) return { ok: false, why: `신뢰도 ${MODULE_RULE.trust}%가 필요합니다` };
+    if (n.stage === 1 && !missionsOk) return { ok: false, why: '모듈 임무를 먼저 완료하세요' };
+    return payAnd(n.cost, () => { const m = modState(def.id); m.st[modId] = n.stage; if (n.stage === 1) m.cur = modId; setModState(def.id, m); });
+  }
+  function setModCur(id, modId) { const m = modState(id); if (modId && !m.st[modId]) return false; m.cur = modId || null; setModState(id, m); return true; }
+  // 장착한 모듈의 효과 (2차 정예화 상태에서만)
+  function modApply(def, p, m, mul) {
+    if (!p || p.elite < 2) return {};
+    const ms = modState(def.id), mod = modsOf(def).find((x) => x.id === ms.cur), st = mod ? ms.st[mod.id] || 0 : 0;
+    if (!mod || !st) return {};
+    const add = (mod.stats || [])[st - 1] || {};
+    return {
+      hp: Math.round(def.hp * mul('hp')) + (add.hp || 0), atk: Math.round(def.atk * mul('atk')) + (add.atk || 0), def: Math.round(def.def * mul('def')) + (add.def || 0),
+      res: (def.res || 0) + (add.res || 0),
+      module: { id: mod.id, code: mod.code, name: mod.name, stage: st, effect: mod.effect || null, trait: mod.trait || '', talent: (mod.talent || [])[st - 1] || '' },
+    };
+  }
   // 육성 상태를 적용한 오퍼레이터 정의 (전투 · 화면 표시용)
   // ---------- 잠재 · 신뢰도 ----------
   const potOf = (def) => Math.max(1, Math.min(6, (window.ACCOUNT && ACCOUNT.potOf(def.id)) || 1));
@@ -109,6 +148,7 @@
       hp: Math.round(def.hp * mul('hp')), atk: Math.round(def.atk * mul('atk')), def: Math.round(def.def * mul('def')),
       cost: Math.max(1, def.cost - R.costDown[p.elite] - pb.cost),
       redeploy: def.redeploy ? Math.max(5, def.redeploy - pb.redeploy) : def.redeploy,
+      ...modApply(def, p, m, mul),
       pot: potOf(def), trust: trustOf(def),
       skills: skillsOf(def).slice(0, p.elite + 1).map((sk, i) => skillAt(sk, skillPower(p.slv || 1, (p.mst || [])[i] || 0))), skill: undefined,
       talents: (def.talents || []).slice(0, p.elite),
@@ -263,5 +303,5 @@
     }
     ACCOUNT.save();
   }
-  window.TRAIN = { potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
+  window.TRAIN = { modsOf, modState, modStage, modNext, modUp, setModCur, modCost, potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
 })();

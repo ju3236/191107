@@ -496,7 +496,7 @@
           <div class="g-en">${esc(d.en || '')}</div>
           <div class="g-name">${esc(d.name)}</div>
           <div class="g-class">${icon(d.class)}<span>${esc(CLASSES[d.class].name)}</span></div>
-          <div class="g-badge">${r.isNew ? '<span class="new">NEW</span>' : `잠재력 ${r.pot}${r.cert ? ' · ' + esc(itemsText(r.cert)) : ''}`}</div>
+          <div class="g-badge">${r.isNew ? '<span class="new">NEW</span>' : `${r.token ? '잠재력 증표 +1' : `잠재 MAX`}${r.cert ? ' · ' + esc(itemsText(r.cert)) : ''}`}</div>
           ${r.isNew ? `<div class="g-quote">“${esc(UI.line(d, 'obtain'))}”</div>` : ''}
         </div>
         <div class="g-count">${i + 1} / ${results.length}</div>
@@ -530,11 +530,20 @@
   // =====================================================================
   //  창고
   // =====================================================================
+  // 창고 (원작: 상단 분류 탭 · 둥근 아이템 아이콘 · 개수)
+  const DP_TABS = [['all', '전부'], ['use', '소모 물품'], ['base', '기초 물품'], ['grow', '육성 재료']];
+  const dpCat = (k) => (['permit', 'permit10', 'chip_cat'].includes(k) ? 'use' : ['orundum', 'originite', 'lmd', 'cert_hi', 'cert_lo', 'lantern'].includes(k) ? 'base' : 'grow');
+  const dpTier = (k) => { const it = ITEMS[k] || {}; return k.startsWith('dual_') || k === 'exp_4' || k === 'skill_3' || it.tier === 3 || ['originite', 'cert_hi', 'permit10'].includes(k) ? 'r5' : k.startsWith('pack_') || k === 'exp_3' || k === 'skill_2' || it.tier === 2 ? 'r4' : k.startsWith('chip_') || k === 'exp_2' ? 'r3' : 'r2'; };
+  const shortNum = (n) => (n >= 1e4 ? `${Math.floor(n / 1e3) / 10}만` : fmt(n));
+  let dpTab = 'all';
   RENDER.depot = () => {
-    const keys = Object.keys(ITEMS);
-    $('#depot-grid').innerHTML = keys.map((k) => `<button class="depot-item" data-item="${k}">${ico(k, true)}<b>${fmt(ACCOUNT.bal(k))}</b><span>${esc(ITEMS[k].name)}</span></button>`).join('') +
-      `<button class="depot-item" data-item="sanity"><i class="ri sanity big"></i><b>${ACCOUNT.sanity()}</b><span>이성</span></button>`;
+    $('#dp-tabs').innerHTML = DP_TABS.map(([k, n]) => `<button class="${k === dpTab ? 'on' : ''}" data-dpt="${k}">${n}</button>`).join('');
+    const keys = Object.keys(ITEMS).filter((k) => ACCOUNT.bal(k) > 0 && (dpTab === 'all' || dpCat(k) === dpTab));
+    $('#depot-grid').innerHTML = (dpTab === 'all' || dpTab === 'base' ? `<button class="depot-item r4" data-item="sanity"><i class="ri sanity big"></i><b>${ACCOUNT.sanity()}</b></button>` : '')
+      + keys.map((k) => `<button class="depot-item ${dpTier(k)}" data-item="${k}" title="${esc(ITEMS[k].name)}">${ico(k, true)}<b>${shortNum(ACCOUNT.bal(k))}</b></button>`).join('')
+      || '<p class="empty-note">보유한 물품이 없습니다.</p>';
   };
+  $('#dp-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-dpt]'); if (b) { dpTab = b.dataset.dpt; sfx('select'); RENDER.depot(); } });
   $('#depot-grid').addEventListener('click', (e) => {
     const b = e.target.closest('[data-item]');
     if (!b) return;

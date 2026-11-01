@@ -2755,6 +2755,9 @@ const TRAIN_RULE = {
     add('pack_' + cls, { name: `${v.name} 칩셋`, short: `${v.name} 칩셋`, color: '#6fb8ff', chip: cls, desc: `${v.name} 칩을 묶은 칩셋. 4성 이하 오퍼레이터의 2차 정예화에 쓰이고, 2개와 칩 촉매제로 듀얼칩을 만든다. 칩 탐색 2단계에서 얻을 수 있다.` });
     add('dual_' + cls, { name: `${v.name} 듀얼칩`, short: `${v.name} 듀얼칩`, color: '#ffcf3a', chip: cls, desc: `${v.name} 오퍼레이터(5 · 6성)의 2차 정예화에 쓰이는 듀얼칩. 가공소에서 칩셋 2개와 칩 촉매제로 만든다.` });
   }
+  add('mod_block', { name: '모듈 데이터 블록', short: '모듈 데이터 블록', color: '#5fc8e8', desc: '오퍼레이터 모듈을 개방(STAGE 1)할 때 쓰는 데이터 블록. 자격증 교환소 · 통합전략에서 얻을 수 있다.' });
+  add('mod_stick', { name: '데이터 증강 칩', short: '데이터 증강 칩', color: '#6fb8ff', desc: '오퍼레이터 모듈을 STAGE 2로 강화할 때 쓰는 증강 칩. 자격증 교환소에서 얻을 수 있다.' });
+  add('mod_inst', { name: '데이터 증강 장치', short: '데이터 증강 장치', color: '#ffcf3a', desc: '오퍼레이터 모듈을 STAGE 3으로 강화할 때 쓰는 증강 장치. 자격증 교환소에서 얻을 수 있다.' });
   add('chip_cat', { name: '칩 촉매제', short: '칩 촉매제', color: '#9fe0ff', desc: '칩셋을 듀얼칩으로 가공할 때 쓰는 촉매제. 주간 임무 · 이벤트 상점에서 얻을 수 있다.' });
 })();
 // ---------------------------------------------------------------------
@@ -2838,8 +2841,32 @@ const MAILS = [
 
 // 자격증 교환소 (구매센터 탭) — 원작처럼 고급 자격증(5 · 6성 중복) · 초급 자격증(3 · 4성 중복)으로 교환. 매달 1일 오전 4시에 수량 초기화
 //  op: 이달의 오퍼레이터 (레어도별로 매달 바뀜, 헤드헌팅에 나오는 오퍼레이터 중에서) · items: 아이템 · limit: 한 달 교환 가능 수
+// ---------------------------------------------------------------------
+//  오퍼레이터 모듈 (원작 방식). 2차 정예화 · 레벨 조건 · 신뢰도 100% · 임무 2개를 채우면 개방(STAGE 1).
+//  MODULES[오퍼레이터 id] = [{ id, code: 'ABC-X', type: 'X'|'Y', name, desc,
+//    stats: [STAGE1, STAGE2, STAGE3] 각각 { hp, atk, def, res } 더하기(누적이 아니라 그 단계의 총합),
+//    trait: 'STAGE 1부터 바뀌는 특성 설명', talent: [null, 'STAGE 2 재능 강화', 'STAGE 3 재능 강화'],
+//    effect: 전투 효과(엔진에서 def.module로 읽음),
+//    missions: [{ text, kind: 'clear', stage: '1-7', stars: 3 } | { text, kind: 'trust', n: 100 }] }]
+//  아직 출시된 모듈은 없고, 오퍼레이터별로 하나씩 추가할 예정.
+// ---------------------------------------------------------------------
+const MODULES = {};
+const MODULE_RULE = {
+  level: { 6: 60, 5: 50, 4: 40 },      // STAGE 1 개방에 필요한 레벨 (2차 정예화 상태)
+  trust: 100,                            // 필요 신뢰도
+  stage2Level: { 6: 70, 5: 60, 4: 50 }, // STAGE 2 이상 필요 레벨
+  cost: {
+    6: [{ lmd: 80000, items: { mod_block: 4 } }, { lmd: 100000, items: { mod_stick: 20 } }, { lmd: 120000, items: { mod_inst: 6 } }],
+    5: [{ lmd: 50000, items: { mod_block: 3 } }, { lmd: 70000, items: { mod_stick: 15 } }, { lmd: 90000, items: { mod_inst: 4 } }],
+    4: [{ lmd: 30000, items: { mod_block: 2 } }, { lmd: 50000, items: { mod_stick: 10 } }, { lmd: 70000, items: { mod_inst: 2 } }],
+  },
+};
+
 const CERT_SHOP = {
   cert_hi: [
+    { id: 'h_modb', items: { mod_block: 1 }, price: 20, limit: 4 },
+    { id: 'h_mods', items: { mod_stick: 5 }, price: 15, limit: 4 },
+    { id: 'h_modi', items: { mod_inst: 1 }, price: 12, limit: 4 },
     { id: 'h_op6', op: 6, price: 180, limit: 1 },
     { id: 'h_op5', op: 5, price: 45, limit: 1 },
     { id: 'h_permit', items: { permit: 1 }, price: 38, limit: 5 },

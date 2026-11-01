@@ -124,18 +124,21 @@
         <button class="nav-btn" data-back aria-label="뒤로"></button>
         <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
       </div>
-      <div class="nav-group">
-        <button class="nav-btn" id="detail-prev" aria-label="이전 오퍼레이터">‹</button>
-        <button class="nav-btn" id="detail-next" aria-label="다음 오퍼레이터">›</button>
+      <div class="nav-group dt-tools">
+        <button class="nav-btn" id="detail-file" aria-label="파일" title="오퍼레이터 파일"></button>
+        <button class="nav-btn" id="detail-voice" aria-label="음성 기록" title="음성 기록"></button>
+        <button class="nav-btn" id="detail-skin" aria-label="의상" title="의상"></button>
+        <button class="nav-btn" id="detail-assist" aria-label="비서" title="비서 지정"></button>
       </div>
     </header>
+    <div class="dt-step"><button id="detail-prev" aria-label="이전 오퍼레이터">◀</button><i></i><button id="detail-next" aria-label="다음 오퍼레이터">▶</button></div>
 
     <div class="train-view hidden" id="train-view"></div>
     <div class="detail-left">
       <div class="stat-head">스탯 <span>»</span></div>
       <div class="stat-grid" id="detail-stats"></div>
       <div class="trust">
-        <div class="trust-head"><b>저지 가능 수</b><span id="detail-block"></span></div>
+        <div class="trust-head"><b>신뢰도 <span>»</span></b><em id="detail-trust"></em></div><i class="trust-bar"><u id="detail-trust-bar"></u></i><span id="detail-block" hidden></span>
       </div>
       <div class="detail-stars"><span id="detail-stars"></span><span class="detail-pot" id="detail-pot"></span></div>
       <div class="detail-en" id="detail-en"></div>
@@ -149,20 +152,9 @@
 
     <div class="detail-right">
       <div class="lv-widget" id="detail-lv"></div><span id="detail-cost" hidden></span>
-      <div class="info-card">
-        <div class="info-title">스킬</div>
-        <div class="skill-list" id="detail-skill"></div>
-      </div>
-      <div class="info-card">
-        <div class="info-title">특성 · 재능</div>
-        <div id="detail-talents"></div>
-      </div>
-      <div class="info-card">
-        <div class="info-title" id="detail-race"></div>
-        <p class="profile" id="detail-profile"></p>
-        <p class="quote" id="detail-quote"></p>
-      </div>
-      <div class="detail-btns"><button class="btn" id="detail-skin">의상</button><button class="btn" id="detail-file">파일</button><button class="btn" id="detail-voice">음성 기록</button><button class="btn primary" id="detail-assist">비서로 지정</button></div>
+      <div class="dr-skills" id="detail-skill"></div>
+      <div class="dr-arch" id="detail-arch"></div>
+      <div hidden><div id="detail-talents"></div><div id="detail-race"></div><p id="detail-profile"></p><p id="detail-quote"></p></div>
     </div>
   </section>
 
@@ -188,6 +180,7 @@
       </button>
     </div>
     <div class="formation-foot" id="formation-foot"></div>
+    <div class="pick-view hidden" id="pick-view"></div>
   </section>
 
   <!-- ===================== 우편함 ===================== -->
@@ -293,8 +286,8 @@
       <div class="nav-group">
         <button class="nav-btn" data-back aria-label="뒤로"></button>
         <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
-        <span class="topbar-title">창고</span>
       </div>
+      <nav class="dp-tabs" id="dp-tabs"></nav>
       <button class="ws-link" data-go="workshop"><span data-ico="craft"></span>가공소</button>
     </header>
     <div class="depot-grid" id="depot-grid"></div>

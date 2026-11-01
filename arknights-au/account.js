@@ -129,9 +129,10 @@
     if (!cur) {
       player.owned[def.id] = { pot: 1, at: Date.now() };
       if (r <= 4) out.cert = { cert_lo: r === 4 ? 30 : 5 };
-    } else if (cur.pot < 6) {
-      player.owned[def.id] = { ...cur, pot: cur.pot + 1 };
-      out.pot = cur.pot + 1;
+    } else if ((cur.pot || 1) + (cur.tok || 0) < 6) {
+      // 원작처럼 중복이면 잠재력 증표 1개 — 오퍼레이터 화면의 잠재능력에서 직접 써서 올린다
+      player.owned[def.id] = { ...cur, pot: cur.pot || 1, tok: (cur.tok || 0) + 1 };
+      out.pot = cur.pot || 1; out.token = true;
       out.cert = r >= 5 ? { cert_hi: r === 6 ? 10 : 5 } : { cert_lo: r === 4 ? 30 : 5 };
     } else {
       out.pot = 6;
@@ -141,6 +142,16 @@
     return out;
   }
   const potOf = (id) => (player.owned[id] ? player.owned[id].pot || 1 : owns(id) ? 1 : 0);
+  const tokenOf = (id) => (player.owned[id] && player.owned[id].tok) || 0;
+  // 잠재력 증표 1개를 써서 잠재 +1
+  function usePotToken(id) {
+    const cur = player.owned[id];
+    if (!cur || !cur.tok) return { ok: false, why: '잠재력 증표가 없습니다' };
+    if ((cur.pot || 1) >= 6) return { ok: false, why: '이미 최대 잠재능력입니다' };
+    player.owned[id] = { ...cur, pot: (cur.pot || 1) + 1, tok: cur.tok - 1 };
+    save();
+    return { ok: true, pot: player.owned[id].pot };
+  }
 
   // ---------- 박사 레벨 ----------
   const maxSanity = () => (PAP ? PAP[Math.min(PAP.length, player.plv || 1) - 1] : 135);
@@ -449,7 +460,7 @@
     get mode() { return mode; }, get uid() { return uid; }, get isAdmin() { return isAdmin && mode === 'online'; }, get isOwner() { return isOwner && mode === 'online'; },
     get canUpload() { return !!assets && isAdmin; }, get canAttach() { return !!assets && mode === 'online'; }, FB_MAX_IMG, get myRequests() { return myRequests.filter((r) => r.kind !== 'feedback'); },
     get myFeedback() { return mode === 'online' ? myRequests.filter((r) => r.kind === 'feedback') : localFb(); }, sendFeedback,
-    bal, canPay, spend, earn, owns, obtain, potOf,
+    bal, canPay, spend, earn, owns, obtain, potOf, tokenOf, usePotToken,
     sanity, useSanity, addSanity, refillSanity, nextSanityMs, get SANITY_MAX() { return maxSanity(); }, level, gainExp,
     banner, cleanBanner, MAX_BANNERS, RANGE_PRESETS, requestPurchase, admin,
     me: () => (user ? user.me() : Promise.resolve(null)),

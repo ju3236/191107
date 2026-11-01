@@ -409,7 +409,8 @@
       $('#ins-art').style.setProperty('--c', d.color);
       $('#ins-cls').innerHTML = UI.icon(d.class);
       $('#ins-name').textContent = d.name;
-      $('#ins-class').textContent = `${CLASSES[d.class].name}${arch ? ' · ' + arch.name : ''}`;
+      const tp = d.trained;
+      $('#ins-class').innerHTML = `${tp ? `<span class="ins-lv"><img class="elite-ico" src="img/ui/elite_${tp.elite}.png" alt=""><small>LV</small><b>${tp.level}</b></span>` : ''}${UI.esc(CLASSES[d.class].name)}${arch ? ' · ' + UI.esc(arch.name) : ''}`;
       $('#ins-range').innerHTML = rangeHTML(op ? null : d.range, op) + '<small>공격 범위</small>';
       $('#ins-tabs').querySelectorAll('[data-itab]').forEach((b) => b.classList.toggle('on', b.dataset.itab === insTab));
       let body = '';
@@ -2663,6 +2664,9 @@
       UI.save.stars[st.code] = Math.max(UI.save.stars[st.code] || 0, stars);
       UI.writeSave();
     }
+    $('#result').classList.toggle('res2', !ext);
+    if (!ext) { resultScreen(win, stars, firstClear); return; }
+    $('#result .panel').innerHTML = RESULT_PANEL;
     const title = $('#result-title');
     title.textContent = win ? '작전 완료' : '작전 실패';
     title.classList.toggle('fail', !win);
@@ -2707,6 +2711,47 @@
     if (!ext) add('작전 목록', '', () => UI.go('operations', 'after'));
     setTimeout(() => { if (S === ended) $('#result').classList.remove('hidden'); }, 400);
   }
+
+  // 20. 작전 결과 화면 (원작: 왼쪽 작전명 · 별 · 신뢰도 · 박사 레벨 · 보상, 오른쪽 대장 그림과 대사)
+  function resultScreen(win, stars, firstClear) {
+    const st = S.st, idx = S.idx, ended = S, r = UI.lastResult || { reward: {} };
+    const leader = opById(S.squadIds[0]);
+    const vline = leader && (win ? (stars === 3 ? ((S.ext.hard || S.st.hard) && UI.line(leader, 'hard')) || UI.line(leader, 'clear') : UI.line(leader, 'clear2') || UI.line(leader, 'clear')) : UI.line(leader, 'fail'));
+    const lv = ACCOUNT.level();
+    const items = Object.entries(r.reward || {}).map(([k, v]) => `<div class="rs-item ${k === 'originite' && r.first ? 'first' : ''}"><i class="ri ${UI.esc(k)}"></i><b>${Number(v).toLocaleString('ko-KR')}</b>${k === 'originite' && r.first ? '<small>첫 클리어</small>' : ''}</div>`).join('');
+    const panel = $('#result .panel');
+    panel.innerHTML = `
+      <div class="rs-art" style="--c:${leader ? leader.color : '#888'}">${leader ? UI.artHTML(leader) : ''}</div>
+      <div class="rs-left">
+        <div class="rs-op"><small>OPERATION</small><b>${UI.esc(st.code)}</b><span>${UI.esc(st.name || '')}</span></div>
+        <div class="rs-title ${win ? '' : 'fail'}"><b>${win ? '작전 종료' : '작전 실패'}</b><small>MISSION ${win ? 'RESULTS' : 'FAILED'}</small></div>
+        ${win ? `<div class="rs-stars">${[1, 2, 3].map((i) => `<i class="${i <= stars ? 'on' : ''}"></i>`).join('')}</div>` : ''}
+        <div class="rs-row"><span class="rs-trust">신뢰도 상승 <b>+${r.trust || 0}%</b></span>
+          <span class="rs-lv"><small>LV</small><b>${lv.lv}</b><i><u style="width:${lv.need ? Math.min(100, (lv.exp / lv.need) * 100) : 100}%"></u></i><em>${r.exp ? `+${r.exp} EXP` : ''}${r.ups ? ' · 레벨 업!' : ''}</em></span></div>
+        <div class="rs-items">${items || (r.back ? `<div class="rs-back">이성 ${r.back} 반환</div>` : '')}</div>
+        <div class="rs-kill">처치 ${S.killed} · 돌파 ${S.leaked} · 남은 목숨 ${Math.max(0, S.life)}/${S.maxLife}</div>
+        <div class="panel-btns" id="result-btns"></div>
+      </div>
+      ${vline ? `<div class="rs-voice"><b>${UI.esc(leader.name)}</b>${UI.esc(vline)}</div>` : ''}`;
+    const btns = $('#result-btns');
+    const add = (label, cls, fn) => {
+      const b = document.createElement('button');
+      b.className = 'btn ' + cls;
+      b.textContent = label;
+      b.addEventListener('click', () => { $('#result').classList.add('hidden'); fn(); });
+      btns.appendChild(b);
+    };
+    if (win) add('계속', 'primary', () => {
+      const after = firstClear ? st.after || [] : [];
+      if (after.length) UI.playDialog(after, () => UI.go('operations', 'after'), st);
+      else UI.go('operations', 'after');
+    });
+    else add('다시 도전', 'primary', () => UI.startOperation(idx, true));
+    add('작전 목록', '', () => UI.go('operations', 'after'));
+    setTimeout(() => { if (S === ended) $('#result').classList.remove('hidden'); }, 400);
+  }
+  // 결과 창 원래 틀 (외부 작전용)
+  const RESULT_PANEL = $('#result .panel').innerHTML;
 
   function updateHud() {
     $('#dp-num').textContent = Math.floor(S.dp);
@@ -3611,5 +3656,5 @@
   window.__game = { get state() { return S; }, beginBattle, addFx: (f) => addFx(f), sparks: (...a) => sparks(...a), rise: (...a) => rise(...a), proj: (u, v, h) => proj(u, v, h), deploy: (id, x, y, dir) => {
     const r = S.roster.find((q) => q.def.id === id);
     if (r) deploy(r, x, y, dir || 'right');
-  } };
+  }, inspect: (i) => { S.inspect = S.ops[i]; setMode('inspect'); refreshInspect(true); }, end: (w) => endBattle(w) };
 })();
