@@ -9,10 +9,14 @@
   const hash = (s) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
   const skillsOf = (def) => def.skills || (def.skill ? [def.skill] : []);
 
+  let rarMap = null;
+  const rarOf = (id) => { if (!rarMap) { rarMap = {}; for (const o of OPERATORS) rarMap[o.id] = o.rarity || 3; } return rarMap[id] || 6; };
+  const clampR = (r) => Math.max(1, Math.min(6, r || 6));
+  const maxElite = (r) => R.maxElite[clampR(r)];
   function prog(id) {
-    const p = (P().prog || {})[id];
-    const elite = Math.max(0, Math.min(2, (p && p.elite) | 0));
-    const level = Math.max(1, Math.min(R.maxLevel[elite], (p && p.level) | 0 || 1));
+    const p = (P().prog || {})[id], r = rarOf(id);
+    const elite = Math.max(0, Math.min(maxElite(r), (p && p.elite) | 0));
+    const level = Math.max(1, Math.min(maxLevel(elite, r), (p && p.level) | 0 || 1));
     const slv = Math.max(1, Math.min(R.skillMax[elite], (p && p.slv) | 0 || 1));
     const mst = [0, 1, 2].map((i) => (elite >= 2 && slv >= 7 ? Math.max(0, Math.min(3, ((p && p.mst) || [])[i] | 0)) : 0));
     return { elite, level, exp: Math.max(0, (p && p.exp) | 0), slv, mst };
@@ -75,12 +79,23 @@
     if (!c) return { ok: false, why: '2차 정예화 · 스킬 레벨 7이 필요합니다' };
     return payAnd(c, () => { const mst = [...p.mst]; mst[i]++; setProg(def.id, { ...p, mst }); });
   }
-  const maxLevel = (e) => R.maxLevel[e];
-  const expNeed = (e, lv) => R.expNeed[e][0] + lv * R.expNeed[e][1];
-  const lmdFor = (exp) => Math.ceil(exp * R.lmdPerExp);
+  function maxLevel(e, r = 6) { return R.maxLevelBy[clampR(r)][e]; }
+  const expNeed = (e, lv) => R.expTable[e][Math.max(0, lv - 1)] || 0;
+  // 경험치를 넣을 때 드는 용문폐: 지나가는 레벨마다 원작 표의 용문폐를 쓴 경험치 비율만큼
+  function lmdFor(id, exp) {
+    const p = prog(id), max = maxLevel(p.elite, rarOf(id));
+    let lv = p.level, cur = p.exp, left = exp, lmd = 0;
+    while (left > 0 && lv < max) {
+      const need = expNeed(p.elite, lv), use = Math.min(left, need - cur);
+      lmd += R.lmdTable[p.elite][lv - 1] * (use / need);
+      left -= use; cur += use;
+      if (cur >= need) { lv++; cur = 0; }
+    }
+    return Math.ceil(lmd);
+  }
   // 육성 상태의 스탯 배율
-  function statMul(e, lv) {
-    const [a, b] = R.statRange[e], m = R.maxLevel[e];
+  function statMul(e, lv, r = 6) {
+    const [a, b] = R.statRange[e], m = maxLevel(e, r);
     return a + ((b - a) * (lv - 1)) / (m - 1);
   }
   // ---------- 모듈 ----------
@@ -171,7 +186,7 @@
   function trained(def, p) {
     if (!def || def.summoned) return def;
     p = p || prog(def.id);
-    const m = statMul(p.elite, p.level), pb = potBonus(def), tb = trustBonus(def);
+    const m = statMul(p.elite, p.level, def.rarity), pb = potBonus(def), tb = trustBonus(def);
     const mul = (k) => m * (1 + (pb[k] || 0) + (tb[k] || 0));
     return {
       ...def,
@@ -198,8 +213,8 @@
   }
   function canPromote(def) {
     const p = prog(def.id);
-    if (p.elite >= 2) return { ok: false, why: '이미 2차 정예화를 마쳤습니다' };
-    if (p.level < R.maxLevel[p.elite]) return { ok: false, why: `레벨 ${R.maxLevel[p.elite]}이 되어야 정예화할 수 있습니다` };
+    if (p.elite >= maxElite(def.rarity)) return { ok: false, why: p.elite >= 2 ? '이미 2차 정예화를 마쳤습니다' : '더 정예화할 수 없는 레어도입니다' };
+    if (p.level < maxLevel(p.elite, def.rarity)) return { ok: false, why: `레벨 ${maxLevel(p.elite, def.rarity)}이 되어야 정예화할 수 있습니다` };
     const c = promoteCost(def, p.elite + 1);
     if (!ACCOUNT.canPay({ lmd: c.lmd, ...c.items })) return { ok: false, why: '재료가 부족합니다' };
     return { ok: true };
@@ -237,7 +252,7 @@
   }
   // 경험치를 더했을 때 오르는 레벨 (만렙에서 멈춤)
   function levelAfter(id, addExp) {
-    const p = prog(id), max = R.maxLevel[p.elite];
+    const p = prog(id), max = maxLevel(p.elite, rarOf(id));
     let lv = p.level, exp = p.exp + addExp;
     while (lv < max && exp >= expNeed(p.elite, lv)) { exp -= expNeed(p.elite, lv); lv++; }
     if (lv >= max) exp = 0;
@@ -246,7 +261,7 @@
   function levelUp(def, use) {
     const exp = Object.entries(use).reduce((s, [k, n]) => s + ITEMS[k].exp * n, 0);
     if (!exp) return { ok: false, why: '사용할 작전기록이 없습니다' };
-    const lmd = lmdFor(exp);
+    const lmd = lmdFor(def.id, exp);
     if (!ACCOUNT.spend({ ...use, lmd })) return { ok: false, why: '작전기록이나 용문폐가 부족합니다' };
     const p = prog(def.id), r = levelAfter(def.id, exp);
     setProg(def.id, { ...p, level: r.level, exp: r.exp });
@@ -318,7 +333,7 @@
     if (P().trainMigrated) return;
     P().trainMigrated = true;
     P().prog = P().prog || {};
-    for (const o of OPERATORS) if (!o.custom && ACCOUNT.owns(o.id)) P().prog[o.id] = { elite: 2, level: R.maxLevel[2], exp: 0, slv: 7, mst: [3, 3, 3] };
+    for (const o of OPERATORS) if (!o.custom && ACCOUNT.owns(o.id)) P().prog[o.id] = { elite: maxElite(o.rarity), level: maxLevel(maxElite(o.rarity), o.rarity), exp: 0, slv: 7, mst: [3, 3, 3] };
     ACCOUNT.save();
   }
   // 스킬 레벨 기능 이전의 육성 데이터: 2정 90은 레벨 7·특화 3, 나머지는 단계별 상한 레벨로
@@ -329,9 +344,9 @@
       if (v.slv) continue;
       const e = v.elite | 0;
       v.slv = R.skillMax[e];
-      v.mst = e === 2 && v.level >= R.maxLevel[2] ? [3, 3, 3] : [0, 0, 0];
+      v.mst = e === 2 && v.level >= maxLevel(2, rarOf(id)) ? [3, 3, 3] : [0, 0, 0];
     }
     ACCOUNT.save();
   }
-  window.TRAIN = { addTrust, trustPts, trustCum, trustGain, modsOf, modState, modStage, modNext, modUp, setModCur, modCost, potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
+  window.TRAIN = { addTrust, trustPts, trustCum, trustGain, modsOf, modState, modStage, modNext, modUp, setModCur, modCost, potBonus, trustBonus, trustMax, potList, potOf, trustOf, prog, setProg, maxLevel, maxElite, rarOf, expNeed, lmdFor, statMul, trained, promoteCost, canPromote, promote, expTo, pickRecords, levelAfter, levelUp, dropTable, sourcesOf, stageDrops, supplyDrops, giveGift, migrate, migrateSkills, skillPower, skillAt, skillUpCost, masteryCost, skillUp, master };
 })();

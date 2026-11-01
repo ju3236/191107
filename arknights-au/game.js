@@ -2718,7 +2718,7 @@
     const leader = opById(S.squadIds[0]);
     const vline = leader && (win ? (stars === 3 ? ((S.ext.hard || S.st.hard) && UI.line(leader, 'hard')) || UI.line(leader, 'clear') : UI.line(leader, 'clear2') || UI.line(leader, 'clear')) : UI.line(leader, 'fail'));
     const lv = ACCOUNT.level();
-    const items = Object.entries(r.reward || {}).map(([k, v]) => `<div class="rs-item ${k === 'originite' && r.first ? 'first' : ''}"><i class="ri ${UI.esc(k)}"></i><b>${Number(v).toLocaleString('ko-KR')}</b>${k === 'originite' && r.first ? '<small>첫 클리어</small>' : ''}</div>`).join('');
+    const items = Object.entries(r.reward || {}).map(([k, v]) => `<div class="rs-item ${k === 'originite' ? 'first' : ''}"><i class="ri ${UI.esc(k)}"></i><b>${Number(v).toLocaleString('ko-KR')}</b>${k === 'originite' ? '<small>첫 3★</small>' : ''}</div>`).join('');
     const panel = $('#result .panel');
     panel.innerHTML = `
       <div class="rs-art" style="--c:${leader ? leader.color : '#888'}">${leader ? UI.artHTML(leader) : ''}</div>

@@ -1144,7 +1144,7 @@
   // ---------- 육성: 레벨 · 정예화 ----------
   const itemCircle = (k, top, bottom, cls = '') => `<div class="tv-item ${cls}"><span class="tv-ring">${`<i class="ri ${esc(k)} big"></i>`}<b>${top}</b></span><small>${bottom}</small></div>`;
   function renderLevel(def, pg) {
-    const max = TRAIN.maxLevel(pg.elite), need = pg.level < max ? TRAIN.expNeed(pg.elite, pg.level) : 0, own = owned(def.id);
+    const max = TRAIN.maxLevel(pg.elite, def.rarity), need = pg.level < max ? TRAIN.expNeed(pg.elite, pg.level) : 0, own = owned(def.id);
     $('#detail-lv').innerHTML = `
       <div class="lvw-ring"><small>LV</small><b>${pg.level}</b></div><span class="lvw-max">/${max}</span>
       <div class="lvw-exp"><small>EXP</small><span><em>${pg.level < max ? pg.exp : '-'}</em>/${pg.level < max ? need : 'MAX'}</span><i style="width:${need ? (pg.exp / need) * 100 : 100}%"></i></div>
@@ -1155,14 +1155,14 @@
   let lvTarget = 1;
   const statRows = (a, b) => [['최대 체력', 'hp'], ['공격', 'atk'], ['방어', 'def'], ['마법 저항', 'res']].map(([n, k]) => `<div><span>${n}</span><b>${a[k] || 0}</b><i>→</i><b class="${(b[k] || 0) > (a[k] || 0) ? 'up' : ''}">${b[k] || 0}</b></div>`).join('');
   function openLevelUp() {
-    const def = OPS[detailId], pg = TRAIN.prog(def.id), max = TRAIN.maxLevel(pg.elite);
+    const def = OPS[detailId], pg = TRAIN.prog(def.id), max = TRAIN.maxLevel(pg.elite, def.rarity);
     if (pg.level >= max) { toast('이미 최대 레벨입니다. 정예화하면 더 올릴 수 있습니다'); return; }
     // 가진 작전기록으로 오를 수 있는 최대 레벨
     const allExp = TRAIN_RULE.expItems.reduce((sum, k) => sum + ACCOUNT.bal(k) * ITEMS[k].exp, 0);
     const reach = TRAIN.levelAfter(def.id, allExp).level;
     lvTarget = Math.max(pg.level + 1, Math.min(lvTarget > pg.level ? lvTarget : reach, max));
     const need = TRAIN.expTo(def.id, lvTarget), pick = TRAIN.pickRecords(need);
-    const after = TRAIN.levelAfter(def.id, pick.exp), lmd = TRAIN.lmdFor(pick.exp), lmdShort = ACCOUNT.bal('lmd') < lmd;
+    const after = TRAIN.levelAfter(def.id, pick.exp), lmd = TRAIN.lmdFor(def.id, pick.exp), lmdShort = ACCOUNT.bal('lmd') < lmd;
     const cur = TRAIN.trained(def), nxt = TRAIN.trained(def, { elite: pg.elite, level: after.level, exp: after.exp });
     const v = $('#train-view');
     v.className = 'train-view lvup';
@@ -1199,9 +1199,9 @@
         <div class="el-band"><div class="el-step"><b>2</b><span>정예화 단계</span></div><div class="el-ico">${eliteIcon(2)}</div><div class="el-gain">최고 정예화 단계입니다.<br>모든 스킬과 재능이 열려 있습니다.</div></div>`;
       return;
     }
-    const to = pg.elite + 1, cost = TRAIN.promoteCost(def, to), max = TRAIN.maxLevel(pg.elite);
+    const to = pg.elite + 1, cost = TRAIN.promoteCost(def, to), max = TRAIN.maxLevel(pg.elite, def.rarity);
     const sk = skillsOf(def)[to], tal = (def.talents || [])[pg.elite];
-    const gains = [`최대 레벨 ${max} → ${TRAIN.maxLevel(to)}`, '최대 스탯 상승'];
+    const gains = [`최대 레벨 ${max} → ${TRAIN.maxLevel(to, def.rarity)}`, '최대 스탯 상승'];
     if (TRAIN_RULE.costDown[pg.elite] > TRAIN_RULE.costDown[to]) gains.push(`배치 코스트 <em class="r">${TRAIN_RULE.costDown[pg.elite] - TRAIN_RULE.costDown[to]}</em> 증가`);
     if (sk) gains.push(`신규 스킬 <em>${esc(sk.name)}</em> 획득`);
     if (tal) gains.push(`신규 재능 <em>${esc(tal.name)}</em> 획득`);
@@ -1232,7 +1232,7 @@
   });
   $('#train-view').addEventListener('click', (e) => {
     if (e.target.closest('[data-tvclose]')) { closeTrain(); return; }
-    const pg = TRAIN.prog(detailId), max = TRAIN.maxLevel(pg.elite);
+    const pg = TRAIN.prog(detailId), max = TRAIN.maxLevel(pg.elite, OPS[detailId].rarity);
     const st = e.target.closest('[data-lv]');
     if (st) { lvTarget = Math.max(pg.level + 1, Math.min(max, lvTarget + +st.dataset.lv)); openLevelUp(); return; }
     if (e.target.closest('[data-lvmax]')) { lvTarget = max; openLevelUp(); return; }
@@ -1260,7 +1260,7 @@
   $('#train-view').addEventListener('wheel', (e) => {
     if (!e.target.closest('#tv-dial')) return;
     e.preventDefault();
-    const pg = TRAIN.prog(detailId), max = TRAIN.maxLevel(pg.elite);
+    const pg = TRAIN.prog(detailId), max = TRAIN.maxLevel(pg.elite, OPS[detailId].rarity);
     lvTarget = Math.max(pg.level + 1, Math.min(max, lvTarget + (e.deltaY < 0 ? 1 : -1)));
     openLevelUp();
   }, { passive: false });
@@ -1770,7 +1770,7 @@
     if (ups) setTimeout(() => toast(`박사 레벨 업! Lv.${ACCOUNT.level().lv} · 이성 회복`), 400);
     const eb = st.event ? evBonusOf(st, squadIds) : 0;
     lastResult = { reward, trust: tg, exp: cost * (TRAIN_RULE.playerExpPerSanity || 12), ups, first };
-    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 박사 경험치 +${cost * (TRAIN_RULE.playerExpPerSanity || 12)}${ups ? ` · 레벨 업! Lv.${ACCOUNT.level().lv}` : ''} · 신뢰 포인트 +${tg}`;
+    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 3성 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 박사 경험치 +${cost * (TRAIN_RULE.playerExpPerSanity || 12)}${ups ? ` · 레벨 업! Lv.${ACCOUNT.level().lv}` : ''} · 신뢰 포인트 +${tg}`;
   }
   // 섬멸 작전: 처치 수에 비례한 합성옥 (주간 상한), 실패해도 처치한 만큼 받음
   const total = (st) => st.waves.reduce((a, w) => a + (w.count || 1), 0);
@@ -1807,16 +1807,18 @@
     });
   }
   function rewardFor(st, idx, starCount, first, squad = []) {
+    // 원작: 오리지늄은 처음으로 별 3개 클리어했을 때 1개
+    const first3 = starCount >= 3 && (save.stars[st.code] || 0) < 3;
     if (st.annih) return annihReward(st, total(st));
     if (st.supply) return TRAIN.supplyDrops(st, starCount);
     if (st.event) {
       const r = TRAIN.supplyDrops(st, starCount), eb = evBonusOf(st, squad);
       if (r.lantern && eb) r.lantern = Math.round(r.lantern * (1 + eb));
-      if (first) r.originite = 1;
+      if (first3) r.originite = 1;
       return r;
     }
     const reward = TRAIN.stageDrops({ ...st, sanity: sanityCost(st) }, idx, starCount, first);
-    if (first) reward.originite = 1;
+    if (first3) reward.originite = 1;
     return reward;
   }
   function onBattleQuit(idx) { ACCOUNT.addSanity(sanityCost(STAGES[idx]) - 1); track('sanity', 1); }

@@ -190,7 +190,7 @@
     if (o.temp) return { ...D.tempProg[o.promoted ? 1 : 0] };
     const p = TRAIN.prog(o.id);
     if (o.promoted) return p;
-    return p.elite >= 2 ? { elite: 1, level: TRAIN.maxLevel(1), slv: Math.min(7, p.slv), mst: [0, 0, 0] } : { ...p, mst: [0, 0, 0] };
+    return p.elite >= 2 ? { elite: 1, level: TRAIN.maxLevel(1, o.rarity), slv: Math.min(7, p.slv), mst: [0, 0, 0] } : { ...p, mst: [0, 0, 0] };
   }
   const isAway = (id, r = R()) => (r.away || []).some((a) => a.id === id);
   // 랭크 상승 가능 여부: 4성 이상이고, 임시 모집이 아니면 계정에서 2차 정예화를 마쳐야 함
