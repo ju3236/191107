@@ -2542,3 +2542,17 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .evm-rw { display: flex; gap: 8px; font-size: 12px; }
 .evm-rw span { display: flex; align-items: center; gap: 2px; }
 @media (max-width: 560px) { .evm-row { grid-template-columns: 1fr auto; } .evm-rw { grid-column: 1 / -1; } }
+
+/* 칩셋 · 칩 촉매제 */
+.ri.ri.pack_vanguard::before { background: url(img/item/pack_vanguard.png) center / contain no-repeat; }
+.ri.ri.pack_guard::before { background: url(img/item/pack_guard.png) center / contain no-repeat; }
+.ri.ri.pack_defender::before { background: url(img/item/pack_defender.png) center / contain no-repeat; }
+.ri.ri.pack_sniper::before { background: url(img/item/pack_sniper.png) center / contain no-repeat; }
+.ri.ri.pack_caster::before { background: url(img/item/pack_caster.png) center / contain no-repeat; }
+.ri.ri.pack_medic::before { background: url(img/item/pack_medic.png) center / contain no-repeat; }
+.ri.ri.pack_supporter::before { background: url(img/item/pack_supporter.png) center / contain no-repeat; }
+.ri.ri.pack_specialist::before { background: url(img/item/pack_specialist.png) center / contain no-repeat; }
+.ri.ri.chip_cat::before { background: url(img/item/chip_cat.png) center / contain no-repeat; }
+/* 박사 레벨 경험치 고리 */
+.lv-ring { position: relative; }
+.lv-ring::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: conic-gradient(#fff calc(var(--lvp, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); pointer-events: none; }

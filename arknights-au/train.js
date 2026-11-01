@@ -47,12 +47,13 @@
   }
   function skillUpCost(def, p) {
     if (p.slv >= R.skillMax[p.elite]) return null;
-    return R.skillCost[p.slv + 1];
+    const c = R.skillCost[p.slv + 1], k = (R.skillScale || {})[Math.max(3, Math.min(6, def.rarity || 3))] || 1;
+    return { lmd: c.lmd, items: Object.fromEntries(Object.entries(c.items).map(([id, n]) => [id, Math.max(1, Math.round(n * k))])) };
   }
   function masteryCost(def, i, p) {
     const m = p.mst[i];
     if (p.elite < 2 || p.slv < 7 || m >= 3) return null;
-    const c = R.masteryCost[m], pc = promoteCost(def, 2);
+    const mc = R.masteryCost, c = (Array.isArray(mc) ? mc : mc[Math.max(3, Math.min(6, def.rarity || 3))])[m], pc = promoteCost(def, 2);
     const mat = Object.keys(pc.items).find((k) => R.matsT3.includes(k)) || R.matsT3[0];
     const items = { skill_3: c.book, [mat]: c.mat };
     if (c.dual) items['dual_' + def.class] = c.dual;
@@ -121,7 +122,7 @@
     const c = R.promote[r][toElite - 1];
     const pool = toElite === 1 ? R.matsT2 : R.matsT3;
     const h = hash(def.id), a = pool[h % pool.length], b = pool[(h % pool.length + 1 + (h >> 8) % (pool.length - 1)) % pool.length];
-    const chip = (toElite === 1 ? 'chip_' : 'dual_') + def.class;
+    const chip = (toElite === 1 ? 'chip_' : c.pack ? 'pack_' : 'dual_') + def.class;
     const items = { [chip]: c.chip, [a]: c.a, [b]: c.b };
     return { lmd: c.lmd, items };
   }
@@ -188,12 +189,17 @@
   //    작전기록·칩·스킬개론은 나오지 않음 (물자 비축 · 칩 탐색에서)
   //  물자 비축 · 칩 탐색: 스테이지의 drops(고정) · chance([아이템, 확률, 개수])
   function dropTable(st, idx) {
-    if (st.supply || st.event) return { fixed: Object.entries(st.drops || {}), chance: (st.chance || []).map(([k, p, n]) => [k, p, n || 1]) };
+    if (st.supply || st.event) {
+      const one = st.oneOf ? st.oneOf[0].map((k) => [k, 1 / st.oneOf[0].length, st.oneOf[1] || 1, '택1']) : [];
+      return { fixed: Object.entries(st.drops || {}), chance: one.concat((st.chance || []).map(([k, p, n]) => [k, p, n || 1])) };
+    }
     const ch = st.chapter || 1, pool = ch >= 3 ? R.matsT3 : R.matsT2;
     const n = STAGES.slice(0, idx).filter((x) => !x.supply && x.chapter === st.chapter).length;
     const main = st.mainDrop || pool[(n + ch * 2) % pool.length];
-    const sub = st.subDrop || pool[(n + ch * 2 + 3) % pool.length];
-    return { fixed: [['lmd', (st.sanity || 6) * R.lmdPerSanity]], main, chance: [[main, 1, 1, '주요'], [main, 0.5, 1, '추가'], [sub, 0.25, 1]] };
+    const sub = st.subDrop || R.matsT2[(n + ch * 2 + 3) % R.matsT2.length];
+    // 원작처럼 확률 드롭 (별 3개 확정 없음). 기대 개수가 이성에 비례: 중급 재료 이성 약 7 · 고급 재료 약 22당 1개 + 부재료(중급)
+    const s = st.sanity || 6, t3 = ch >= 3;
+    return { fixed: [['lmd', s * R.lmdPerSanity]], main, chance: [[main, s / (t3 ? 22 : 7), 1, '주요'], [sub, s / (t3 ? 24 : 30), 1]] };
   }
   // 획득처: 이 아이템이 나오는 작전(주요 드롭 → 물자 비축 고정 → 일반 → 확률 순)과 가공소 레시피
   function sourcesOf(k) {
@@ -204,8 +210,8 @@
       if (t.main === k) { rows.push({ i, rank: 0, label: '주요 드롭' }); return; }
       const f = t.fixed.find(([id]) => id === k);
       if (f) { rows.push({ i, rank: st.supply ? 1 : 2, label: st.supply ? `고정 ×${f[1].toLocaleString('ko-KR')}` : '일반 드롭' }); return; }
-      const c = t.chance.find(([id, , , tag]) => id === k && !tag);
-      if (c) rows.push({ i, rank: 3, label: `확률 ${Math.round(c[1] * 100)}%` });
+      const c = t.chance.find(([id, , , tag]) => id === k && tag !== '주요');
+      if (c) rows.push({ i, rank: c[3] === '택1' ? 1 : 3, label: c[3] === '택1' ? `택1 ${Math.round(c[1] * 100)}%` : `확률 ${Math.round(Math.min(1, c[1]) * 100)}%` });
     });
     rows.sort((a, b) => a.rank - b.rank || (STAGES[b.i].tier || 0) - (STAGES[a.i].tier || 0));
     const craft = (typeof WORKSHOP !== 'undefined' ? WORKSHOP : []).find((r) => r.out === k) || null;
@@ -215,9 +221,10 @@
     const t = dropTable(st, idx), out = {};
     const add = (k, n) => { if (n > 0) out[k] = (out[k] || 0) + n; };
     for (const [k, n] of t.fixed) add(k, n);
-    for (const [k, p, n, tag] of t.chance) {
-      const q = tag === '주요' ? (stars >= 3 ? 1 : 0.7) : tag === '추가' && stars < 3 ? 0 : p;
-      if (Math.random() < q) add(k, n);
+    // 기대 개수 p (1 이상이면 여러 개). 별 3개 미만이면 80%
+    for (const [k, p, n] of t.chance) {
+      const q = p * (stars >= 3 ? 1 : 0.8), c = Math.floor(q) + (Math.random() < q % 1 ? 1 : 0);
+      add(k, n * c);
     }
     return out;
   }
@@ -226,6 +233,8 @@
     const out = {}, k = stars >= 3 ? 1 : 0.7;
     for (const [id, n] of Object.entries(st.drops || {})) { const v = Math.max(1, Math.round(n * k)); out[id] = v; }
     for (const [id, p, n] of st.chance || []) if (Math.random() < p) out[id] = (out[id] || 0) + n;
+    // 칩 탐색: 두 직군 중 하나 (택1)
+    if (st.oneOf) { const [ids, n] = st.oneOf, id = ids[Math.floor(Math.random() * ids.length)]; out[id] = (out[id] || 0) + (n || 1); }
     return out;
   }
   // 육성 기능 이전 계정 · 새 계정에 한 번 지원 물자

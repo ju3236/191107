@@ -327,7 +327,10 @@
     $('#home-banner').innerHTML = `<small>${esc(GAME_INFO.subtitle)}</small><b>${esc(GAME_INFO.title)}</b>`;
     renderHomeEvent();
     const ts = totalStars();
-    $('#home-lv').textContent = 1 + ts * 5;
+    const pl = ACCOUNT.level();
+    $('#home-lv').textContent = pl.lv;
+    $('#home-lv').closest('.lv-ring').style.setProperty('--lvp', pl.max ? 1 : pl.exp / pl.need);
+    $('#home-lv').closest('.lv-ring').title = pl.max ? '최대 레벨' : `경험치 ${pl.exp.toLocaleString('ko-KR')} / ${pl.need.toLocaleString('ko-KR')}`;
     $('#home-name').textContent = save.nick || GAME_INFO.commander || '지휘관';
     $('#home-id').textContent = 'ID: ASHEN-' + String(1000 + ts).padStart(4, '0');
     renderResources();
@@ -1408,8 +1411,10 @@
     const reward = rewardFor(st, idx, starCount, first, squadIds);
     ACCOUNT.earn(reward);
     trackEvent(st, 1, squadIds);
+    const ups = ACCOUNT.gainExp(cost);
+    if (ups) setTimeout(() => toast(`박사 레벨 업! Lv.${ACCOUNT.level().lv} · 이성 회복`), 400);
     const eb = st.event ? evBonusOf(st, squadIds) : 0;
-    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 신뢰도 +${cost}%`;
+    return Object.entries(reward).map(([k, v]) => `${ITEMS[k].name} +${v}${k === 'originite' ? ' (첫 클리어)' : ''}${k === 'lantern' && eb ? ` (보너스 +${Math.round(eb * 100)}%)` : ''}`).join(' · ') + ` · 박사 경험치 +${cost * (TRAIN_RULE.playerExpPerSanity || 12)}${ups ? ` · 레벨 업! Lv.${ACCOUNT.level().lv}` : ''} · 신뢰도 +${cost}%`;
   }
   // 훈련장: 지금 편성으로, 목숨이 줄지 않는 연습 작전
   function startPractice() {
@@ -1641,8 +1646,10 @@
   function dropsHTML(st, idx) {
     const t = TRAIN.dropTable({ ...st, sanity: sanityCost(st) }, idx);
     const item = (k, txt, cls = '') => `<span class="${cls}" title="${esc(ITEMS[k].name)}"><i class="ri ${k}"></i>${esc(ITEMS[k].short)} ${txt}</span>`;
-    return `<div class="op-drops"><small class="od-t">${st.supply || st.event ? '고정 드롭' : '드롭'}</small>${t.fixed.map(([k, n]) => item(k, `×${n.toLocaleString('ko-KR')}`)).join('')}${t.chance.map(([k, p, n, tag]) =>
-      tag === '주요' ? item(k, '<em>주요 · ★3 확정</em>', 'main') : item(k, `${tag === '추가' ? '+1 ' : n > 1 ? `×${n} ` : ''}${Math.round(p * 100)}%`, 'maybe')).join('')}</div>`;
+    return `<div class="op-drops"><small class="od-t">${st.supply || st.event ? '고정 드롭' : '드롭'}</small>${t.fixed.map(([k, n]) => item(k, `×${n.toLocaleString('ko-KR')}`)).join('')}${t.chance.map(([k, p, n, tag]) => {
+      const amt = p >= 1 ? `평균 ×${(Math.round(p * n * 10) / 10).toLocaleString('ko-KR')}` : `${n > 1 ? `×${n} ` : ''}${Math.round(p * 100)}%`;
+      return tag === '주요' ? item(k, `<em>주요 · ${amt}</em>`, 'main') : item(k, tag === '택1' ? `택1 · ${amt}` : amt, 'maybe');
+    }).join('')}</div>`;
   }
   // 획득처: 재료를 누르면 그 재료가 나오는 작전 · 가공소로 바로 이동
   function openSource(k) {
@@ -1691,6 +1698,8 @@
     ACCOUNT.earn(total);
     trackBattle(st, n);
     trackEvent(st, n, save.squad);
+    const ups = ACCOUNT.gainExp(cost);
+    if (ups) setTimeout(() => toast(`박사 레벨 업! Lv.${ACCOUNT.level().lv} · 이성 회복`), 400);
     save.trust = save.trust || {};
     for (const id of save.squad) save.trust[id] = Math.min(200, (save.trust[id] || 0) + sanityCost(st) * n);
     writeSave();

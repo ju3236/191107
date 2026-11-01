@@ -7,7 +7,9 @@
 // =====================================================================
 (() => {
   const LOCAL_KEY = 'ashen-beacon-save';
-  const SANITY_MAX = 135;
+  // 박사 레벨에 따라 최대 이성이 오름 (원작 표: 82 ~ 135)
+  const PEXP = (typeof TRAIN_RULE !== 'undefined' && TRAIN_RULE.playerExp) || null, PAP = (typeof TRAIN_RULE !== 'undefined' && TRAIN_RULE.playerAp) || null;
+  const PMAX = PEXP ? PEXP.length : 1;
   const SANITY_MS = 6 * 60 * 1000;   // 원작처럼 6분에 이성 1 회복
   const SQUAD_MAX = 12;
 
@@ -28,7 +30,7 @@
       v: 2, nick: '', stars: {}, squad: starters.slice(0, SQUAD_MAX), skills: {}, trust: {}, skins: { owned: [], wear: {} },
       assistant: starters[0] || OPERATORS[0].id, owned,
       earned: { ...STARTER_GIFT }, spent: {},
-      sanity: SANITY_MAX, sanityAt: Date.now(), pity: 0, pulls: [], created: Date.now(),
+      sanity: PAP ? PAP[0] : 135, sanityAt: Date.now(), pity: 0, pulls: [], created: Date.now(), plv: 1, pexp: 0,
     };
   }
   function normalize(raw) {
@@ -47,7 +49,9 @@
     out.spent = obj(o.spent);
     out.squad = Array.isArray(o.squad) ? o.squad.filter((x) => typeof x === 'string').slice(0, SQUAD_MAX) : f.squad;
     out.pulls = Array.isArray(o.pulls) ? o.pulls.slice(-60) : [];
-    out.sanity = num(o.sanity, SANITY_MAX, 0, 9999);
+    out.plv = num(o.plv, 1, 1, PMAX);
+    out.pexp = num(o.pexp, 0, 0);
+    out.sanity = num(o.sanity, PAP ? PAP[out.plv - 1] : 135, 0, 9999);
     out.sanityAt = num(o.sanityAt, Date.now());
     out.pity = num(o.pity, 0, 0, 999);
     out.nick = str(o.nick, 16);
@@ -132,21 +136,35 @@
   }
   const potOf = (id) => (player.owned[id] ? player.owned[id].pot || 1 : owns(id) ? 1 : 0);
 
+  // ---------- 박사 레벨 ----------
+  const maxSanity = () => (PAP ? PAP[Math.min(PAP.length, player.plv || 1) - 1] : 135);
+  const level = () => ({ lv: player.plv || 1, exp: player.pexp || 0, need: PEXP && player.plv < PMAX ? PEXP[player.plv - 1] : 0, max: player.plv >= PMAX });
+  // 작전에서 쓴 이성만큼 경험치 (원작: 이성 1당 12). 레벨이 오르면 이성을 새 최대치만큼 회복 (상한 초과 가능)
+  function gainExp(sanityUsed) {
+    if (!PEXP || sanityUsed <= 0) return 0;
+    settleSanity();
+    player.pexp = (player.pexp || 0) + Math.round(sanityUsed * (TRAIN_RULE.playerExpPerSanity || 12));
+    let ups = 0;
+    while (player.plv < PMAX && player.pexp >= PEXP[player.plv - 1]) { player.pexp -= PEXP[player.plv - 1]; player.plv++; ups++; player.sanity += maxSanity(); }
+    if (player.plv >= PMAX) player.pexp = 0;
+    save(); emit('wallet');
+    return ups;
+  }
   // ---------- 이성 ----------
   function settleSanity() {
     const now = Date.now();
-    if (player.sanity >= SANITY_MAX) { player.sanityAt = now; return; }
+    if (player.sanity >= maxSanity()) { player.sanityAt = now; return; }
     const g = Math.floor((now - player.sanityAt) / SANITY_MS);
     if (g > 0) {
-      player.sanity = Math.min(SANITY_MAX, player.sanity + g);
-      player.sanityAt = player.sanity >= SANITY_MAX ? now : player.sanityAt + g * SANITY_MS;
+      player.sanity = Math.min(maxSanity(), player.sanity + g);
+      player.sanityAt = player.sanity >= maxSanity() ? now : player.sanityAt + g * SANITY_MS;
     }
   }
   function sanity() { settleSanity(); return player.sanity; }
   function useSanity(n) {
     settleSanity();
     if (player.sanity < n) return false;
-    if (player.sanity >= SANITY_MAX) player.sanityAt = Date.now();
+    if (player.sanity >= maxSanity()) player.sanityAt = Date.now();
     player.sanity -= n;
     save();
     emit('wallet');
@@ -160,10 +178,10 @@
   }
   function refillSanity() {
     if (!spend({ originite: 1 })) return false;
-    addSanity(SANITY_MAX);
+    addSanity(maxSanity());
     return true;
   }
-  const nextSanityMs = () => (player.sanity >= SANITY_MAX ? 0 : SANITY_MS - ((Date.now() - player.sanityAt) % SANITY_MS));
+  const nextSanityMs = () => (player.sanity >= maxSanity() ? 0 : SANITY_MS - ((Date.now() - player.sanityAt) % SANITY_MS));
 
   // ---------- 관리자가 실장한 오퍼레이터 (공용 데이터) ----------
   const RANGE_PRESETS = {
@@ -425,7 +443,7 @@
     get canUpload() { return !!assets && isAdmin; }, get canAttach() { return !!assets && mode === 'online'; }, FB_MAX_IMG, get myRequests() { return myRequests.filter((r) => r.kind !== 'feedback'); },
     get myFeedback() { return mode === 'online' ? myRequests.filter((r) => r.kind === 'feedback') : localFb(); }, sendFeedback,
     bal, canPay, spend, earn, owns, obtain, potOf,
-    sanity, useSanity, addSanity, refillSanity, nextSanityMs, SANITY_MAX,
+    sanity, useSanity, addSanity, refillSanity, nextSanityMs, get SANITY_MAX() { return maxSanity(); }, level, gainExp,
     banner, cleanBanner, MAX_BANNERS, RANGE_PRESETS, requestPurchase, admin,
     me: () => (user ? user.me() : Promise.resolve(null)),
     ready: Promise.resolve().then(init).catch((e) => console.warn(e)),

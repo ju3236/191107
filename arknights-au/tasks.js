@@ -13,7 +13,7 @@
   // =====================================================================
   //  가공소
   // =====================================================================
-  const WS_CATS = [['mat', '고급 재료', 'MATERIALS'], ['chip', '듀얼칩', 'CHIPS'], ['skill', '스킬개론', 'SKILL SUMMARIES']];
+  const WS_CATS = [['mat', '고급 재료', 'MATERIALS'], ['chip', '칩셋 · 듀얼칩', 'CHIPS'], ['skill', '스킬개론', 'SKILL SUMMARIES']];
   let wsCat = 'mat', wsSel = null, wsN = 1;
   const costOf = (r, n) => ({ ...Object.fromEntries(Object.entries(r.items).map(([k, v]) => [k, v * n])), ...(r.lmd ? { lmd: r.lmd * n } : {}) });
   const maxOf = (r) => Math.min(99, ...Object.entries(costOf(r, 1)).map(([k, v]) => Math.floor(ACCOUNT.bal(k) / v)));
