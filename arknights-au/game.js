@@ -370,8 +370,8 @@
   $('#btn-pause').addEventListener('click', () => togglePause());
   $('#btn-gear').addEventListener('click', () => togglePause(true));
   $('#pause-resume').addEventListener('click', () => togglePause(false));
-  const soundLabel = () => { $('#pause-sound').textContent = '효과음 ' + (window.SFX && SFX.enabled ? '켜짐' : '꺼짐'); };
-  $('#pause-sound').addEventListener('click', () => { SFX.toggle(); soundLabel(); });
+  // 일시정지: 효과음 · 배경 음악 켜기/끄기와 볼륨
+  const soundLabel = () => { const el = $('#pause-sound'); el.innerHTML = UI.volRowsHTML(); UI.bindVolRows(el); };
   $('#pause-retry').addEventListener('click', () => { if (S.ext.onEnd) return; const i = S.idx; UI.onBattleQuit(i); UI.startOperation(i, true); });
   $('#pause-quit').addEventListener('click', () => {
     $('#pause').classList.add('hidden');

@@ -6,7 +6,10 @@
 (() => {
   const KEY = 'ashen-beacon-sound', BKEY = 'ashen-beacon-bgm';
   let enabled = true, bgmOn = true;
-  try { enabled = localStorage.getItem(KEY) !== 'off'; bgmOn = localStorage.getItem(BKEY) !== 'off'; } catch { /* 저장 불가 환경 */ }
+  const VKEY = 'ashen-beacon-vol';
+  let vol = { sfx: 80, bgm: 70 };   // 0~100
+  try { enabled = localStorage.getItem(KEY) !== 'off'; bgmOn = localStorage.getItem(BKEY) !== 'off'; const v = JSON.parse(localStorage.getItem(VKEY) || 'null'); if (v) vol = { ...vol, ...v }; } catch { /* 저장 불가 환경 */ }
+  const SFX_BASE = 0.45 / 0.8, BGM_BASE = 0.35 / 0.7;   // 기본 볼륨(80 · 70)이 예전 소리 크기와 같도록
 
   let ac = null, master = null, noiseBuf = null, bgmGain = null, hushed = false;
   function ensure() {
@@ -17,7 +20,7 @@
     if (!AC) return false;
     ac = new AC();
     master = ac.createGain();
-    master.gain.value = 0.45;
+    master.gain.value = SFX_BASE * vol.sfx / 100;
     const comp = ac.createDynamicsCompressor();
     master.connect(comp);
     comp.connect(ac.destination);
@@ -25,7 +28,7 @@
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     bgmGain = ac.createGain();
-    bgmGain.gain.value = 0.35;
+    bgmGain.gain.value = BGM_BASE * vol.bgm / 100;
     bgmGain.connect(ac.destination);
     loadSamples();
     if (bgmWant) startBgm(bgmWant);
@@ -199,6 +202,14 @@
     bgm,
     get bgmOn() { return bgmOn; },
     toggleBgm() { setBgm(!bgmOn); return bgmOn; },
+    get volume() { return { ...vol }; },
+    // kind: 'sfx' | 'bgm', v: 0~100
+    setVolume(kind, v) {
+      vol[kind] = Math.max(0, Math.min(100, Math.round(v)));
+      try { localStorage.setItem(VKEY, JSON.stringify(vol)); } catch { /* 저장 불가 환경 */ }
+      if (master) master.gain.value = SFX_BASE * vol.sfx / 100;
+      if (bgmGain) bgmGain.gain.value = BGM_BASE * vol.bgm / 100;
+    },
     // 몰백: 모든 소리를 즉시 멈췄다가 되살림
     hush(on) { hushed = !!on; if (ac) { if (on) ac.suspend().catch(() => {}); else ac.resume().catch(() => {}); } },
   };

@@ -3342,3 +3342,12 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .g-sub .ri { width: 220px; height: 220px; }
 .g-subcard { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(180deg, #3a4650, #1d2228); color: #fff; font-size: 12px; }
 .g-subcard .ri { width: 54px; height: 54px; }
+/* 사운드 볼륨 바 */
+.vol-row { display: flex; align-items: center; gap: 10px; }
+.vol-row > span { min-width: 72px; }
+.vol-row input[type=range] { flex: 1; min-width: 100px; -webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--beacon, #ffcf3a) var(--p, 50%), rgba(127,127,127,.35) var(--p, 50%)); outline: none; cursor: pointer; }
+.vol-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--beacon, #ffcf3a); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.vol-row input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--beacon, #ffcf3a); }
+.vol-n { width: 30px; text-align: right; font-family: var(--f-en); font-weight: 500; }
+.vol-tg.off { opacity: .55; }
+.pause-vol { display: flex; flex-direction: column; gap: 8px; width: min(420px, 80vw); text-align: left; }

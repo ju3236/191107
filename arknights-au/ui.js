@@ -397,11 +397,29 @@
   }
   let resetArmed = false;
   const ASST_MODE = { fixed: '고정', login: '접속할 때마다', daily: '하루에 한 번' };
+  // 사운드: 켜기/끄기 + 볼륨 바 (설정 · 전투 일시정지 공용)
+  function volRowsHTML() {
+    const v = window.SFX ? SFX.volume : { sfx: 80, bgm: 70 };
+    const row = (k, name, on) => `<div class="set-row vol-row"><span>${name}</span>
+      <input type="range" min="0" max="100" step="1" value="${v[k]}" data-vol="${k}" aria-label="${name} 볼륨" style="--p:${v[k]}%"><b class="vol-n">${v[k]}</b>
+      <button class="btn small vol-tg ${on ? '' : 'off'}" data-voltg="${k}">${on ? '켜짐' : '꺼짐'}</button></div>`;
+    return row('sfx', '효과음', !window.SFX || SFX.enabled) + row('bgm', '배경 음악', !window.SFX || SFX.bgmOn);
+  }
+  function bindVolRows(root) {
+    root.querySelectorAll('[data-vol]').forEach((r) => {
+      const k = r.dataset.vol, n = r.parentElement.querySelector('.vol-n');
+      r.addEventListener('input', () => { SFX.setVolume(k, +r.value); n.textContent = r.value; r.style.setProperty('--p', r.value + '%'); });
+      r.addEventListener('change', () => { if (k === 'sfx') SFX.play('select'); });
+    });
+    root.querySelectorAll('[data-voltg]').forEach((b) => b.addEventListener('click', () => {
+      const on = b.dataset.voltg === 'sfx' ? SFX.toggle() : SFX.toggleBgm();
+      b.textContent = on ? '켜짐' : '꺼짐'; b.classList.toggle('off', !on);
+    }));
+  }
   function openSettings() {
     resetArmed = false;
     openModal(`<div class="modal-title">설정</div><div class="modal-sub">SETTINGS</div>
-      <div class="set-row"><span>효과음</span><button class="btn" id="btn-sound">${window.SFX && SFX.enabled ? '켜짐' : '꺼짐'}</button></div>
-      <div class="set-row"><span>배경 음악</span><button class="btn" id="btn-bgm">${window.SFX && SFX.bgmOn ? '켜짐' : '꺼짐'}</button></div>
+      ${volRowsHTML('set')}
       <div class="set-row"><span>로비 배경 <small>${esc(save.homeBg === 'random' ? '접속마다 무작위' : (HOME_BGS.find((b) => b[0] === (save.homeBg || 'default')) || HOME_BGS[0])[1])}</small></span><button class="btn" id="btn-homebg">변경</button></div>
       <div class="set-row"><span>비서 교체 <small>비서 ${save.assistants.length}명 · 오퍼레이터 상세에서 추가</small></span><button class="btn" id="btn-asst">${ASST_MODE[save.asstMode || 'fixed']}</button></div>
       <div class="set-row"><span>닉네임</span><input id="nick-input" maxlength="16" value="${esc(save.nick || '')}" placeholder="${esc(GAME_INFO.commander || '박사')}"><button class="btn small" id="nick-save">저장</button></div>
@@ -422,8 +440,7 @@
       writeSave();
       e.target.textContent = ASST_MODE[save.asstMode];
     });
-    $('#btn-sound').addEventListener('click', (e) => { e.target.textContent = SFX.toggle() ? '켜짐' : '꺼짐'; });
-    $('#btn-bgm').addEventListener('click', (e) => { e.target.textContent = SFX.toggleBgm() ? '켜짐' : '꺼짐'; });
+    bindVolRows($('#modal-body'));
     $('#btn-reset').addEventListener('click', (e) => {
       if (!resetArmed) { resetArmed = true; e.target.textContent = '한 번 더 누르면 초기화됩니다'; return; }
       save.stars = {};
@@ -2402,7 +2419,7 @@
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    openFeedback, skillIcon, openModal, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    openFeedback, skillIcon, openModal, volRowsHTML, bindVolRows, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
     get lastResult() { return lastResult; },
   };
