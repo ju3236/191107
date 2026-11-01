@@ -117,9 +117,11 @@
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   };
   // 원작 직군 아이콘 (img/ui/pro_<직군>.png, 흰색 그림)
+  // 묶음 이미지(imgpack.js)에서 바로 data URL로 (불필요한 요청 줄이기)
+  const PK = (p) => (window.IMGPACK ? IMGPACK.src(p) : p);
   const PRO_IMG = new Set(['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist']);
   function icon(name, cls = '') {
-    if (PRO_IMG.has(name)) return `<img class="ico pro ${cls}" src="img/ui/pro_${name}.png" alt="" draggable="false">`;
+    if (PRO_IMG.has(name)) return `<img class="ico pro ${cls}" src="${PK(`img/ui/pro_${name}.png`)}" alt="" draggable="false">`;
     return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name] || ''}</svg>`;
   }
   function hydrateIcons(root = document) {
@@ -196,7 +198,7 @@
     </div>`;
   }
   // 정예화 표시 (0: 없음, 1: 꺾쇠 하나, 2: 둘)
-  const eliteIcon = (e) => `<img class="elite-ico" src="img/ui/elite_${e}.png" alt="정예화 ${e}" draggable="false">`;
+  const eliteIcon = (e) => `<img class="elite-ico" src="${PK(`img/ui/elite_${e}.png`)}" alt="정예화 ${e}" draggable="false">`;
   // 스킬 아이콘: 효과에 맞는 원작 공용 스킬 아이콘 (img/skill/*.png)
   function skillIcon(sk, i = 0, def = {}) {
     const e = (sk && sk.effect) || {}, n = Math.min(3, i + 1);
@@ -210,7 +212,7 @@
     else if (e.interval || e.aspd || e.devAspd) k = 'quickattack';
     else if (def.class === 'caster' || def.class === 'supporter' || def.dmgType === 'arts') k = 'magic_rage';
     else k = 'atk_up';
-    return `img/skill/${k === 'range_extend' ? k : k + '_' + n}.png`;
+    return PK(`img/skill/${k === 'range_extend' ? k : k + '_' + n}.png`);
   }
   // 오퍼레이터 목록 카드 (원작 목록 화면 모양)
   function rosterCardHTML(def) {
@@ -1053,11 +1055,11 @@
     $('#detail-block').innerHTML = Array.from({ length: 3 }, (_, i) => `<i class="${i < o.block ? 'on' : ''}"></i>`).join('');
     $('#detail-stars').textContent = stars(o.rarity);
     const pot = ACCOUNT.potOf(o.id);
-    $('#detail-pot').innerHTML = pot ? `<img src="img/ui/pot_${pot}.png" alt="">잠재 ${pot} · 신뢰도 ${trustOf(o.id)}%` : '미보유';
+    $('#detail-pot').innerHTML = pot ? `<img src="${PK(`img/ui/pot_${pot}.png`)}" alt="">잠재 ${pot} · 신뢰도 ${trustOf(o.id)}%` : '미보유';
     $('#detail-en').textContent = o.en || '';
     $('#detail-name').textContent = o.name;
     fitName($('#detail-name'));
-    $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${PRO_IMG.has(o.class) ? `<img class="sub-ico" src="img/ui/sub_${esc(o.archetype)}.png" alt="">` : ''}${esc(arch.name)}</small>` : ''}`;
+    $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${PRO_IMG.has(o.class) ? `<img class="sub-ico" src="${PK(`img/ui/sub_${o.archetype}.png`)}" alt="">` : ''}${esc(arch.name)}</small>` : ''}`;
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
     $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'any' ? '지면 · 고지대 배치' : (o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
     $('#detail-cost').textContent = o.cost;
@@ -1092,7 +1094,7 @@
   const modBadge = (o, mod) => mod ? `<span class="mod-ico t${esc(mod.type || 'X')}">${mod.image ? `<img src="${esc(mod.image)}" alt="">` : `<b>${esc(mod.type || 'X')}</b>`}<small>${esc(mod.code || '')}</small></span>` : '<span class="mod-ico orig"><var class="oi mod_orig"></var><small>ORIGINAL</small></span>';
   function renderModCard(base, o, pg, cls, arch) {
     const mods = TRAIN.modsOf(base), ms = TRAIN.modState(base.id), curMod = mods.find((m) => m.id === ms.cur);
-    const archIco = PRO_IMG.has(o.class) && o.archetype ? `<img src="img/ui/sub_${esc(o.archetype)}.png" alt="">` : icon(o.class);
+    const archIco = PRO_IMG.has(o.class) && o.archetype ? `<img src="${PK(`img/ui/sub_${o.archetype}.png`)}" alt="">` : icon(o.class);
     const right = $('#screen-detail .detail-right');
     right.classList.toggle('modv', modPanel);
     if (!modPanel) {
@@ -1199,7 +1201,7 @@
     const useName = potUse === 'class' ? (ITEMS[ck] ? ITEMS[ck].name : '직군 증표') : `${def.name}의 증표`;
     v.innerHTML = `<button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
       <div class="tv-art big">${artHTML(def)}</div>
-      <div class="pu-band"><img class="pu-ico" src="img/ui/pot_${pot}.png" alt=""><div class="pu-n"><b>${pot}</b><span>잠재능력</span></div>
+      <div class="pu-band"><img class="pu-ico" src="${PK(`img/ui/pot_${pot}.png`)}" alt=""><div class="pu-n"><b>${pot}</b><span>잠재능력</span></div>
         <div class="pu-list">${TRAIN.potList(def).map((b, i) => `<div class="${pot >= i + 2 ? 'on' : pot + 1 === i + 2 ? 'next' : ''}">${fx(b)}</div>`).join('')}</div></div>
       <div class="pu-toks"><button class="pu-tok ${potUse === 'own' ? 'on' : ''}" data-potuse="own"><span class="pu-gem"><img src="${esc(def.image || def.baseImage || '')}" alt=""></span><div><b>${esc(def.name)}의 증표</b><small class="${tok ? '' : 'bad'}">${tok}/1</small></div><i class="pu-chk">${potUse === 'own' ? '✓' : ''}</i></button>
         ${ITEMS[ck] ? `<button class="pu-tok ${potUse === 'class' ? 'on' : ''}" data-potuse="class" data-src="${esc(ck)}"><span class="pu-cls"><i class="ri ${esc(ck)}"></i></span><div><b>${esc(ITEMS[ck].name)}</b><small class="${cHave >= cNeed ? '' : 'bad'}">${cHave}/${cNeed}</small></div><i class="pu-chk">${potUse === 'class' ? '✓' : ''}</i></button>` : ''}<span class="pu-arr">›››</span></div>
@@ -1215,7 +1217,7 @@
       <div class="lvw-exp"><small>EXP</small><span><em>${pg.level < max ? pg.exp : '-'}</em>/${pg.level < max ? need : 'MAX'}</span><i style="width:${need ? (pg.exp / need) * 100 : 100}%"></i></div>
       <button class="lvw-plus" id="lv-open" ${own && pg.level < max ? '' : 'disabled'} aria-label="레벨업">＋</button>
       <div class="lvw-row"><button class="lvw-elite e${pg.elite}" id="elite-open" ${own ? '' : 'disabled'}>${eliteIcon(pg.elite)}<span>정예화<small>${pg.elite >= 2 ? 'MAX' : `${pg.elite}단계`}</small></span></button>
-        <button class="lvw-pot" id="pot-open">${ACCOUNT.potOf(def.id) ? `<img src="img/ui/pot_${ACCOUNT.potOf(def.id)}.png" alt="">` : ''}<span>잠재능력<b>＋</b></span>${ACCOUNT.potOf(def.id) && ACCOUNT.potOf(def.id) < 6 && (ACCOUNT.tokenOf(def.id) || ACCOUNT.bal(`tier${Math.max(4, Math.min(6, def.rarity || 6))}_${def.class}`) >= (TRAIN_RULE.classTokenNeed || 4)) ? '<i class="lvw-dot"></i>' : ''}</button></div>`;
+        <button class="lvw-pot" id="pot-open">${ACCOUNT.potOf(def.id) ? `<img src="${PK(`img/ui/pot_${ACCOUNT.potOf(def.id)}.png`)}" alt="">` : ''}<span>잠재능력<b>＋</b></span>${ACCOUNT.potOf(def.id) && ACCOUNT.potOf(def.id) < 6 && (ACCOUNT.tokenOf(def.id) || ACCOUNT.bal(`tier${Math.max(4, Math.min(6, def.rarity || 6))}_${def.class}`) >= (TRAIN_RULE.classTokenNeed || 4)) ? '<i class="lvw-dot"></i>' : ''}</button></div>`;
   }
   let lvTarget = 1;
   const statRows = (a, b) => [['최대 체력', 'hp'], ['공격', 'atk'], ['방어', 'def'], ['마법 저항', 'res']].map(([n, k]) => `<div><span>${n}</span><b>${a[k] || 0}</b><i>→</i><b class="${(b[k] || 0) > (a[k] || 0) ? 'up' : ''}">${b[k] || 0}</b></div>`).join('');

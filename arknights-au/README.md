@@ -132,3 +132,8 @@
 
 진행 상황·편성·비서·스킬·재화는 claude.ai에서는 계정(공용 데이터의 `players/<id>`)에, 그 밖에서는 브라우저 localStorage에 저장됩니다.
 구매센터 상품·아이템·헤드헌팅 확률은 `data.js` 맨 아래 `ITEMS`, `SHOP`, `GACHA`에서 바꿀 수 있습니다. 기본 이벤트 배너는 `GACHA.banners`에 있고, 관리자가 게임 안에서 배너를 한 번 저장하면 그 목록으로 바뀝니다.
+
+## 이미지 묶음 (게시 파일 수 줄이기)
+- 작은 이미지(세부 직군 · 스킬 · 잠재 · 정예화 · 직군 아이콘, 통합전략 아이콘 · 유물, 적 그림)는 `img/pack_icons.webp` · `img/pack_enemy.webp` 두 장으로 묶어서 게시합니다.
+- 원본 파일은 저장소에 그대로 두고, 이미지를 추가 · 교체하면 `python3 tools/build_imgpack.py`를 다시 실행하세요 (`imgpack.js`가 다시 만들어집니다).
+- `imgpack.js`가 `<img>` · `new Image()`의 경로를 시트에서 잘라 바꿔 주므로 코드는 원래 경로를 그대로 써도 됩니다. CSS 배경에 쓸 때는 `IMGPACK.src(경로)`를 쓰세요.

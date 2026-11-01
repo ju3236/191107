@@ -28,7 +28,7 @@
   for (const e of Object.values(ENEMIES)) if (e.image) loadE(e.image);
   const eImg = (def) => { const im = def.image && loadE(def.image); return im && im.complete && im.naturalWidth > 0 ? im : null; };
   function faceStyle(def) {
-    return def.image ? `background-color:${def.color};background-image:url('${def.image}')` : `background-color:${def.color}`;
+    return def.image ? `background-color:${def.color};background-image:url('${window.IMGPACK ? IMGPACK.src(def.image) : def.image}')` : `background-color:${def.color}`;
   }
   const faceText = (def) => (def.image ? '' : def.name[0]);
 
@@ -410,7 +410,7 @@
       $('#ins-cls').innerHTML = UI.icon(d.class);
       $('#ins-name').textContent = d.name;
       const tp = d.trained;
-      $('#ins-class').innerHTML = `${tp ? `<span class="ins-lv"><img class="elite-ico" src="img/ui/elite_${tp.elite}.png" alt=""><small>LV</small><b>${tp.level}</b></span>` : ''}${UI.esc(CLASSES[d.class].name)}${arch ? ' · ' + UI.esc(arch.name) : ''}`;
+      $('#ins-class').innerHTML = `${tp ? `<span class="ins-lv"><img class="elite-ico" src="${window.IMGPACK ? IMGPACK.src(`img/ui/elite_${tp.elite}.png`) : `img/ui/elite_${tp.elite}.png`}" alt=""><small>LV</small><b>${tp.level}</b></span>` : ''}${UI.esc(CLASSES[d.class].name)}${arch ? ' · ' + UI.esc(arch.name) : ''}`;
       $('#ins-range').innerHTML = rangeHTML(op ? null : d.range, op) + '<small>공격 범위</small>';
       $('#ins-tabs').querySelectorAll('[data-itab]').forEach((b) => b.classList.toggle('on', b.dataset.itab === insTab));
       let body = '';
