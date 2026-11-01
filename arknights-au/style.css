@@ -3318,15 +3318,6 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .bs-slot.tired { border-color: #ff6b6e; } .bs-slot.tired .bs-av { filter: grayscale(.8); }
 .bs-pk .bs-morn { color: #aaa; }
 
-/* 직군 증표 */
-.ri.ri.tok_vanguard::before { background: url(img/item/tok_vanguard.png) center / contain no-repeat; }
-.ri.ri.tok_guard::before { background: url(img/item/tok_guard.png) center / contain no-repeat; }
-.ri.ri.tok_defender::before { background: url(img/item/tok_defender.png) center / contain no-repeat; }
-.ri.ri.tok_sniper::before { background: url(img/item/tok_sniper.png) center / contain no-repeat; }
-.ri.ri.tok_caster::before { background: url(img/item/tok_caster.png) center / contain no-repeat; }
-.ri.ri.tok_medic::before { background: url(img/item/tok_medic.png) center / contain no-repeat; }
-.ri.ri.tok_supporter::before { background: url(img/item/tok_supporter.png) center / contain no-repeat; }
-.ri.ri.tok_specialist::before { background: url(img/item/tok_specialist.png) center / contain no-repeat; }
 .pu-tok { color: #fff; text-align: left; }
 .pu-tok small.bad { color: #ff6b6e; }
 .pu-cls { width: 76px; height: 76px; flex: none; display: flex; align-items: center; justify-content: center; }
@@ -3351,3 +3342,57 @@ i.relic-img img { width: 100%; height: 100%; object-fit: contain; }
 .vol-n { width: 30px; text-align: right; font-family: var(--f-en); font-weight: 500; }
 .vol-tg.off { opacity: .55; }
 .pause-vol { display: flex; flex-direction: column; gap: 8px; width: min(420px, 80vw); text-align: left; }
+
+/* 직군 증표 (원작 이미지 스프라이트 img/tokens.webp · © Hypergryph/Yostar) */
+.ri.ri.tier6_vanguard::before { background: url(img/tokens.webp) 0.0000% 0% / 800% 300% no-repeat; }
+.ri.ri.tier6_guard::before { background: url(img/tokens.webp) 14.2857% 0% / 800% 300% no-repeat; }
+.ri.ri.tier6_defender::before { background: url(img/tokens.webp) 28.5714% 0% / 800% 300% no-repeat; }
+.ri.ri.tier6_sniper::before { background: url(img/tokens.webp) 42.8571% 0% / 800% 300% no-repeat; }
+.ri.ri.tier6_caster::before { background: url(img/tokens.webp) 57.1429% 0% / 800% 300% no-repeat; }
+.ri.ri.tier6_medic::before { background: url(img/tokens.webp) 71.4286% 0% / 800% 300% no-repeat; }
+.ri.ri.tier6_supporter::before { background: url(img/tokens.webp) 85.7143% 0% / 800% 300% no-repeat; }
+.ri.ri.tier6_specialist::before { background: url(img/tokens.webp) 100.0000% 0% / 800% 300% no-repeat; }
+.ri.ri.tier5_vanguard::before { background: url(img/tokens.webp) 0.0000% 50% / 800% 300% no-repeat; }
+.ri.ri.tier5_guard::before { background: url(img/tokens.webp) 14.2857% 50% / 800% 300% no-repeat; }
+.ri.ri.tier5_defender::before { background: url(img/tokens.webp) 28.5714% 50% / 800% 300% no-repeat; }
+.ri.ri.tier5_sniper::before { background: url(img/tokens.webp) 42.8571% 50% / 800% 300% no-repeat; }
+.ri.ri.tier5_caster::before { background: url(img/tokens.webp) 57.1429% 50% / 800% 300% no-repeat; }
+.ri.ri.tier5_medic::before { background: url(img/tokens.webp) 71.4286% 50% / 800% 300% no-repeat; }
+.ri.ri.tier5_supporter::before { background: url(img/tokens.webp) 85.7143% 50% / 800% 300% no-repeat; }
+.ri.ri.tier5_specialist::before { background: url(img/tokens.webp) 100.0000% 50% / 800% 300% no-repeat; }
+.ri.ri.tier4_vanguard::before { background: url(img/tokens.webp) 0.0000% 100% / 800% 300% no-repeat; }
+.ri.ri.tier4_guard::before { background: url(img/tokens.webp) 14.2857% 100% / 800% 300% no-repeat; }
+.ri.ri.tier4_defender::before { background: url(img/tokens.webp) 28.5714% 100% / 800% 300% no-repeat; }
+.ri.ri.tier4_sniper::before { background: url(img/tokens.webp) 42.8571% 100% / 800% 300% no-repeat; }
+.ri.ri.tier4_caster::before { background: url(img/tokens.webp) 57.1429% 100% / 800% 300% no-repeat; }
+.ri.ri.tier4_medic::before { background: url(img/tokens.webp) 71.4286% 100% / 800% 300% no-repeat; }
+.ri.ri.tier4_supporter::before { background: url(img/tokens.webp) 85.7143% 100% / 800% 300% no-repeat; }
+.ri.ri.tier4_specialist::before { background: url(img/tokens.webp) 100.0000% 100% / 800% 300% no-repeat; }
+/* 교환 확인 팝업 */
+#modal[data-kind="confirmbuy"] .modal-panel { width: min(560px, 100%); }
+.cb-box { display: flex; gap: 18px; align-items: flex-start; }
+.cb-ico { width: 110px; height: 110px; flex: none; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(255,255,255,.12), rgba(255,255,255,.02) 70%); border-radius: 50%; }
+.cb-ico .ri { width: 92px; height: 92px; }
+.cb-ico img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.cb-main { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cb-name { font-size: 20px; }
+.cb-sub { color: var(--muted, #aaa); }
+.cb-desc { margin: 0; font-size: 13px; line-height: 1.5; color: #c9ccd2; max-height: 80px; overflow-y: auto; }
+.cb-qty { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.cb-qty span { margin-right: 6px; color: #aaa; font-size: 13px; }
+.cb-qty button { min-width: 32px; height: 30px; background: #2b2d31; color: #fff; font-weight: 700; }
+.cb-qty button:hover { background: #3a3c41; }
+.cb-qty b { min-width: 44px; text-align: center; font-family: var(--f-en); font-size: 20px; font-weight: 500; }
+.cb-qty .cb-max { padding: 0 10px; font-family: var(--f-en); color: #ffcf3a; }
+.cb-cost { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.cb-cost .ri { width: 26px; height: 26px; }
+.cb-cost b { font-family: var(--f-en); font-size: 22px; font-weight: 500; }
+.cb-cost b.bad { color: #ff6b6e; }
+.cb-cost small { color: #888; margin-left: 6px; }
+.cb-ask { text-align: center; font-weight: 700; margin: 18px 0 10px; font-size: 16px; }
+.cb-btns { display: flex; }
+.cb-btns button { flex: 1; padding: 12px; font-weight: 900; font-size: 16px; }
+.cb-no { background: #2b2d31; color: #ddd; }
+.cb-yes { background: linear-gradient(90deg, #1d5f86, #2b8fcf); color: #fff; }
+.cb-yes:disabled { background: #444; color: #888; }
+@media (max-width: 520px) { .cb-ico { width: 72px; height: 72px; } .cb-ico .ri { width: 60px; height: 60px; } }

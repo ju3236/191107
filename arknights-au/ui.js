@@ -17,6 +17,11 @@
   const ASST_MAX = 12;
   let rotatedFor = null;
   function fixPlayer() {
+    // 예전 직군 증표(tok_직군) → 원작 6성 로열 증표로 옮김 (한 번)
+    if (!save.tokMig) {
+      save.tokMig = true;
+      for (const c of CLASS_ORDER) { const n = ACCOUNT.bal('tok_' + c); if (n > 0 && ACCOUNT.spend({ ['tok_' + c]: n })) ACCOUNT.earn({ [`tier6_${c}`]: n }); }
+    }
     save.squad = save.squad.filter((id) => OPS[id] && owned(id));
     // 편성 제1~4팀 (원작처럼). save.squad는 지금 고른 팀
     if (!Array.isArray(save.teams) || save.teams.length !== 4) save.teams = [save.squad.slice(), [], [], []];
@@ -674,31 +679,52 @@
     const b = e.target.closest('[data-good]'); if (!b || !shopEv) return;
     buyGood(shopEv, shopEv.shop.find((g) => g.id === b.dataset.good));
   });
+  // 교환 확인 팝업 (원작: 아이템 · 수량 선택 · 총 비용 · 예 / 아니오) — 자격증 교환소 · 이벤트 상점 공용
+  //  o: { name, sub, desc, item(아이템 키) | img, cur(지불 아이템), price, max(최대 수량), onOk(수량) }
+  function confirmBuy(o) {
+    let n = 1;
+    const max = Math.max(1, Math.min(o.max || 1, Math.floor(ACCOUNT.bal(o.cur) / o.price) || 1));
+    const draw = () => {
+      const total = o.price * n, ok = ACCOUNT.bal(o.cur) >= total;
+      openModal(`<div class="cb-box">
+        <div class="cb-ico">${o.item ? `<i class="ri ${esc(o.item)} big"></i>` : o.img ? `<img src="${esc(o.img)}" alt="">` : ''}</div>
+        <div class="cb-main"><b class="cb-name">${esc(o.name)}</b>${o.sub ? `<small class="cb-sub">${esc(o.sub)}</small>` : ''}
+          ${o.desc ? `<p class="cb-desc">${esc(o.desc)}</p>` : ''}
+          ${max > 1 ? `<div class="cb-qty"><span>수량</span><button data-cbq="-10">«</button><button data-cbq="-1">−</button><b>${n}</b><button data-cbq="1">＋</button><button data-cbq="10">»</button><button data-cbq="max" class="cb-max">MAX</button></div>` : ''}
+          <div class="cb-cost"><i class="ri ${esc(o.cur)}"></i><b class="${ok ? '' : 'bad'}">${total.toLocaleString('ko-KR')}</b><small>보유 ${ACCOUNT.bal(o.cur).toLocaleString('ko-KR')}</small></div></div></div>
+        <p class="cb-ask">${esc(o.name)}${n > 1 ? ` ${n}개` : ''}을(를) 교환하시겠습니까?</p>
+        <div class="cb-btns"><button class="cb-no" id="cb-no">아니오</button><button class="cb-yes" id="cb-yes" ${ok ? '' : 'disabled'}>예</button></div>`);
+      $('#modal').dataset.kind = 'confirmbuy';
+      $('#cb-no').addEventListener('click', closeModal);
+      $('#cb-yes').addEventListener('click', () => { closeModal(); o.onOk(n); });
+      document.querySelectorAll('[data-cbq]').forEach((b) => b.addEventListener('click', () => {
+        const q = b.dataset.cbq;
+        n = q === 'max' ? max : Math.max(1, Math.min(max, n + +q));
+        draw();
+      }));
+    };
+    draw();
+  }
   function buyGood(ev, g) {
     const info = goodInfo(g), bought = evBought(ev), cur = ev.currency;
     if ((info.sk && ownsSkin(info.sk.id)) || (bought[g.id] || 0) >= g.limit) { toast('이미 모두 교환했습니다'); return; }
     if (ACCOUNT.bal(cur) < g.price) { sfx('deny'); toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
-    const go2 = () => {
-      if (!ACCOUNT.spend({ [cur]: g.price })) { toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
-      bought[g.id] = (bought[g.id] || 0) + 1;
-      if (info.sk) {
-        const sv = skinSave();
-        if (!sv.owned.includes(info.sk.id)) sv.owned.push(info.sk.id);
-        if (owned(info.sk.op)) sv.wear[info.sk.op] = info.sk.id;
-        applySkins();
-      } else ACCOUNT.earn(g.items);
-      writeSave(); renderResources(); sfx('select');
-      toast(`${info.name} ${info.sk ? '' : info.sub + ' '}교환 완료`);
-      closeModal();
-      if (RENDER[current]) RENDER[current](ev.id, { back: true });
-    };
-    if (g.price < 300) { go2(); return; }
-    openModal(`<div class="modal-title">교환 확인</div><div class="modal-sub">${esc(ev.name)} · 이벤트 상점</div>
-      ${info.sk ? `<div class="skin-buy"><img src="${esc(info.img)}" alt=""><div><b>${esc(info.name)}</b><small>${esc(info.sub)}</small><p>${esc(info.sk.desc || '')}</p></div></div>` : `<p class="modal-text">${esc(info.name)} ${esc(info.sub)}</p>`}
-      <p class="modal-text"><i class="ri ${cur}"></i> ${g.price.toLocaleString('ko-KR')}개로 교환합니다. 보유 ${ACCOUNT.bal(cur).toLocaleString('ko-KR')}</p>
-      <div class="panel-btns"><button class="btn primary" id="evs-go">교환</button><button class="btn" id="evs-no">취소</button></div>`);
-    $('#evs-go').addEventListener('click', go2);
-    $('#evs-no').addEventListener('click', closeModal);
+    const k = !info.sk && g.items ? Object.keys(g.items)[0] : null;
+    confirmBuy({ name: info.name, sub: info.sk ? info.sub : `${ev.name} · ${info.sub}`, desc: info.sk ? info.sk.desc : k && ITEMS[k] ? ITEMS[k].desc : '',
+      item: k, img: info.sk ? info.img : null, cur, price: g.price, max: info.sk ? 1 : g.limit - (bought[g.id] || 0),
+      onOk: (n) => {
+        if (!ACCOUNT.spend({ [cur]: g.price * n })) { toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
+        bought[g.id] = (bought[g.id] || 0) + n;
+        if (info.sk) {
+          const sv = skinSave();
+          if (!sv.owned.includes(info.sk.id)) sv.owned.push(info.sk.id);
+          if (owned(info.sk.op)) sv.wear[info.sk.op] = info.sk.id;
+          applySkins();
+        } else ACCOUNT.earn(Object.fromEntries(Object.entries(g.items).map(([id, v]) => [id, v * n])));
+        writeSave(); renderResources(); sfx('select');
+        toast(`${info.name} ${info.sk ? '' : info.sub + ' '}${n > 1 ? `×${n} ` : ''}교환 완료`);
+        if (RENDER[current]) RENDER[current](ev.id, { back: true });
+      } });
   }
   function renderHomeEvent() {
     const ev = liveEvent(), el = $('#home-event');
@@ -1165,7 +1191,7 @@
     v.style.setProperty('--c', def.color);
     const pct = (x) => `${Math.round(x * 1000) / 10}%`;
     const fx = (b) => [b.cost && `배치 코스트 -${b.cost}`, b.redeploy && `재배치 시간 -${b.redeploy}초`, b.atk && `공격력 +${pct(b.atk)}`, b.hp && `체력 +${pct(b.hp)}`, b.def && `방어력 +${pct(b.def)}`].filter(Boolean).join(' · ');
-    const ck = 'tok_' + def.class, cNeed = TRAIN_RULE.classTokenNeed[def.rarity || 6] || 4, cHave = ACCOUNT.bal(ck);
+    const ck = `tier${Math.max(4, Math.min(6, def.rarity || 6))}_${def.class}`, cNeed = TRAIN_RULE.classTokenNeed || 4, cHave = ACCOUNT.bal(ck);
     if (potUse === 'own' && !tok && cHave >= cNeed) potUse = 'class';
     if (potUse === 'class' && cHave < cNeed && tok) potUse = 'own';
     const can = pot < 6 && (potUse === 'class' ? cHave >= cNeed : tok > 0);
@@ -1188,7 +1214,7 @@
       <div class="lvw-exp"><small>EXP</small><span><em>${pg.level < max ? pg.exp : '-'}</em>/${pg.level < max ? need : 'MAX'}</span><i style="width:${need ? (pg.exp / need) * 100 : 100}%"></i></div>
       <button class="lvw-plus" id="lv-open" ${own && pg.level < max ? '' : 'disabled'} aria-label="레벨업">＋</button>
       <div class="lvw-row"><button class="lvw-elite e${pg.elite}" id="elite-open" ${own ? '' : 'disabled'}>${eliteIcon(pg.elite)}<span>정예화<small>${pg.elite >= 2 ? 'MAX' : `${pg.elite}단계`}</small></span></button>
-        <button class="lvw-pot" id="pot-open">${ACCOUNT.potOf(def.id) ? `<img src="img/ui/pot_${ACCOUNT.potOf(def.id)}.png" alt="">` : ''}<span>잠재능력<b>＋</b></span>${ACCOUNT.potOf(def.id) && ACCOUNT.potOf(def.id) < 6 && (ACCOUNT.tokenOf(def.id) || ACCOUNT.bal('tok_' + def.class) >= (TRAIN_RULE.classTokenNeed[def.rarity || 6] || 4)) ? '<i class="lvw-dot"></i>' : ''}</button></div>`;
+        <button class="lvw-pot" id="pot-open">${ACCOUNT.potOf(def.id) ? `<img src="img/ui/pot_${ACCOUNT.potOf(def.id)}.png" alt="">` : ''}<span>잠재능력<b>＋</b></span>${ACCOUNT.potOf(def.id) && ACCOUNT.potOf(def.id) < 6 && (ACCOUNT.tokenOf(def.id) || ACCOUNT.bal(`tier${Math.max(4, Math.min(6, def.rarity || 6))}_${def.class}`) >= (TRAIN_RULE.classTokenNeed || 4)) ? '<i class="lvw-dot"></i>' : ''}</button></div>`;
   }
   let lvTarget = 1;
   const statRows = (a, b) => [['최대 체력', 'hp'], ['공격', 'atk'], ['방어', 'def'], ['마법 저항', 'res']].map(([n, k]) => `<div><span>${n}</span><b>${a[k] || 0}</b><i>→</i><b class="${(b[k] || 0) > (a[k] || 0) ? 'up' : ''}">${b[k] || 0}</b></div>`).join('');
@@ -1406,7 +1432,7 @@
     if (pu) { potUse = pu.dataset.potuse; openPot(); return; }
     if (e.target.closest('#pu-go')) {
       const d = OPS[detailId];
-      const r = potUse === 'class' ? ACCOUNT.usePotToken(detailId, 'tok_' + d.class, TRAIN_RULE.classTokenNeed[d.rarity || 6] || 4) : ACCOUNT.usePotToken(detailId);
+      const r = potUse === 'class' ? ACCOUNT.usePotToken(detailId, `tier${Math.max(4, Math.min(6, d.rarity || 6))}_${d.class}`, TRAIN_RULE.classTokenNeed || 4) : ACCOUNT.usePotToken(detailId);
       if (!r.ok) { toast(r.why); return; }
       sfx('levelup'); toast(`잠재능력 ${r.pot} 달성`);
       openPot(); return;
@@ -2419,7 +2445,7 @@
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    openFeedback, skillIcon, openModal, volRowsHTML, bindVolRows, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    openFeedback, skillIcon, openModal, confirmBuy, volRowsHTML, bindVolRows, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
     get lastResult() { return lastResult; },
   };

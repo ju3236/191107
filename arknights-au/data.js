@@ -2720,7 +2720,7 @@ const TRAIN_RULE = {
   // 잠재 (헤드헌팅 중복): 잠재 2~6에서 차례로 얻는 효과 (누적). 오퍼레이터에 potentials: [{…} ×5]를 넣으면 직접 지정
   //  cost: 배치 코스트 감소 · redeploy: 재배치 시간 감소(초) · atk/hp/def: 비율 증가
   // 원작 6성 기본형: 코스트 -1 → 재배치 -4초 → 공격력 → 제1재능 강화(여기서는 능력치로 대신) → 코스트 -1
-  classTokenNeed: { 6: 4, 5: 3, 4: 2, 3: 1 },   // 직군 증표로 잠재 1단계 올릴 때 필요 개수
+  classTokenNeed: 4,   // 원작: 직군 증표 4개로 잠재 1단계
   potential: [{ cost: 1 }, { redeploy: 4 }, { atk: 0.035 }, { atk: 0.02, hp: 0.03 }, { cost: 1 }],
   // 신뢰도 보너스: 신뢰도 0~100%에 비례해 최대 이만큼 (직군별 · 오퍼레이터에 trustBonus: { … }로 직접 지정 가능)
   trustBonus: {
@@ -2761,12 +2761,15 @@ const TRAIN_RULE = {
     add('pack_' + cls, { name: `${v.name} 칩셋`, short: `${v.name} 칩셋`, color: '#6fb8ff', chip: cls, desc: `${v.name} 칩을 묶은 칩셋. 4성 이하 오퍼레이터의 2차 정예화에 쓰이고, 2개와 칩 촉매제로 듀얼칩을 만든다. 칩 탐색 2단계에서 얻을 수 있다.` });
     add('dual_' + cls, { name: `${v.name} 듀얼칩`, short: `${v.name} 듀얼칩`, color: '#ffcf3a', chip: cls, desc: `${v.name} 오퍼레이터(5 · 6성)의 2차 정예화에 쓰이는 듀얼칩. 가공소에서 칩셋 2개와 칩 촉매제로 만든다.` });
   }
-  add('mod_block', { name: '모듈 데이터 블록', short: '모듈 데이터 블록', color: '#5fc8e8', desc: '오퍼레이터 모듈을 개방(STAGE 1)할 때 쓰는 데이터 블록. 자격증 교환소 · 통합전략에서 얻을 수 있다.' });
-  add('mod_stick', { name: '데이터 증강 칩', short: '데이터 증강 칩', color: '#6fb8ff', desc: '오퍼레이터 모듈을 STAGE 2로 강화할 때 쓰는 증강 칩. 자격증 교환소에서 얻을 수 있다.' });
-  add('mod_inst', { name: '데이터 증강 장치', short: '데이터 증강 장치', color: '#ffcf3a', desc: '오퍼레이터 모듈을 STAGE 3으로 강화할 때 쓰는 증강 장치. 자격증 교환소에서 얻을 수 있다.' });
+  add('mod_block', { name: '모듈 데이터 칩', short: '모듈 데이터 칩', color: '#5fc8e8', desc: '오퍼레이터 모듈을 개방(STAGE 1)할 때 쓰는 데이터 블록. 자격증 교환소 · 통합전략에서 얻을 수 있다.' });
+  add('mod_stick', { name: '데이터 메모리', short: '데이터 메모리', color: '#6fb8ff', desc: '오퍼레이터 모듈을 STAGE 2로 강화할 때 쓰는 증강 칩. 자격증 교환소에서 얻을 수 있다.' });
+  add('mod_inst', { name: '데이터 리더기', short: '데이터 리더기', color: '#ffcf3a', desc: '오퍼레이터 모듈을 STAGE 3으로 강화할 때 쓰는 증강 장치. 자격증 교환소에서 얻을 수 있다.' });
+  // 원작 직군 증표: 레어도별 (6성 로열 · 5성 에픽 · 4성 레어). 잠재 1단계에 4개 (원작 commonPotentialLvlUpCount)
+  const TIER_NAME = { 6: '로열', 5: '에픽', 4: '레어' };
   for (const [cls, v] of Object.entries(CLASSES)) {
     if (cls === 'device') continue;
-    add('tok_' + cls, { name: `${v.name} 로열 증표`, short: `${v.name} 증표`, color: '#c8a03c', classToken: cls, desc: `${v.name} 오퍼레이터의 잠재능력을 올릴 때 전용 증표 대신 쓸 수 있는 직군 공용 증표. 6성 4개 · 5성 3개 · 4성 2개가 필요하다. 자격증 교환소(고급)에서 얻을 수 있다.` });
+    for (const r of [6, 5, 4]) add(`tier${r}_${cls}`, { name: `${v.name} ${TIER_NAME[r]} 증표`, short: `${v.name} ${TIER_NAME[r]} 증표`, color: '#c8a03c', classToken: cls, tokenRarity: r,
+      desc: `★${r} ${v.name} 오퍼레이터의 잠재능력 상승에 사용된다. 4개로 잠재능력 1단계를 올릴 수 있다. 자격증 교환소(고급)에서 얻을 수 있다.` });
   }
   add('chip_cat', { name: '칩 촉매제', short: '칩 촉매제', color: '#9fe0ff', desc: '칩셋을 듀얼칩으로 가공할 때 쓰는 촉매제. 주간 임무 · 이벤트 상점에서 얻을 수 있다.' });
 })();
@@ -2880,7 +2883,7 @@ const MODULE_RULE = {
 
 const CERT_SHOP = {
   cert_hi: [
-    ...['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist'].map((c) => ({ id: 'h_tok_' + c, items: { ['tok_' + c]: 1 }, price: 30, limit: 2 })),
+    ...[6, 5, 4].flatMap((r) => ['vanguard', 'guard', 'defender', 'sniper', 'caster', 'medic', 'supporter', 'specialist'].map((c) => ({ id: `h_t${r}_${c}`, items: { [`tier${r}_${c}`]: 1 }, price: { 6: 30, 5: 15, 4: 8 }[r], limit: 4 }))),
     { id: 'h_modb', items: { mod_block: 1 }, price: 20, limit: 4 },
     { id: 'h_mods', items: { mod_stick: 5 }, price: 15, limit: 4 },
     { id: 'h_modi', items: { mod_inst: 1 }, price: 12, limit: 4 },

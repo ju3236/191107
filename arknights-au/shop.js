@@ -134,19 +134,25 @@
     if (!info) return;
     if ((st.b[id] || 0) >= g.limit) { toast('이번 달 교환 수량을 모두 교환했습니다'); return; }
     if (ACCOUNT.bal(cur) < g.price) { toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
-    const go2 = () => {
-      if (!ACCOUNT.spend({ [cur]: g.price })) return;
-      st.b[id] = (st.b[id] || 0) + 1;
-      if (info.op) { const res = ACCOUNT.obtain(info.op); ACCOUNT.save(); closeModal(); playGacha([{ def: info.op, ...res }]); }
-      else { ACCOUNT.earn(g.items); ACCOUNT.save(); closeModal(); sfx('select'); toast(`${info.name} ${info.sub} 교환 완료`); }
-      RENDER.store(undefined, { back: true });
-    };
-    if (!info.op && g.price < 100) { go2(); return; }
-    openModal(`<div class="modal-title">교환 확인</div><div class="modal-sub">${ITEMS[cur].name} ${fmt(g.price)}개로 교환합니다 · 보유 ${fmt(ACCOUNT.bal(cur))}</div>
-      ${info.op ? `<div class="skin-buy">${info.op.image ? `<img src="${esc(info.op.image)}" alt="">` : ''}<div><b>${esc(info.op.name)}</b><small>${'★'.repeat(info.op.rarity || 3)} · ${esc(info.sub)}</small><p>${esc(info.op.quote || '')}</p></div></div>` : `<p class="modal-text">${esc(info.name)} ${esc(info.sub)}</p>`}
-      <div class="panel-btns"><button class="btn primary" id="cs-go">교환</button><button class="btn" id="cs-no">취소</button></div>`);
-    $('#cs-go').addEventListener('click', go2);
-    $('#cs-no').addEventListener('click', closeModal);
+    if (info.op) {
+      // 오퍼레이터는 1명씩
+      UI.confirmBuy({ name: info.op.name, sub: `${'★'.repeat(info.op.rarity || 3)} · ${info.sub}`, desc: info.op.quote || '', img: info.op.image, cur, price: g.price, max: 1,
+        onOk: () => {
+          if (!ACCOUNT.spend({ [cur]: g.price })) return;
+          st.b[id] = (st.b[id] || 0) + 1;
+          const res = ACCOUNT.obtain(info.op); ACCOUNT.save(); playGacha([{ def: info.op, ...res }]);
+          RENDER.store(undefined, { back: true });
+        } });
+      return;
+    }
+    UI.confirmBuy({ name: info.name, sub: info.sub, desc: ITEMS[info.item].desc || '', item: info.item, cur, price: g.price, max: g.limit - (st.b[id] || 0),
+      onOk: (n) => {
+        if (!ACCOUNT.spend({ [cur]: g.price * n })) { toast(`${ITEMS[cur].name}이(가) 부족합니다`); return; }
+        st.b[id] = (st.b[id] || 0) + n;
+        ACCOUNT.earn(Object.fromEntries(Object.entries(g.items).map(([k, v]) => [k, v * n]))); ACCOUNT.save(); sfx('select');
+        toast(`${info.name} ×${fmt(info.n * n)} 교환 완료`);
+        RENDER.store(undefined, { back: true });
+      } });
   }
   $('#store-main').addEventListener('click', async (e) => {
     const q = e.target.closest('[data-exq]');
@@ -543,7 +549,7 @@
   // =====================================================================
   // 창고 (원작: 상단 분류 탭 · 둥근 아이템 아이콘 · 개수)
   const DP_TABS = [['all', '전부'], ['use', '소모 물품'], ['base', '기초 물품'], ['grow', '육성 재료']];
-  const dpCat = (k) => (['permit', 'permit10', 'chip_cat'].includes(k) || k.startsWith('tok_') ? 'use' : ['orundum', 'originite', 'lmd', 'cert_hi', 'cert_lo', 'lantern'].includes(k) ? 'base' : 'grow');
+  const dpCat = (k) => (['permit', 'permit10', 'chip_cat'].includes(k) || /^tier\d_/.test(k) ? 'use' : ['orundum', 'originite', 'lmd', 'cert_hi', 'cert_lo', 'lantern'].includes(k) ? 'base' : 'grow');
   const dpTier = (k) => { const it = ITEMS[k] || {}; return k.startsWith('dual_') || k === 'exp_4' || k === 'skill_3' || it.tier === 3 || ['originite', 'cert_hi', 'permit10'].includes(k) ? 'r5' : k.startsWith('pack_') || k === 'exp_3' || k === 'skill_2' || it.tier === 2 ? 'r4' : k.startsWith('chip_') || k === 'exp_2' ? 'r3' : 'r2'; };
   const shortNum = (n) => (n >= 1e4 ? `${Math.floor(n / 1e3) / 10}만` : fmt(n));
   let dpTab = 'all';
