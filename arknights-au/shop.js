@@ -488,7 +488,9 @@
 
   // ---------- 헤드헌팅 연출 ----------
   // 3성 대체 보상용 가짜 카드 (오퍼레이터 목록에는 없음)
-  const SUB3 = { id: '__sub3', name: '하급 자격증', en: 'COMMENDATION', rarity: 3, class: 'device', color: '#6f8a9a', summoned: true, skills: [], talents: [] };
+  const makeSub = (r) => ({ id: '__sub' + r, name: '하급 자격증', en: 'COMMENDATION', rarity: r, class: 'device', color: '#6f8a9a', summoned: true, skills: [], talents: [] });
+  const SUB3 = makeSub(3);
+  window.GACHA_FX = { play: (r) => playGacha(r), makeSub, pool: () => pool() };
   function playGacha(results) {
     const ov = $('#gacha'), stage = $('#gacha-stage');
     const top = Math.max(...results.map((r) => r.def.rarity || 3));
@@ -513,7 +515,7 @@
           <div class="g-en">${esc(d.en || '')}</div>
           <div class="g-name">${esc(d.name)}</div>
           ${r.sub ? '<div class="g-class"><span>3성 대체 보상</span></div>' : `<div class="g-class">${icon(d.class)}<span>${esc(CLASSES[d.class].name)}</span></div>`}
-          <div class="g-badge">${r.sub ? '하급 자격증 +5' : r.isNew ? '<span class="new">NEW</span>' : `${r.token ? '잠재력 증표 +1' : `잠재 MAX`}${r.cert ? ' · ' + esc(itemsText(r.cert)) : ''}`}</div>
+          <div class="g-badge">${r.sub ? esc(itemsText(r.cert)) : r.isNew ? '<span class="new">NEW</span>' : `${r.token ? '잠재력 증표 +1' : `잠재 MAX`}${r.cert ? ' · ' + esc(itemsText(r.cert)) : ''}`}</div>
           ${r.isNew ? `<div class="g-quote">“${esc(UI.line(d, 'obtain'))}”</div>` : ''}
         </div>
         <div class="g-count">${i + 1} / ${results.length}</div>
@@ -524,7 +526,7 @@
       ov.className = `overlay gacha summary`;
       stage.innerHTML = `<div class="g-summary">
         <div class="g-sum-title">헤드헌팅 결과</div>
-        <div class="g-sum-grid">${results.map((r) => `<div class="g-sum-card r${r.def.rarity || 3}">${r.sub ? '<div class="op-card small g-subcard"><i class="ri cert_lo"></i><b>하급 자격증 ×5</b></div>' : cardHTML(r.def, 'small')}${r.isNew ? '<img class="new" src="img/ui/gacha_new.png" alt="NEW">' : ''}</div>`).join('')}</div>
+        <div class="g-sum-grid">${results.map((r) => `<div class="g-sum-card r${r.def.rarity || 3}">${r.sub ? `<div class="op-card small g-subcard"><i class="ri cert_lo"></i><b>${esc(itemsText(r.cert))}</b></div>` : cardHTML(r.def, 'small')}${r.isNew ? '<img class="new" src="img/ui/gacha_new.png" alt="NEW">' : ''}</div>`).join('')}</div>
         <button class="btn primary" id="g-close">확인</button>
       </div>`;
       $('#g-close').addEventListener('click', close);

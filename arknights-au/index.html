@@ -80,7 +80,7 @@
         <div class="recruit-band">
           <span class="rb-head">RECRUITMENT</span>
           <div class="rb-row">
-            <button class="tile tile-cert" data-go="store" data-arg="cert"><span class="tile-ico" data-ico="store"></span><span><span class="tile-en">EXCHANGE</span><span class="tile-ko">자격증 교환소</span></span></button>
+            <button class="tile tile-recruit" data-go="recruit" data-bg="recruit"><span class="tile-ico" data-ico="userplus"></span><span><span class="tile-en">RECRUIT</span><span class="tile-ko">공개모집</span></span><i class="home-dot hidden" id="rc-badge"></i></button>
             <button class="tile tile-accent" data-go="headhunt" data-bg="headhunt"><span class="tile-ico" data-ico="headhunt"></span><span><span class="tile-en">HEADHUNT</span><span class="tile-ko">헤드헌팅</span></span></button>
           </div>
         </div>
@@ -265,6 +265,19 @@
   </section>
 
   <!-- ===================== 헤드헌팅 ===================== -->
+  <!-- ===================== 공개모집 ===================== -->
+  <section id="screen-recruit" class="screen">
+    <div class="rc-bg"></div>
+    <header class="topbar dark">
+      <div class="nav-group">
+        <button class="nav-btn" data-back aria-label="뒤로"></button>
+        <button class="nav-btn home" data-go="home" aria-label="메인 화면"></button>
+      </div>
+      <div class="hh-res rc-res" id="rc-res"></div>
+    </header>
+    <div class="rc-body"><div class="rc-title">공개모집</div><div class="rc-slots" id="rc-slots"></div></div>
+  </section>
+
   <section id="screen-headhunt" class="screen">
     <div class="hh-bg"></div>
     <header class="topbar dark">
@@ -510,6 +523,7 @@
 <script src="shop.js"></script>
 <script src="tasks.js"></script>
 <script src="base.js"></script>
+<script src="recruit.js"></script>
 <script src="roguelike.js"></script>
 <script src="game.js"></script>
 </body>
