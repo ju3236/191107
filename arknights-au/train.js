@@ -211,7 +211,7 @@
   function trained(def, p) {
     if (!def || def.summoned) return def;
     p = p || prog(def.id);
-    const m = statMul(p.elite, p.level, def.rarity), pb = potBonus(def), tb = trustBonus(def);
+    const m = statMul(p.elite, p.level, def.rarity), pb = potBonus(def, p.pot || undefined), tb = trustBonus(def, p.trust ?? undefined);   // 지원 유닛은 p.pot · p.trust로 지정
     const mul = (k) => m * (1 + (pb[k] || 0) + (tb[k] || 0));
     return {
       ...def,

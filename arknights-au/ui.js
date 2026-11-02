@@ -177,6 +177,7 @@
   }
   const skillsOf = (def) => def.skills || (def.skill ? [def.skill] : []);
   function skillIndex(def) {
+    if (Number.isInteger(def.fixedSkill)) return Math.max(0, Math.min(skillsOf(def).length - 1, def.fixedSkill));   // 지원 유닛
     let n = skillsOf(def).length;
     // 육성: 정예화 단계까지 열린 스킬만 (통합전략의 오퍼레이터는 따로 정함)
     if (!def.trained && def.promoted === undefined && !def.summoned && window.TRAIN) n = Math.min(n, TRAIN.prog(def.id).elite + 1);
@@ -1650,6 +1651,8 @@
     grid.innerHTML = html;
     const st = pendingStage !== null ? STAGES[pendingStage] : null;
     $('#formation-start').classList.toggle('hidden', !st);
+    $('#btn-support').classList.toggle('hidden', !st);
+    if (window.SUPPORT) SUPPORT.renderBtn();
     fitSlots();
     $('#formation-title').textContent = st ? `편성 · ${st.code} ${st.name}` : '편성';
     $('#formation-foot').innerHTML = `<div class="ff-tabs">${['제1팀', '제2팀', '제3팀', '제4팀'].map((n, i) => `<button class="${i === save.team ? 'on' : ''}" data-team="${i}">${n}</button>`).join('')}</div>
@@ -1662,7 +1665,7 @@
     if (!body.clientWidth) return;
     const gap = parseFloat(getComputedStyle(grid).rowGap) || 14;
     const startBtn = $('#formation-start');
-    const startW = startBtn.classList.contains('hidden') ? 0 : startBtn.offsetWidth + 18;
+    const startW = startBtn.classList.contains('hidden') ? 0 : startBtn.parentElement.offsetWidth + 18;
     const byW = ((body.clientWidth - startW - gap * 5) / 6) * 8 / 5;
     const byH = (body.clientHeight - gap) / 2;
     const h = Math.floor(Math.max(60, Math.min(byW, byH)));
@@ -1792,6 +1795,7 @@
     writeSave();
     renderFormation();
   });
+  $('#btn-support').addEventListener('click', () => { if (window.SUPPORT) SUPPORT.open(); });
   $('#formation-start').addEventListener('click', () => {
     if (pendingStage === null) return;
     if (!save.squad.length) { toast('편성된 오퍼레이터가 없습니다'); return; }
@@ -1799,6 +1803,7 @@
   });
 
   const sanityCost = (st) => st.sanity || 6;
+  let curSupport = null;
   function startOperation(idx, skipStory) {
     const st = STAGES[idx];
     fixPlayer();
@@ -1806,7 +1811,12 @@
     if (!squad.length) { toast('편성된 오퍼레이터가 없습니다'); return false; }
     if (!ACCOUNT.useSanity(sanityCost(st))) { openSanity(() => startOperation(idx, skipStory)); return false; }
     sfx('select');
-    const run = () => window.Battle.begin(idx, squad, { defs: squad.map((id) => TRAIN.trained(OPS[id])) });
+    // 지원 유닛 (1명, 편성에 없는 오퍼레이터만)
+    const sup = window.SUPPORT && SUPPORT.picked();
+    curSupport = sup && !squad.includes(sup.op) ? sup : null;
+    const defs = squad.map((id) => TRAIN.trained(OPS[id]));
+    if (curSupport) defs.push(SUPPORT.defOf(curSupport));
+    const run = () => window.Battle.begin(idx, squad, { defs });
     if (!skipStory && st.before && st.before.length && !(save.stars[st.code] > 0)) playDialog(st.before, run, st);
     else run();
     return true;
@@ -1834,6 +1844,8 @@
   function onBattleEnd(idx, win, starCount, squadIds = [], kills = 0) {
     const st = STAGES[idx], cost = sanityCost(st);
     save.lastStage = st.code;
+    // 지원 유닛은 신뢰도 · 결과에서 빼고, 이기면 크레딧
+    if (curSupport) { squadIds = squadIds.filter((id) => id !== curSupport.op); if (win && window.SUPPORT) SUPPORT.used(curSupport); }
     if (st.annih) return annihEnd(st, cost, win, kills, squadIds);
     lastResult = { reward: {}, trust: 0, exp: 0, ups: 0, first: false };
     if (!win) { ACCOUNT.addSanity(cost - 1); track('sanity', 1); lastResult.back = cost - 1; return `이성 ${cost - 1} 반환`; }

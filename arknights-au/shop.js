@@ -22,6 +22,7 @@
   // =====================================================================
   // 상단 탭 (원작 구매센터처럼 아이콘 + 이름)
   const TAB_ICO = {
+    credit: '<circle cx="12" cy="12" r="8.5"/><path d="M14.5 8.5h-4v7M10.5 12h3"/>',
     recommend: '<path d="M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 3 2l-1 4h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 16.8 20H7"/>',
     originite: '<path d="M12 2l8 5v10l-8 5-8-5V7z"/><path d="M12 2v20M4 7l8 5 8-5"/>',
     packages: '<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>',
@@ -30,7 +31,7 @@
     cert: '<path d="M5 3h14v12l-7 6-7-6z"/><path d="M9 9l2 2 4-4"/>',
     history: '<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
   };
-  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['outfit', '컬렉션'], ['exchange', '합성옥 교환'], ['cert', '자격증 교환소'], ['history', '결제 내역']];
+  const STORE_TABS = [['recommend', '추천'], ['originite', '오리지늄'], ['packages', '패키지'], ['outfit', '컬렉션'], ['exchange', '합성옥 교환'], ['cert', '자격증 교환소'], ['credit', '크레딧'], ['history', '결제 내역']];
   let certTab = 'cert_hi';
   let storeTab = 'recommend', pkgCat = 'all';
   const tabIco = (k) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TAB_ICO[k] || ''}</svg>`;
@@ -68,6 +69,8 @@
     } else if (storeTab === 'outfit') {
       const list = typeof SKINS !== 'undefined' ? SKINS : [];
       main.innerHTML = list.length ? `<div class="pk-row">${list.map(skinCard).join('')}</div>` : '<p class="empty-note">판매 중인 의상이 없습니다.</p>';
+    } else if (storeTab === 'credit') {
+      main.innerHTML = window.CREDIT_UI ? CREDIT_UI.html() : '';
     } else if (storeTab === 'cert') {
       main.innerHTML = certShopHTML();
     } else if (storeTab === 'exchange') {
