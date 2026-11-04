@@ -5,7 +5,7 @@
 (() => {
   const $ = (s) => document.querySelector(s);
   const canvas = $('#board');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');
 
   const opById = (id) => OPERATORS.find((o) => o.id === id);
   const DIR_ANGLE = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
@@ -280,7 +280,7 @@
     if (mode === 'placing') {
       hint.textContent = tileOf(S.sel.def) === 'any' ? '지면 또는 고지대를 선택하세요' : tileOf(S.sel.def) === 'ground' ? '지면(어두운 칸)을 선택하세요' : '고지대(밝은 칸)를 선택하세요';
     } else if (mode === 'direction') {
-      hint.textContent = '드래그하거나 화살표를 눌러 방향 결정 · 가운데를 누르면 취소';
+      hint.textContent = '드래그해서 방향 결정 · 빨간 ✕ 또는 가운데를 누르면 취소';
     }
     hint.classList.toggle('hidden', mode !== 'placing' && mode !== 'direction');
   }
@@ -344,6 +344,8 @@
       }
       setMode('idle');
     } else if (S.mode === 'direction') {
+      const c = S.dirCancel, rc = canvas.getBoundingClientRect();
+      if (c && Math.hypot(e.clientX - rc.left - c.x, e.clientY - rc.top - c.y) <= c.r) { S.press = null; setMode('idle'); return; }
       S.press = 'inDirection';
       pickDir(toTile(e, tileH(S.tile.x, S.tile.y)));
       return;
@@ -364,6 +366,8 @@
   });
   window.addEventListener('pointerup', (e) => {
     if (!S || S.mode !== 'direction' || !S.press) return;
+    const c = S.dirCancel, rc = canvas.getBoundingClientRect();
+    if (c && Math.hypot(e.clientX - rc.left - c.x, e.clientY - rc.top - c.y) <= c.r) { S.press = null; setMode('idle'); return; }
     const p = toTile(e, tileH(S.tile.x, S.tile.y));
     const far = Math.hypot(p.x - (S.tile.x + 0.5), p.y - (S.tile.y + 0.5)) > 0.55;
     const from = S.press;
@@ -2910,74 +2914,250 @@
     ctx.fillStyle = top; ctx.fill();
   }
 
-  // ---------- 배경 ----------
-  function drawBackground() {
-    const g = ctx.createRadialGradient(P.W / 2, P.H * 0.45, 40, P.W / 2, P.H * 0.5, Math.max(P.W, P.H) * 0.8);
-    const sea = S.st.theme === 'sea';
-    g.addColorStop(0, sea ? '#12324a' : '#1d2b2d');
-    g.addColorStop(1, sea ? '#02070d' : '#040506');
-    ctx.fillStyle = g;
-    ctx.fillRect(-20, -20, P.W + 40, P.H + 40);
-    const m = 0.7;
-    // 구덩이 벽 (보드 바깥 테두리)
-    poly(quad(-m, -m, S.cols + m, S.rows + m, 0));
-    ctx.fillStyle = sea ? '#0d2230' : '#151c1e'; ctx.fill();
-    ctx.strokeStyle = sea ? 'rgba(90,180,230,.25)' : 'rgba(110,190,180,.18)'; ctx.lineWidth = 2; ctx.stroke();
-    // 테두리 위 파이프와 상자 장식
-    for (let i = 0; i < S.cols + 1; i++) {
-      for (const [v, k] of [[-m, 1], [S.rows + 0.05, 2]]) {
-        if (hash(i, k) < 0.55) continue;
-        const sz = 0.25 + hash(i, k, 3) * 0.35;
-        box(i - 0.2, v + 0.05, i - 0.2 + sz, v + 0.05 + 0.45, 0, 0.1 + hash(i, k, 5) * 0.35, '#2c3538', '#1b2225', '#232b2e');
-      }
+  // ---------- 배경 · 정적 보드 (바뀔 때만 따로 그려 두고 매 프레임 복사) ----------
+  const PAL = {
+    base: { floor: [58, 62, 65], deploy: [98, 103, 106], top: [146, 150, 152], front: '#3b4043', frontD: '#1c1f21', side: '#2b2f32', pit: '#141719', pitWall: '#0c0e0f', apron: [30, 33, 35], fog: [7, 9, 10] },
+    sea: { floor: [44, 60, 70], deploy: [78, 100, 110], top: [124, 148, 156], front: '#2b4350', frontD: '#11202a', side: '#203440', pit: '#0b2230', pitWall: '#06141c', apron: [18, 34, 44], fog: [2, 8, 14] },
+  };
+  const pal = () => PAL[S.st.theme === 'sea' ? 'sea' : 'base'];
+  const rgb = (c, k = 0) => `rgb(${c[0] + k},${c[1] + k},${c[2] + k})`;
+  const tone = (x, y) => Math.round((hash(x, y, 1) - 0.5) * 10);
+  const isWall = (x, y) => !!(S.map[y] && S.map[y][x] === '#');
+  const bgImgs = {};
+  let boardCache = null;
+  function bgImage() {
+    const st = S.st, src = st.storyBg || `img/ui/${typeof st.chapter === 'number' && st.chapter >= 1 && st.chapter <= 4 ? `story_${st.chapter}` : st.is ? 'story_is' : 'story_0'}.webp`;
+    let im = bgImgs[src];
+    if (!im) { im = bgImgs[src] = new Image(); im.onload = () => { boardCache = null; }; im.src = src; }
+    return im.complete && im.naturalWidth ? im : null;
+  }
+  // 작게 줄였다 단계적으로 키워서 흐리게 (ctx.filter를 지원하지 않는 브라우저 대비)
+  function blurred(im, W, H) {
+    let cv = document.createElement('canvas');
+    cv.width = 40; cv.height = Math.max(1, Math.round(40 * im.naturalHeight / im.naturalWidth));
+    cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+    for (let k = 0; k < 2; k++) {
+      const n = document.createElement('canvas'); n.width = cv.width * 3; n.height = cv.height * 3;
+      const c = n.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv, 0, 0, n.width, n.height); cv = n;
     }
-    // 앞쪽 두께
-    poly([proj(-m, S.rows + m, 0), proj(S.cols + m, S.rows + m, 0), proj(S.cols + m, S.rows + m, -0.45), proj(-m, S.rows + m, -0.45)]);
-    ctx.fillStyle = '#0d1214'; ctx.fill();
+    const sc = Math.max(W / cv.width, H / cv.height);
+    return [cv, (W - cv.width * sc) / 2, (H - cv.height * sc) / 2, cv.width * sc, cv.height * sc];
+  }
+  const PLINTH = 0.32;  // 보드 받침 두께
+  function drawBackground() {
+    const c = pal(), im = bgImage();
+    ctx.fillStyle = rgb(c.fog); ctx.fillRect(-20, -20, P.W + 40, P.H + 40);
+    if (im) {
+      const [cv, x, y, w, h] = blurred(im, P.W + 40, P.H + 40);
+      ctx.globalAlpha = 0.8; ctx.drawImage(cv, x - 20, y - 20, w, h); ctx.globalAlpha = 1;
+    }
+    // 보드 주변 바닥 (받침 아래쪽에 깔린 넓은 바닥)
+    const m = 1.6;
+    poly(quad(-m, -m, S.cols + m, S.rows + m, -PLINTH));
+    ctx.fillStyle = `rgba(${c.apron},.7)`; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.035)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = -1; i <= S.cols + 1; i++) { const a = proj(i, -m, -PLINTH), b = proj(i, S.rows + m, -PLINTH); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+    for (let j = -1; j <= S.rows + 1; j++) { const a = proj(-m, j, -PLINTH), b = proj(S.cols + m, j, -PLINTH); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+    ctx.stroke();
+    // 가장자리로 갈수록 어둡게
+    const [cx, cy] = proj(S.cols / 2, S.rows / 2, 0), bw = Math.abs(proj(S.cols, S.rows / 2, 0)[0] - cx);
+    const g = ctx.createRadialGradient(cx, cy, bw * 0.75, cx, cy, Math.max(P.W, P.H) * 0.8);
+    g.addColorStop(0, `rgba(${c.fog},.1)`); g.addColorStop(0.5, `rgba(${c.fog},.45)`); g.addColorStop(1, `rgba(${c.fog},.85)`);
+    ctx.fillStyle = g; ctx.fillRect(-20, -20, P.W + 40, P.H + 40);
+    // 받침 뒤쪽 그림자
+    poly(quad(-0.25, -0.25, S.cols + 0.25, S.rows + 0.25, -PLINTH));
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill();
+  }
+  function drawPlinth() {
+    const c = pal();
+    const a = proj(0, S.rows, 0), b = proj(0, S.rows, -PLINTH);
+    poly([a, proj(S.cols, S.rows, 0), proj(S.cols, S.rows, -PLINTH), b]);
+    const g = ctx.createLinearGradient(0, a[1], 0, b[1]);
+    g.addColorStop(0, c.front); g.addColorStop(1, c.frontD);
+    ctx.fillStyle = g; ctx.fill();
+    // 윗 모서리 하이라이트 · 보드 테두리
+    ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); const r = proj(S.cols, S.rows, 0); ctx.lineTo(r[0], r[1]); ctx.stroke();
+    poly(quad(0, 0, S.cols, S.rows, 0)); ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 2; ctx.stroke();
   }
 
   // ---------- 타일 ----------
-  function drawGround(x, y, deployable) {
-    poly(quad(x + 0.03, y + 0.03, x + 0.97, y + 0.97, 0));
-    ctx.fillStyle = S.st.theme === 'sea' ? '#2e3d47' : '#343c40'; ctx.fill();
-    if (!deployable) return;
-    const s = proj(x + 0.5, y + 0.5)[2];
-    poly(quad(x + 0.11, y + 0.11, x + 0.89, y + 0.89, 0));
-    ctx.lineWidth = Math.max(1.5, P.T * 0.05 * s);
-    ctx.strokeStyle = '#c8a033'; ctx.stroke();
-    ctx.setLineDash([P.T * 0.06 * s, P.T * 0.06 * s]);
-    ctx.strokeStyle = '#15181a'; ctx.stroke();
-    ctx.setLineDash([]);
-    for (const [a, b] of [[0.2, 0.2], [0.52, 0.2], [0.2, 0.52], [0.52, 0.52]]) {
-      poly(quad(x + a, y + b, x + a + 0.28, y + b + 0.28, 0));
-      ctx.fillStyle = '#272d31'; ctx.fill();
+  function seam(x, y, h, a = 0.42) {
+    poly(quad(x, y, x + 1, y + 1, h));
+    ctx.strokeStyle = `rgba(0,0,0,${a})`; ctx.lineWidth = 1; ctx.stroke();
+  }
+  function cracks(x, y, h, a) {
+    if (hash(x, y, 21) > 0.4) return;
+    ctx.strokeStyle = `rgba(0,0,0,${a})`; ctx.lineWidth = 1;
+    ctx.beginPath();
+    let u = x + 0.15 + hash(x, y, 22) * 0.7, v = y + 0.1 + hash(x, y, 23) * 0.3, p = proj(u, v, h);
+    ctx.moveTo(p[0], p[1]);
+    for (let k = 0; k < 4; k++) {
+      u = Math.min(x + 0.95, Math.max(x + 0.05, u + (hash(x, y, 30 + k) - 0.5) * 0.3));
+      v = Math.min(y + 0.95, v + 0.07 + hash(x, y, 40 + k) * 0.13);
+      p = proj(u, v, h); ctx.lineTo(p[0], p[1]);
+      if (k === 1 && hash(x, y, 50) < 0.5) { const q = proj(u + 0.15, v + 0.05, h); ctx.lineTo(q[0], q[1]); ctx.moveTo(p[0], p[1]); }
     }
+    ctx.stroke();
+  }
+  function speckle(x, y, h, n, col) {
+    ctx.fillStyle = col;
+    for (let k = 0; k < n; k++) {
+      const [X, Y, s] = proj(x + 0.08 + hash(x, y, 60 + k) * 0.84, y + 0.08 + hash(x, y, 80 + k) * 0.84, h);
+      const r = Math.max(1, P.T * 0.025 * s * (0.5 + hash(x, y, 90 + k)));
+      ctx.fillRect(X, Y, r, r * 0.7);
+    }
+  }
+  function corners(x, y, h, col) {
+    const s = proj(x + 0.5, y + 0.5, h)[2], L = 0.17, i = 0.1;
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, P.T * 0.035 * s); ctx.lineCap = 'square';
+    ctx.beginPath();
+    for (const [cx, cy, sx, sy] of [[x + i, y + i, 1, 1], [x + 1 - i, y + i, -1, 1], [x + 1 - i, y + 1 - i, -1, -1], [x + i, y + 1 - i, 1, -1]]) {
+      const a = proj(cx + sx * L, cy, h), b = proj(cx, cy, h), d = proj(cx, cy + sy * L, h);
+      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(d[0], d[1]);
+    }
+    ctx.stroke(); ctx.lineCap = 'butt';
+  }
+  function drawGround(x, y, deployable) {
+    const c = pal(), k = tone(x, y);
+    poly(quad(x, y, x + 1, y + 1, 0));
+    ctx.fillStyle = rgb(deployable ? c.deploy : c.floor, k); ctx.fill();
+    if (deployable) {
+      // 배치 가능한 바닥: 밝은 콘크리트 판 + 모서리 경고 표시
+      poly(quad(x + 0.07, y + 0.07, x + 0.93, y + 0.93, 0));
+      ctx.fillStyle = rgb(c.deploy, k + 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1; ctx.stroke();
+      const a = proj(x + 0.07, y + 0.07, 0), b = proj(x + 0.93, y + 0.07, 0);
+      ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+      corners(x, y, 0, 'rgba(226,178,52,.85)');
+      cracks(x, y, 0, 0.22);
+      speckle(x, y, 0, 4, 'rgba(0,0,0,.18)');
+    } else {
+      // 길: 어두운 바닥 + 가운데 희미한 점선
+      cracks(x, y, 0, 0.35);
+      speckle(x, y, 0, 6, 'rgba(255,255,255,.05)');
+    }
+    seam(x, y, 0);
   }
   function drawHigh(x, y) {
-    const hi = (dx) => tileH(x + dx, y) === HIGH;
-    const sea = S.st.theme === 'sea';
-    box(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0, HIGH, sea ? '#7f9aa3' : '#94786d', sea ? '#3b4f57' : '#4f3d37', sea ? '#55707a' : '#68534b', { right: hi(1), left: hi(-1) });
-    poly(quad(x + 0.1, y + 0.1, x + 0.9, y + 0.9, HIGH));
-    ctx.fillStyle = sea ? '#93b0b8' : '#a68b80'; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,230,215,.25)'; ctx.lineWidth = 1; ctx.stroke();
-  }
-  function drawWall(x, y) {
-    poly(quad(x, y, x + 1, y + 1, 0));
-    ctx.fillStyle = S.st.theme === 'sea' ? '#0e2a36' : '#1b2224'; ctx.fill();
-    if (S.st.theme === 'sea') {
-      // 바닷물: 잔물결
-      const [X, Y, s] = proj(x + 0.5, y + 0.5, 0);
-      ctx.strokeStyle = 'rgba(120,200,240,.12)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(X - P.T * 0.3 * s, Y + Math.sin(S.time + x + y) * 2); ctx.lineTo(X + P.T * 0.3 * s, Y + Math.sin(S.time + x + y + 1) * 2); ctx.stroke();
-      return;
+    const c = pal(), k = tone(x, y), hi = (dx) => tileH(x + dx, y) === HIGH;
+    const t = proj(x, y + 1, HIGH), b = proj(x, y + 1, 0);
+    const g = ctx.createLinearGradient(0, t[1], 0, b[1]);
+    g.addColorStop(0, c.front); g.addColorStop(1, c.frontD);
+    box(x, y, x + 1, y + 1, 0, HIGH, rgb(c.top, k), g, c.side, { right: hi(1), left: hi(-1) });
+    // 윗면: 안쪽 판 + 모서리 빛
+    poly(quad(x + 0.08, y + 0.08, x + 0.92, y + 0.92, HIGH));
+    ctx.fillStyle = rgb(c.top, k + 8); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = 1; ctx.stroke();
+    cracks(x, y, HIGH, 0.18);
+    speckle(x, y, HIGH, 4, 'rgba(0,0,0,.12)');
+    seam(x, y, HIGH, 0.3);
+    if (tileH(x, y + 1) !== HIGH) {
+      const r = proj(x + 1, y + 1, HIGH);
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(t[0], t[1]); ctx.lineTo(r[0], r[1]); ctx.stroke();
     }
-    for (let k = 0; k < 2; k++) {
-      if (hash(x, y, k) < 0.4) continue;
-      const w = 0.3 + hash(x, y, k + 7) * 0.4, d = 0.3 + hash(x, y, k + 9) * 0.4;
-      const ox = x + hash(x, y, k + 11) * (1 - w), oy = y + hash(x, y, k + 13) * (1 - d);
-      const h = 0.12 + hash(x, y, k + 15) * 0.5;
-      const shade = 40 + Math.floor(hash(x, y, k + 17) * 20);
-      box(ox, oy, ox + w, oy + d, 0, h, `rgb(${shade},${shade + 8},${shade + 10})`, `rgb(${shade - 18},${shade - 12},${shade - 10})`, `rgb(${shade - 10},${shade - 4},${shade - 2})`);
+  }
+  // 막힌 칸: 움푹 꺼진 구덩이 (바다 테마는 물)
+  const PIT = 0.2;
+  function drawWall(x, y) {
+    const c = pal(), mid = S.cols / 2;
+    poly(quad(x, y, x + 1, y + 1, -PIT));
+    ctx.fillStyle = c.pit; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.03)'; ctx.lineWidth = 1; ctx.stroke();
+    // 안쪽 벽 (뒤 · 보드 가운데를 향한 옆)
+    if (!isWall(x, y - 1)) {
+      poly([proj(x, y, 0), proj(x + 1, y, 0), proj(x + 1, y, -PIT), proj(x, y, -PIT)]);
+      ctx.fillStyle = c.pitWall; ctx.fill();
+    }
+    if (x + 1 <= mid && !isWall(x - 1, y) && x > 0) {
+      poly([proj(x, y, 0), proj(x, y + 1, 0), proj(x, y + 1, -PIT), proj(x, y, -PIT)]);
+      ctx.fillStyle = c.pitWall; ctx.fill();
+    }
+    if (x >= mid && !isWall(x + 1, y) && x < S.cols - 1) {
+      poly([proj(x + 1, y, 0), proj(x + 1, y + 1, 0), proj(x + 1, y + 1, -PIT), proj(x + 1, y, -PIT)]);
+      ctx.fillStyle = c.pitWall; ctx.fill();
+    }
+    if (S.st.theme === 'sea') return;
+    // 바닥의 배수 격자 (가끔)
+    if (hash(x, y, 7) < 0.3) {
+      poly(quad(x + 0.3, y + 0.3, x + 0.7, y + 0.7, -PIT));
+      ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.stroke();
+      ctx.beginPath();
+      for (let i = 1; i < 4; i++) { const a = proj(x + 0.3 + i * 0.1, y + 0.3, -PIT), b = proj(x + 0.3 + i * 0.1, y + 0.7, -PIT); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+      ctx.stroke();
+    }
+  }
+  // 구덩이 위로 튀어나온 바닥 모서리 그림자 · 고지대 앞 그림자
+  function drawAO() {
+    for (let y = 0; y < S.rows; y++) {
+      for (let x = 0; x < S.cols; x++) {
+        if (tileH(x, y) === HIGH || isWall(x, y)) continue;
+        if (tileH(x, y - 1) === HIGH) {
+          const a = proj(x, y, 0), b = proj(x, y + 0.3, 0);
+          poly(quad(x, y, x + 1, y + 0.3, 0));
+          const g = ctx.createLinearGradient(0, a[1], 0, b[1]);
+          g.addColorStop(0, 'rgba(0,0,0,.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g; ctx.fill();
+        }
+      }
+    }
+  }
+  function drawBrand(x, y) {
+    poly(quad(x, y, x + 1, y + 1, 0));
+    ctx.fillStyle = '#123a3f'; ctx.fill();
+    seam(x, y, 0);
+  }
+  function brandWaves(x, y) {
+    const s = proj(x + 0.5, y + 0.5)[2];
+    ctx.strokeStyle = 'rgba(46,196,182,.55)'; ctx.lineWidth = Math.max(1, P.T * 0.03 * s);
+    for (const v of [0.3, 0.55, 0.8]) {
+      ctx.beginPath();
+      for (let k = 0; k <= 6; k++) {
+        const u = x + 0.1 + k * 0.13, w = y + v + Math.sin(S.time * 2 + k + x * 3) * 0.04;
+        const [X, Y] = proj(u, w, 0.002);
+        k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+      }
+      ctx.stroke();
+    }
+  }
+  function seaRipple(x, y) {
+    const [X, Y, s] = proj(x + 0.5, y + 0.5, -PIT);
+    ctx.strokeStyle = 'rgba(120,200,240,.14)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X - P.T * 0.3 * s, Y + Math.sin(S.time + x + y) * 2); ctx.lineTo(X + P.T * 0.3 * s, Y + Math.sin(S.time + x + y + 1) * 2); ctx.stroke();
+  }
+  function drawTile(x, y) {
+    const ch = S.map[y][x];
+    if (ch === '#') drawWall(x, y);
+    else if (ch === '^') drawHigh(x, y);
+    else if (ch === '~') drawBrand(x, y);
+    else drawGround(x, y, ch === '.');
+  }
+  function drawBoard() {
+    drawStatic();
+    drawAO();
+    drawPlinth();
+  }
+  // 정적 보드는 지도 · 크기 · 배경이 바뀔 때만 다시 그림
+  function drawStatic() {
+    const key = [canvas.width, canvas.height, P.T, P.cx, P.yb, S.st.theme, S.st.storyBg, bgImage() ? 1 : 0, S.map.map((r) => (Array.isArray(r) ? r.join('') : r)).join('/')].join('|');
+    if (!boardCache || boardCache.key !== key) {
+      const cv = (boardCache && boardCache.cv) || document.createElement('canvas');
+      cv.width = canvas.width; cv.height = canvas.height;
+      const main = ctx;
+      ctx = cv.getContext('2d');
+      ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+      try { drawBoard(); } finally { ctx = main; }
+      boardCache = { key, cv };
+    }
+    ctx.drawImage(boardCache.cv, 0, 0, P.W, P.H);
+    for (let y = 0; y < S.rows; y++) {
+      for (let x = 0; x < S.cols; x++) {
+        const ch = S.map[y][x];
+        if (ch === '~') brandWaves(x, y);
+        else if (ch === '#' && S.st.theme === 'sea') seaRipple(x, y);
+      }
     }
   }
   function wireCube(x, y, color, fill) {
@@ -3007,28 +3187,6 @@
     ctx.font = `900 ${r}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('!', X, Y + r * 0.2);
-  }
-  function drawBrand(x, y) {
-    poly(quad(x + 0.03, y + 0.03, x + 0.97, y + 0.97, 0));
-    ctx.fillStyle = '#123a3f'; ctx.fill();
-    const s = proj(x + 0.5, y + 0.5)[2];
-    ctx.strokeStyle = 'rgba(46,196,182,.55)'; ctx.lineWidth = Math.max(1, P.T * 0.03 * s);
-    for (const v of [0.3, 0.55, 0.8]) {
-      ctx.beginPath();
-      for (let k = 0; k <= 6; k++) {
-        const u = x + 0.1 + k * 0.13, w = y + v + Math.sin(S.time * 2 + k + x * 3) * 0.04;
-        const [X, Y] = proj(u, w, 0.002);
-        k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
-      }
-      ctx.stroke();
-    }
-  }
-  function drawTile(x, y) {
-    const ch = S.map[y][x];
-    if (ch === '#') drawWall(x, y);
-    else if (ch === '^') drawHigh(x, y);
-    else if (ch === '~') drawBrand(x, y);
-    else drawGround(x, y, ch === '.');
   }
   function drawGates() {
     for (let y = 0; y < S.rows; y++) {
@@ -3686,20 +3844,48 @@
 
     for (const f of S.effects) drawFx(f);
 
-    if (S.mode === 'direction') {
-      const h = tileH(S.tile.x, S.tile.y);
-      const [X, Y, s] = proj(S.tile.x + 0.5, S.tile.y + 0.58, h);
-      const T = P.T * s;
-      ellipse(X, Y, T * 1.15, T * 0.55);
-      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
-      drawBody(S.sel.def, X, Y, T, 0.8);
-      for (const [d, [dx, dy]] of Object.entries(DIRV)) {
-        const on = d === S.dir;
-        const [ax, ay] = proj(S.tile.x + 0.5 + dx * 0.95, S.tile.y + 0.58 + dy * 0.95, h);
-        drawArrowHead(ax, ay, Math.atan2(ay - Y, ax - X), T * (on ? 0.22 : 0.15), on ? '#ffcf3a' : 'rgba(255,255,255,.8)');
-      }
+    if (S.mode === 'direction') drawDirection();
+    else S.dirCancel = null;
+  }
+
+  // 방향 정하기: 흰 마름모 + 고른 방향 강조 + 왼쪽 위 빨간 취소 단추 (원작 방식)
+  function drawDirection() {
+    const h = tileH(S.tile.x, S.tile.y);
+    const [X, Y, s] = proj(S.tile.x + 0.5, S.tile.y + 0.58, h);
+    const T = P.T * s, R = T * 1.3, cy = Y - T * 0.35;
+    const V = { up: [X, cy - R], right: [X + R, cy], down: [X, cy + R], left: [X - R, cy] };
+    const order = ['up', 'right', 'down', 'left'];
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    // 바깥 어둡게
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.beginPath(); ctx.rect(-20, -20, P.W + 40, P.H + 40);
+    ctx.moveTo(V.up[0], V.up[1]); ctx.lineTo(V.left[0], V.left[1]); ctx.lineTo(V.down[0], V.down[1]); ctx.lineTo(V.right[0], V.right[1]); ctx.closePath();
+    ctx.fill('evenodd');
+    // 고른 방향 쪽 꼭짓점 강조
+    order.forEach((d, i) => {
+      const v = V[d], a = V[order[(i + 3) % 4]], b = V[order[(i + 1) % 4]];
+      poly([[X, cy], mid(a, v), v, mid(v, b)]);
+      ctx.fillStyle = d === S.dir ? 'rgba(255,255,255,.32)' : 'rgba(255,255,255,.05)'; ctx.fill();
+    });
+    poly(order.map((d) => V[d]));
+    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = Math.max(2, T * 0.05); ctx.stroke();
+    poly(order.map((d) => [X + (V[d][0] - X) * 0.93, cy + (V[d][1] - cy) * 0.93]));
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.stroke();
+    drawBody(S.sel.def, X, Y, T, 0.85);
+    for (const d of order) {
+      const on = d === S.dir, v = V[d];
+      const ax = X + (v[0] - X) * 0.82, ay = cy + (v[1] - cy) * 0.82;
+      drawArrowHead(ax, ay, Math.atan2(v[1] - cy, v[0] - X), T * (on ? 0.24 : 0.15), on ? '#ffcf3a' : 'rgba(255,255,255,.85)');
     }
+    // 취소 단추
+    const r = Math.max(13, T * 0.26), [bx, by] = mid(V.up, V.left);
+    const cx = bx - r * 0.9, cyy = by - r * 0.9;
+    ctx.beginPath(); ctx.arc(cx, cyy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#d8343a'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, r * 0.14); ctx.stroke();
+    const q = r * 0.42;
+    ctx.beginPath(); ctx.moveTo(cx - q, cyy - q); ctx.lineTo(cx + q, cyy + q); ctx.moveTo(cx + q, cyy - q); ctx.lineTo(cx - q, cyy + q); ctx.stroke();
+    S.dirCancel = { x: cx, y: cyy, r: r * 1.25 };
   }
 
   requestAnimationFrame(frame);
