@@ -405,7 +405,7 @@
     if (full || insKey !== key) {
       insKey = key;
       const arch = d.archetype && ARCHETYPES[d.archetype];
-      $('#ins-art').innerHTML = d.image ? `<img src="${d.image}" alt="">` : `<b style="color:${d.color}">${d.name[0]}</b>`;
+      $('#ins-art').innerHTML = d.image ? `<img src="${d.image}" alt="">` : d.icon ? `<img class="ins-icon" src="${d.icon}" alt="">` : `<b style="color:${d.color}">${d.name[0]}</b>`;
       $('#ins-art').style.setProperty('--c', d.color);
       $('#ins-cls').innerHTML = UI.icon(d.class);
       $('#ins-name').textContent = d.name;
@@ -3042,7 +3042,7 @@
     const ic = def.icon && imgOf({ image: def.icon });
     if (ic) { const w = r * 1.5, h = (w * ic.naturalHeight) / ic.naturalWidth; ctx.drawImage(ic, X - w / 2, Y - h / 2, w, h); }
     if (ic && def.glyph) { ctx.fillStyle = '#fff6b0'; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = Math.max(1, r * 0.08); ctx.font = `900 ${r * 0.8}px sans-serif`; ctx.strokeText(def.glyph, X + r * 0.75, Y - r * 0.7); ctx.fillText(def.glyph, X + r * 0.75, Y - r * 0.7); }
-    else ctx.fillText(def.glyph || def.name[0], X, Y + r * 0.05);
+    else if (!ic) ctx.fillText(def.glyph || def.name[0], X, Y + r * 0.05);
     ctx.globalAlpha = 1;
   }
   // 캐릭터 몸체(그림 또는 동그라미). 화면상 영역 [x0, y0, x1, y1]을 돌려줌
