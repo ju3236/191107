@@ -2306,6 +2306,18 @@ const ATTENDANCE = {
   ],
 };
 
+// 신규 박사 혜택: 예비행동대 S-3 네 명을 얻는 두 가지 길
+//  · 입단 헤드헌팅: 10회 헤드헌팅 2번까지. 이 배너의 6성은 반드시 S-3 넷 중 한 명, 첫 10회에 S-3 6성 1명 확정
+//  · 7일 출석: 7일째에 S-3 넷 중 한 명을 골라 받음
+const NEWBIE = {
+  squad: ['gaeul', 'iai', 'byeol', 'simhae'],
+  banner: { id: 'newbie', name: '예비행동대 S-3 입단 헤드헌팅', tens: 2 },
+  attendance: {
+    id: 'att_newbie', name: '신규 박사 7일 출석', newbie: true,
+    rewards: [{ orundum: 300 }, { permit: 1 }, { lmd: 30000, exp_4: 5 }, { recruit_permit: 3 }, { permit: 2 }, { skill_2: 5, m_device3: 2 }, { select: 's3' }],
+  },
+};
+
 // 오늘 날짜 'YYYY-MM-DD' (원작처럼 오전 4시에 하루가 바뀜)
 const dayKey = (ms = Date.now()) => { const d = new Date(ms - 4 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 // 이벤트 · 출석이 지금 열려 있는지 (끝나는 날까지 포함). key: 'end' 작전 · 'shopEnd' 상점

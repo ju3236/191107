@@ -288,6 +288,9 @@
       .map((b) => ({ key: 'bn:' + b.id, name: b.name, until: b.until, limited: !!b.limited, featured: b.featured.filter((id) => OPS[id]), tag: [b.limited ? '한정' : '', b.tag || '확률 UP', untilText(b.until)].filter(Boolean).join(' · ') }))
       .filter((b) => b.featured.length);
     list.push({ key: 'standard', name: GACHA.standardName, featured: [], tag: '상시' });
+    // 신규 박사: 예비행동대 S-3 입단 헤드헌팅 (10회 2번까지)
+    if (typeof NEWBIE !== 'undefined' && (ACCOUNT.player.newbieTens || 0) < NEWBIE.banner.tens)
+      list.unshift({ key: 'newbie', name: NEWBIE.banner.name, newbie: true, featured: NEWBIE.squad.filter((id) => OPS[id]), tag: '신규 박사 · 10회 헤드헌팅 2번' });
     return list;
   }
   // 통합전략 전용 오퍼레이터는 헤드헌팅에 나오지 않음
@@ -312,7 +315,7 @@
   // 천장 카운트: 상시 헤드헌팅은 하나(player.pity), 픽업 배너는 배너마다(player.pityB[key])
   // 원작처럼 상시 · 일반 픽업 배너는 천장 공유, 한정 배너는 배너마다 따로
   const bnOf = (key) => banners().find((x) => x.key === key);
-  const pityKey = (key) => { const b = bnOf(key); return b && b.limited ? key : 'standard'; };
+  const pityKey = (key) => { const b = bnOf(key); return b && (b.limited || b.newbie) ? key : 'standard'; };
   const pityOf = (key) => { const p = ACCOUNT.player, k = pityKey(key); return k !== 'standard' ? (p.pityB[k] || 0) : p.pity; };
   const setPity = (key, v) => { const p = ACCOUNT.player, k = pityKey(key); if (k !== 'standard') p.pityB[k] = v; else p.pity = v; };
   const rate6 = (key = hhSel) => GACHA.rates[6] + Math.max(0, pityOf(key) - GACHA.pityStart + 1) * GACHA.pityStep;
@@ -345,19 +348,21 @@
         <div class="hh-copy">
           <div class="hh-headline">${feat.length ? '상기 캐릭터 출현 확률 UP!!!' : '모든 오퍼레이터 같은 확률!!!'}</div>
           <div class="hh-desc">
-            <p>${feat.length ? `${feat.filter((o) => o.rarity === 6).map((o) => esc(o.name)).join(' · ') || feat.map((o) => esc(o.name)).join(' · ')} 출현 확률 UP — 해당 등급을 얻으면 ${bn.limited ? '6성 70% · 5성 50%' : '50%'} 확률로 등장${bn.limited ? ' · 한정 헤드헌팅 (천장 따로 · 300회 교환)' : ''}` : '이 헤드헌팅은 모든 오퍼레이터가 같은 확률로 등장합니다'}</p>
-            <p>${end}</p>
-            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">${bn.limited ? '한정 헤드헌팅' : '표준 셀렉션'} 누적 횟수 <b>${pityOf(bn.key)}</b>${bn.limited ? ' (이 배너)' : ''}</span></div>
+            <p>${bn.newbie ? '이 헤드헌팅에서 6성을 얻으면 반드시 김가을 · 이아이 · 천사별 · 안심해 중 한 명이 등장합니다. 10회 헤드헌팅만 2번까지 진행할 수 있고, 천장은 따로 계산합니다.' : feat.length ? `${feat.filter((o) => o.rarity === 6).map((o) => esc(o.name)).join(' · ') || feat.map((o) => esc(o.name)).join(' · ')} 출현 확률 UP — 해당 등급을 얻으면 ${bn.limited ? '6성 70% · 5성 50%' : '50%'} 확률로 등장${bn.limited ? ' · 한정 헤드헌팅 (천장 따로 · 300회 교환)' : ''}` : '이 헤드헌팅은 모든 오퍼레이터가 같은 확률로 등장합니다'}</p>
+            <p>${bn.newbie ? '신규 박사 전용 헤드헌팅입니다.' : end}</p>
+            <div class="hh-desc-foot"><button class="hh-more" id="hh-rates">▶ 더 알아보기</button><span class="hh-count">${bn.newbie ? '입단 헤드헌팅' : bn.limited ? '한정 헤드헌팅' : '표준 셀렉션'} 누적 횟수 <b>${pityOf(bn.key)}</b>${bn.limited ? ' (이 배너)' : ''}</span></div>
           </div>
         </div>
         <div class="hh-pull">
-          ${g10Of(bn.key) < GACHA.newbieGuarantee
+          ${bn.newbie
+            ? `<div class="hh-ribbon g10">첫 10회 <b>S-3 6★</b> 확정 <small>남은 횟수 ${NEWBIE.banner.tens - (ACCOUNT.player.newbieTens || 0)}/${NEWBIE.banner.tens}</small><span class="g10-badge">신규<br>박사</span></div>`
+            : g10Of(bn.key) < GACHA.newbieGuarantee
             ? `<div class="hh-ribbon g10"><b>${GACHA.newbieGuarantee}</b>회 이내 <b>5★이상</b> 확정 획득 <small>${g10Of(bn.key)}/${GACHA.newbieGuarantee}</small><span class="g10-badge">1회 한정<br>신규혜택</span></div>`
             : `<div class="hh-ribbon"><b>${Math.round(rate6(bn.key) * 100)}%</b> 다음 6성 확률 <small>50회 이후 1회마다 +2%</small></div>`}
           ${bn.limited && feat.some((o) => o.rarity === 6) ? sparkHTML(bn) : ''}
 
-          <div class="hh-costs"><span>${payLabel(1)}</span><span>${payLabel(10)}</span></div>
-          <div class="hh-pbtns"><button class="hh-p1" data-pull="1">1회 진행</button><button class="hh-p10" data-pull="10">10회 진행</button></div>
+          <div class="hh-costs">${bn.newbie ? '' : `<span>${payLabel(1)}</span>`}<span>${payLabel(10)}</span></div>
+          <div class="hh-pbtns">${bn.newbie ? '' : '<button class="hh-p1" data-pull="1">1회 진행</button>'}<button class="hh-p10" data-pull="10">10회 진행</button></div>
         </div>
       </div>`;
   };
@@ -390,6 +395,8 @@
   }
 
   function tryPull(n) {
+    const nb = bnOf(hhSel);
+    if (nb && nb.newbie && n !== 10) return;
     const pay = payFor(n);
     if (!pay) {
       const need = n * GACHA.cost - ACCOUNT.bal('orundum');
@@ -450,10 +457,13 @@
     for (const o of pool()) (by[o.rarity || 3] = by[o.rarity || 3] || []).push(o);
     const out = [];
     const p = ACCOUNT.player;
+    const firstNewbie = bn.newbie && !(p.newbieTens || 0);
     for (let i = 0; i < n; i++) {
       let r = rollRarity(bn.key);
+      // 입단 헤드헌팅: 첫 10회에는 S-3 6성 1명 확정
+      if (firstNewbie && i === n - 1 && !out.some((x) => x.def && x.def.rarity === 6)) r = 6;
       // 배너마다 첫 10회 안에 5성 이상이 없었다면 10번째는 5성 이상 확정
-      if (g10Of(bn.key) < GACHA.newbieGuarantee) {
+      if (!bn.newbie && g10Of(bn.key) < GACHA.newbieGuarantee) {
         let g = g10Of(bn.key) + 1;
         if (r >= 5) g = GACHA.newbieGuarantee;
         else if (g >= GACHA.newbieGuarantee) r = Math.random() < GACHA.rates[6] / (GACHA.rates[6] + GACHA.rates[5]) ? 6 : 5;
@@ -474,7 +484,7 @@
       }
       const feat = bn.featured.map((id) => OPS[id]).filter((o) => o && (o.rarity || 3) === r);
       // 확률 UP: 5성 50%, 6성 50% (한정 배너는 70%)
-      const list = feat.length && Math.random() < (r === 6 && bn.limited ? GACHA.limitedUp : 0.5) ? feat : by[r];
+      const list = bn.newbie && r === 6 && feat.length ? feat : feat.length && Math.random() < (r === 6 && bn.limited ? GACHA.limitedUp : 0.5) ? feat : by[r];
       const def = list[Math.floor(Math.random() * list.length)];
       setPity(bn.key, (def.rarity || 3) === 6 ? 0 : pityOf(bn.key) + 1);
       if (bn.limited) p.spark[bn.key] = (p.spark[bn.key] || 0) + 1;
@@ -483,6 +493,7 @@
       out.push({ def, ...got });
     }
     p.pulls = p.pulls.slice(-60);
+    if (bn.newbie) { p.newbieTens = (p.newbieTens || 0) + 1; if (p.newbieTens >= NEWBIE.banner.tens) hhSel = 'standard'; }
     if (window.MISSION) MISSION.track('pull', n);
     ACCOUNT.save();
     ACCOUNT.emit('wallet');

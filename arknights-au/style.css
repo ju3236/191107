@@ -3662,3 +3662,17 @@ var.oi { font-style: normal; }
 .hg-bubble { position: fixed; width: 360px; max-width: calc(100vw - 24px); display: flex; gap: 12px; background: rgba(12,13,16,.96); border: 1px solid #ffcf3a; padding: 12px; color: #fff; z-index: 62; }
 .hg-bubble b { font-size: 14px; } .hg-bubble p { margin: 2px 0 4px; font-size: 14px; line-height: 1.5; } .hg-bubble small { color: #999; font-size: 11px; }
 .hg-skip { position: fixed; right: 16px; top: 16px; z-index: 63; background: #2b2d31; color: #fff; padding: 6px 14px; }
+/* 신규 박사 7일 출석 · S-3 선택 */
+.att-grid.one { grid-template-columns: repeat(7, 1fr); }
+.att-cell.s3 { border-color: #ffcf3a; background: linear-gradient(180deg, rgba(255,207,58,.18), rgba(0,0,0,.2)); }
+.att-s3s { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.att-s3 { width: 26px; height: 26px; overflow: hidden; background: color-mix(in srgb, var(--c) 55%, #222); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; }
+.att-s3 img { width: 100%; height: 160%; object-fit: cover; object-position: 50% 6%; }
+.att-cell em { font-style: normal; font-size: 10px; color: #ffcf3a; }
+.att-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+.att-pk { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 0 8px; background: #2b2d31; color: #fff; border: 2px solid transparent; overflow: hidden; }
+.att-pk:hover { border-color: #ffcf3a; }
+.att-pk .art { width: 100%; height: 150px; background: color-mix(in srgb, var(--c) 45%, #222) !important; }
+.att-pk .art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.att-pk .art-en { display: none; }
+.att-pk b { font-size: 15px; } .att-pk small { color: #aaa; font-size: 11px; }

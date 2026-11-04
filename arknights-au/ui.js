@@ -644,7 +644,7 @@
     const b = e.target.closest('[data-evm]'); if (!b) return;
     const ev = liveEvent('shopEnd'); sfx('select');
     if (b.dataset.evm === 'shop') go('evshop', ev.id);
-    else if (b.dataset.evm === 'attend') openAttendance(true);
+    else if (b.dataset.evm === 'attend') openAttendance(true, ATTENDANCE);
     else if (b.dataset.evm === 'story') openEventStory(ev);
     else if (b.dataset.evm === 'mission') openEventMissions(ev);
     else if (b.dataset.evm === 'ops') { if (!eventLive(ev)) { toast('이벤트 작전이 종료되었습니다'); return; } go('operations', 'event'); }
@@ -733,40 +733,63 @@
     const ev = liveEvent(), el = $('#home-event');
     el.classList.toggle('hidden', !ev);
     if (ev) el.innerHTML = `<span class="he-bg" style="background-image:url('${esc(ev.bg)}')"></span><small>${esc(ev.tag)} · D-${daysLeft(ev.end)}</small><b>${esc(ev.name)}</b><em>이벤트 보기 ▶</em>`;
-    const att = typeof ATTENDANCE !== 'undefined' && eventLive(ATTENDANCE);
+    const att = attLists().length > 0;
     $('#btn-attend').classList.toggle('hidden', !att);
     $('#home-special').classList.toggle('hidden', !ev && !att);
-    if (att) $('#btn-attend').classList.toggle('has-new', attState().last !== dayKey() && attState().n < ATTENDANCE.rewards.length);
+    if (att) $('#btn-attend').classList.toggle('has-new', attLists().some(attPending));
     if (att && !attPolled) { attPolled = true; pollAttendance(0); }
   }
   // 출석: 하루 한 번(오전 4시 기준) 다음 칸 보상을 받음
   let attPolled = false;
-  const attState = () => { save.attend = save.attend || {}; return (save.attend[ATTENDANCE.id] = save.attend[ATTENDANCE.id] || { n: 0, last: '' }); };
+  const attState = (A = ATTENDANCE) => { save.attend = save.attend || {}; return (save.attend[A.id] = save.attend[A.id] || { n: 0, last: '' }); };
+  // 지금 열려 있는 출석 목록 (신규 박사 7일 출석 · 이벤트 출석)
+  const attLists = () => [typeof NEWBIE !== 'undefined' && (attState(NEWBIE.attendance).n < NEWBIE.attendance.rewards.length || attState(NEWBIE.attendance).pick) ? NEWBIE.attendance : null,
+    typeof ATTENDANCE !== 'undefined' && eventLive(ATTENDANCE) ? ATTENDANCE : null].filter(Boolean);
+  const attPending = (A) => { const a = attState(A); return !!a.pick || (a.last !== dayKey() && a.n < A.rewards.length); };
   function pollAttendance(k) {
     // 공지 창 · 다른 창이 닫힌 뒤에 출석 창을 띄움
     setTimeout(() => {
       if (current !== 'home' || document.getElementById('hguide') || !$('#modal').classList.contains('hidden') || !$('#notice').classList.contains('hidden') || !$('#dialog').classList.contains('hidden')) { if (k < 120) pollAttendance(k + 1); return; }
-      const a = attState();
-      if (a.last === dayKey() || a.n >= ATTENDANCE.rewards.length) return;
-      openAttendance(true);
+      const A = attLists().find(attPending);
+      if (!A) return;
+      openAttendance(true, A);
+      pollAttendance(1);   // 다음 출석(있으면)은 이 창이 닫힌 뒤에
     }, k ? 1000 : 1600);
   }
-  function openAttendance(claim) {
-    if (typeof ATTENDANCE === 'undefined' || !eventLive(ATTENDANCE)) return;
-    const a = attState(), R = ATTENDANCE.rewards;
-    let got = -1;
-    if (claim && a.last !== dayKey() && a.n < R.length) { got = a.n; ACCOUNT.earn(R[a.n]); a.n++; a.last = dayKey(); writeSave(); renderResources(); sfx('select'); }
+  const s3Face = (id) => { const o = OPS[id]; return `<span class="att-s3" style="--c:${o.color}">${o.image ? `<img src="${esc(o.image)}" alt="">` : esc(o.name[0])}</span>`; };
+  function openAttendance(claim, A) {
+    A = A || attLists().find(attPending) || (typeof ATTENDANCE !== 'undefined' && eventLive(ATTENDANCE) ? ATTENDANCE : attLists()[0]);
+    if (!A) return;
+    const a = attState(A), R = A.rewards;
+    let got = -1, pick = false;
+    if (claim && a.last !== dayKey() && a.n < R.length) {
+      got = a.n;
+      const { select, ...items } = R[a.n];
+      if (Object.keys(items).length) ACCOUNT.earn(items);
+      if (select) a.pick = true;
+      a.n++; a.last = dayKey(); writeSave(); renderResources(); sfx('select');
+    }
+    pick = !!a.pick;   // 고르지 않고 닫아도 다음에 다시 고를 수 있음
     const cell = (r, i) => {
       const big = i === 6 || i === R.length - 1;
-      return `<div class="att-cell ${i < a.n ? 'done' : ''} ${i === got ? 'now' : ''} ${big ? 'big' : ''}"><small>DAY ${i + 1}</small>
-        <span class="att-items">${Object.entries(r).map(([k, n]) => `<span><i class="ri ${k}"></i><b>${n.toLocaleString('ko-KR')}</b></span>`).join('')}</span>${i < a.n ? '<i class="att-chk">✓</i>' : ''}</div>`;
+      const items = Object.entries(r).filter(([k]) => k !== 'select');
+      return `<div class="att-cell ${i < a.n ? 'done' : ''} ${i === got ? 'now' : ''} ${big ? 'big' : ''} ${r.select ? 's3' : ''}"><small>DAY ${i + 1}</small>
+        <span class="att-items">${r.select ? `<span class="att-s3s">${NEWBIE.squad.map(s3Face).join('')}</span><em>S-3 1명 선택</em>` : ''}${items.map(([k, n]) => `<span><i class="ri ${k}"></i><b>${n.toLocaleString('ko-KR')}</b></span>`).join('')}</span>${i < a.n ? '<i class="att-chk">✓</i>' : ''}</div>`;
     };
-    openModal(`<div class="modal-title">${esc(ATTENDANCE.name)}</div>
-      <div class="modal-sub">${mdText(ATTENDANCE.start)} ~ ${mdText(ATTENDANCE.end)} · 하루 한 번(오전 4시 기준) 접속하면 다음 보상을 받습니다 · ${a.n}/${R.length}일</div>
-      <div class="att-grid">${R.map(cell).join('')}</div>
-      ${got >= 0 ? `<p class="att-got">오늘의 보상: ${Object.entries(R[got]).map(([k, n]) => `${esc(ITEMS[k].name)} ×${n.toLocaleString('ko-KR')}`).join(' · ')}</p>` : ''}`);
+    openModal(`<div class="modal-title">${esc(A.name)}</div>
+      <div class="modal-sub">${A.newbie ? '신규 박사 전용 · 7일 동안' : `${mdText(A.start)} ~ ${mdText(A.end)} ·`} 하루 한 번(오전 4시 기준) 접속하면 다음 보상을 받습니다 · ${a.n}/${R.length}일</div>
+      <div class="att-grid ${R.length <= 7 ? 'one' : ''}">${R.map(cell).join('')}</div>
+      ${got >= 0 && !pick ? `<p class="att-got">오늘의 보상: ${Object.entries(R[got]).map(([k, n]) => `${esc(ITEMS[k].name)} ×${n.toLocaleString('ko-KR')}`).join(' · ')}</p>` : ''}
+      ${pick ? '<p class="att-got">오늘의 보상: 예비행동대 S-3 오퍼레이터 1명을 골라 주세요!</p><div class="att-pick">' + NEWBIE.squad.map((id) => `<button class="att-pk" data-s3pick="${id}" style="--c:${OPS[id].color}">${artHTML(OPS[id])}<b>${esc(OPS[id].name)}</b><small>${owned(id) ? '보유 중 (잠재력 증표)' : '미보유'}</small></button>`).join('') + '</div>' : ''}`);
     $('#modal').dataset.kind = 'attend';
-    $('#btn-attend').classList.remove('has-new');
+    if (pick) {
+      document.querySelectorAll('[data-s3pick]').forEach((b) => b.addEventListener('click', () => {
+        const def = OPS[b.dataset.s3pick], res = ACCOUNT.obtain(def);
+        a.pick = false; ACCOUNT.save(); writeSave(); closeModal(); if (current === "home") renderHomeEvent();
+        if (window.GACHA_FX) GACHA_FX.play([{ def, ...res }]); else toast(`${def.name} 합류!`);
+      }));
+    }
+    $('#btn-attend').classList.toggle('has-new', attLists().some(attPending));
   }
 
   // ---------- 공지 (원작 로비 공지 창 · 패치 내역) ----------
