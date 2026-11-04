@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  잿빛 등대 — 메뉴 화면 (메인 · 오퍼레이터 · 상세 · 편성 · 작전 목록 · 대화)
+//  백하방주 — 메뉴 화면 (메인 · 오퍼레이터 · 상세 · 편성 · 작전 목록 · 대화)
 // =====================================================================
 (() => {
   const $ = (s) => document.querySelector(s);
@@ -359,7 +359,7 @@
     $('#home-lv').closest('.lv-ring').style.setProperty('--lvp', pl.max ? 1 : pl.exp / pl.need);
     $('#home-lv').closest('.lv-ring').title = pl.max ? '최대 레벨' : `경험치 ${pl.exp.toLocaleString('ko-KR')} / ${pl.need.toLocaleString('ko-KR')}`;
     $('#home-name').textContent = save.nick || GAME_INFO.commander || '지휘관';
-    $('#home-id').textContent = 'ID: ASHEN-' + String(1000 + ts).padStart(4, '0');
+    $('#home-id').textContent = 'ID: BH-' + String(1000 + ts).padStart(4, '0');
     renderResources();
     $('#tile-admin').classList.toggle('hidden', !ACCOUNT.isAdmin);
     // 인사: 게임을 켜고 처음 메인 화면에 왔을 때
