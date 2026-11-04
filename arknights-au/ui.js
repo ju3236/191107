@@ -745,7 +745,7 @@
   function pollAttendance(k) {
     // 공지 창 · 다른 창이 닫힌 뒤에 출석 창을 띄움
     setTimeout(() => {
-      if (current !== 'home' || !$('#modal').classList.contains('hidden') || !$('#notice').classList.contains('hidden') || !$('#dialog').classList.contains('hidden')) { if (k < 60) pollAttendance(k + 1); return; }
+      if (current !== 'home' || document.getElementById('hguide') || !$('#modal').classList.contains('hidden') || !$('#notice').classList.contains('hidden') || !$('#dialog').classList.contains('hidden')) { if (k < 120) pollAttendance(k + 1); return; }
       const a = attState();
       if (a.last === dayKey() || a.n >= ATTENDANCE.rewards.length) return;
       openAttendance(true);
@@ -2068,12 +2068,14 @@
   function renderChapters() {
     const chs = chapters();
     $('#ops-chapters').innerHTML = `<div class="oc-head"><small>Main Story / 메인 스토리</small><b>${esc(GAME_INFO.title)}</b></div>
-      <div class="oc-row">${chs.map((c) => {
+      <div class="oc-row">${typeof PROLOGUE !== 'undefined' ? `<button class="oc-card prologue" data-prologue><span class="oc-art" style="background-image:url(img/ui/story_0.webp)"></span>
+          <span class="oc-ep">${esc(PROLOGUE.chapter.code)}</span><b>${esc(PROLOGUE.chapter.name)}</b><small>${Object.keys(save.prologueClear || {}).length}/${PROLOGUE.stages.length} 클리어</small></button>` : ''}${chs.map((c) => {
         const ss = stagesOf(c), first = ss[0], open = first && unlocked(first.i), done = ss.filter(({ st }) => cleared(st)).length;
         return `<button class="oc-card ${open ? '' : 'locked'}" data-oc="${c.id}"><span class="oc-art" style="background-image:url(img/ui/story_${typeof c.id === 'number' ? c.id : 0}.webp)"></span>
           <span class="oc-ep">${esc(c.code)}</span><b>${open ? esc(c.name) : '???'}</b><small>${open ? `${done}/${ss.length} 클리어` : '이전 에피소드 클리어 후 개방'}</small></button>`;
       }).join('')}</div>`;
     $('#ops-chapters').onclick = (e) => {
+      if (e.target.closest('[data-prologue]')) { sfx('select'); window.PROLOGUE_UI && PROLOGUE_UI.play(0); return; }
       const b = e.target.closest('[data-oc]'); if (!b) return;
       if (b.classList.contains('locked')) { toast('이전 에피소드를 완료하면 해금됩니다'); return; }
       sfx('select');
@@ -2366,6 +2368,8 @@
   // 스토리 배경: 원작 스토리 배경 그림 (장마다 다름 · img/ui/story_*.webp)
   const storyBg = (st) => (st && typeof st.chapter === 'number' && st.chapter >= 1 && st.chapter <= 4 ? `story_${st.chapter}` : st && st.is ? 'story_is' : 'story_0');
   function playDialog(lines, done, st) {
+    lines = [...lines];   // 선택지(choice)를 고르면 그 대사를 끼워 넣음
+    let choosing = false;
     const ov = $('#dialog'), nameEl = $('#dlg-name'), textEl = $('#dlg-text'), por = $('#dlg-portrait');
     ov.style.setProperty('--bg', `url(${st && st.storyBg ? st.storyBg : `img/ui/${storyBg(st)}.webp`})`);
     let i = -1, timer = null, full = '';
@@ -2385,6 +2389,20 @@
       if (i >= lines.length) { finish(); return; }
       const L = lines[i];
       if (L.bg) ov.style.setProperty('--bg', `url(${L.bg})`);
+      if (L.choice) {
+        // 박사의 선택지
+        choosing = true; clearInterval(timer); timer = null;
+        nameEl.textContent = '박사'; nameEl.style.color = '#ffcf3a';
+        textEl.classList.remove('narr'); por.style.opacity = 0;
+        textEl.innerHTML = `<span class="dlg-choices">${L.choice.map((c, k) => `<button class="dlg-choice" data-dch="${k}">${esc(c.text)}</button>`).join('')}</span>`;
+        textEl.querySelectorAll('[data-dch]').forEach((b) => b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const c = L.choice[+b.dataset.dch];
+          lines.splice(i + 1, 0, ...(c.then || []));
+          choosing = false; sfx('select'); next();
+        }));
+        return;
+      }
       const def = L.who && OPS[L.who];
       const name = def ? def.name : L.name || '';
       nameEl.textContent = name;
@@ -2405,6 +2423,7 @@
       }, 22);
     }
     ov.onclick = (e) => {
+      if (choosing) return;
       if (e.target.closest('#dlg-skip')) { finish(); return; }
       if (timer) { clearInterval(timer); timer = null; textEl.textContent = full; return; }
       next();

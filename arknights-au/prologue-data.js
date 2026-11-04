@@ -1,0 +1,147 @@
+'use strict';
+// =====================================================================
+//  백하방주 — 프롤로그 「방과후 탐방」 (새 계정 튜토리얼 · 예비행동대 S-3 결성)
+//  대사 줄: { who: 오퍼레이터 id } · { name: '이름' } · { text } 만 있으면 내레이션
+//           { choice: [{ text: '선택지', then: [대사 줄…] }] } 박사의 선택지 (고른 쪽 대사 뒤에 다음 줄이 이어짐)
+//  tutorial: 전투 안내 단계. when: 'start' | 'next' | 'skillReady' | { t: 초 }
+//            wait: 'tap' | 'skill' | 'retreat' | { deploy: 오퍼레이터 id } · who/name: 말하는 사람 · hint: 조작 안내
+// =====================================================================
+const PROLOGUE = {
+  chapter: { code: 'PROLOGUE', name: '방과후 탐방' },
+  // 프롤로그에서 쓰는 임시 상태 (계정의 육성 상태와 관계없음)
+  prog: { elite: 1, level: 40, exp: 0, slv: 4, mst: [0, 0, 0], pot: 1, trust: 100 },
+  skill: { gaeul: 1, iai: 1, byeol: 0, simhae: 1 },
+  reward: { 'P-1': { orundum: 200 }, 'P-2': { orundum: 200 }, 'P-3': { orundum: 600, permit: 1, recruit_permit: 2 } },
+  stages: [
+    {
+      code: 'P-1', name: '눈을 뜨다', squad: ['gaeul', 'byeol'], life: 99, startDp: 45, deployLimit: 4,
+      desc: '무너진 지하도. 쓰러져 있던 박사를 하굣길의 학생 넷이 발견한다.',
+      map: ['##########', '#^^^^^^^^#', 'R-.......B', '#^^^^^^^^#', '##########'],
+      waves: [{ t: 3, enemy: 'slug', count: 2, gap: 3 }, { t: 12, enemy: 'soldier', count: 2, gap: 4 }, { t: 24, enemy: 'slug', count: 2, gap: 3 }],
+      before: [
+        { text: '어둠. 귓가에서 무전기 잡음이 끊어졌다 이어지기를 반복한다.' },
+        { text: '……통신 두절. 호위 행렬이 습격받았고, 폭발에 휘말려 혼자 떨어졌다. 여기는… 무너진 지하도인가.' },
+        { text: '로도스 아일랜드의 박사인 당신은 몸을 일으키려 했지만, 아직 다리에 힘이 들어가지 않는다.' },
+        { text: '그때, 멀리서 손전등 불빛이 흔들렸다.' },
+        { who: 'simhae', text: '자, 오늘의 「폐허 탐방」, 드디어 지하 구간입니다~. 채팅창에 「무섭다」 많네요. 저도요.' },
+        { who: 'byeol', text: '……심해 씨… 저, 저기요…' },
+        { who: 'simhae', text: '네? …어, 사람이다. 방송 끈다, 방송 끈다.' },
+        { who: 'iai', text: '살아 계심다? 다행이네요. 근데 그쪽은 여기서 왜 주무시고 계셨슴까?' },
+        { text: '당신은 짧게 상황을 설명했다. 리유니온 잔당의 습격. 그리고, 놈들이 곧 이쪽으로 온다는 것.' },
+        { who: 'byeol', text: '……발소리가… 여섯이에요… 이쪽으로… 와요…' },
+        { who: 'simhae', text: '리유니온? 그 뉴스에 나오는 리유니온?' },
+        { who: 'gaeul', text: '출구까지 거리 보면 도망은 늦었어. 막는 게 나아.' },
+        { who: 'iai', text: '김가을 말이 맞슴다. 근데 저희끼리 제대로 싸워 본 적은 없는데.' },
+        { text: '당신은 넷에게 말했다. 지휘는 내가 맡겠다고.' },
+        { who: 'simhae', text: '오, 해설진 섭외 완료. 김가을, 너도 오케이지?' },
+        { who: 'gaeul', text: '응. 지시만 정확하면.' },
+      ],
+      tutorial: [
+        { when: 'start', who: 'gaeul', text: '어디에 서면 돼요?', hint: '코스트가 모이면 오퍼레이터를 배치할 수 있습니다. 아래 김가을 카드를 누르고 길(어두운 칸) 위에 놓은 다음, 적이 오는 왼쪽으로 방향을 정하세요.', wait: { deploy: 'gaeul' } },
+        { when: 'next', who: 'byeol', text: '……저는… 높은 곳이… 좋아요…', hint: '천사별은 원거리 오퍼레이터입니다. 길 옆의 높은 곳(고지대)에 배치하세요.', wait: { deploy: 'byeol' } },
+        { when: 'next', who: 'gaeul', text: '가드는 앞에 오는 적을 막아서요. 그 사이에 천사별이 쏘면 돼요.', hint: '가드는 적을 저지합니다. 적이 오른쪽 방어 지점에 닿지 않게 모두 막아 내세요. (화면을 누르면 전투가 시작됩니다)', wait: 'tap' },
+      ],
+      after: [
+        { who: 'simhae', text: '……이겼다? 우리가? 와, 이거 방송 켰어야 했는데.' },
+        { who: 'gaeul', text: '지휘, 괜찮았어요. 다음도 부탁드려요.' },
+        { who: 'iai', text: '김가을이 칭찬을 다 함다. 이분 대단한 사람인가 보네요.' },
+        { who: 'byeol', text: '……저, 저쪽에… 출구가… 있어요…' },
+      ],
+    },
+    {
+      code: 'P-2', name: '출구까지', squad: ['gaeul', 'iai', 'byeol', 'simhae'], life: 99, startDp: 14, deployLimit: 5,
+      desc: '지하도의 출구를 향해. 앞을 막는 리유니온 잔당을 뚫어라.',
+      map: ['############', 'R-....^^^^^#', '#^^^^.^^^^^#', '#^^^^.....-B', '#^^^^.^^^^^#', 'R-....^^^^^#', '############'],
+      waves: [{ t: 4, enemy: 'soldier', count: 2, gap: 4 }, { t: 12, enemy: 'slug', count: 3, gap: 2, spawn: 1 }, { t: 24, enemy: 'soldier', count: 2, gap: 4 },
+        { t: 34, enemy: 'crossbow', count: 2, gap: 4, spawn: 1 }, { t: 46, enemy: 'soldier', count: 3, gap: 3 }, { t: 58, enemy: 'slug_a', count: 2, gap: 3, spawn: 1 }],
+      before: [
+        { text: '무너진 통로를 지나는 동안, 넷은 당신의 지휘를 따랐다. 마치 오래 합을 맞춘 팀처럼.' },
+        { who: 'byeol', text: '……출구 쪽에… 더 있어요… 아까보다… 많아요…' },
+        { who: 'simhae', text: '근데 이분, 그냥 지나가던 분은 아니죠? 지휘가 너무 프로인데.' },
+        { text: '당신은 적당히 얼버무렸다.' },
+        { who: 'iai', text: '수상하네요. 나중에 다 물어볼 검다. 일단 살고 나서요.' },
+        { who: 'gaeul', text: '오른쪽이 두꺼워. 안심해, 거기 맡아.' },
+        { who: 'simhae', text: '왜 맨날 나야!' },
+      ],
+      tutorial: [
+        { when: 'start', who: 'simhae', text: '이번엔 넷 다 나가는 거죠? 앞은 제가 막을게요.', hint: '이번에는 네 명 모두 배치할 수 있습니다. 코스트를 보며 차례로 배치하세요.', wait: 'tap' },
+        { when: 'skillReady', who: 'iai', text: '준비 끝났슴다. 신호만 주세요.', hint: 'SP가 가득 찬 오퍼레이터가 있습니다. 배치된 오퍼레이터를 누르고 스킬 버튼을 눌러 발동하세요.', wait: 'skill' },
+        { when: { t: 40 }, who: 'gaeul', text: '한 명 잠깐 빼. 다시 넣으면 돼.', hint: '배치된 오퍼레이터를 누르고 철수 버튼을 누르면 철수합니다. 철수하면 배치 코스트 절반을 돌려받습니다. 한 명을 철수시켜 보세요.', wait: 'retreat' },
+        { when: 'next', who: 'simhae', text: '잠깐, 타임 아웃! …좋아, 다시 갑니다. 「일단 살고 봐야죠」가 제 신조라.', hint: '철수한 오퍼레이터는 카드의 재배치 시간이 지나면 다시 배치할 수 있습니다.', wait: 'tap' },
+      ],
+      after: [
+        { who: 'simhae', text: '출구다! 빛이다! 여러분 저 살아서 나갑… 아, 방송 꺼져 있었지.' },
+        { who: 'iai', text: '방송보다 밖을 보셔야 할 것 같슴다, 안심해.' },
+        { who: 'byeol', text: '……밖에… 엄청… 많아요…' },
+      ],
+    },
+    {
+      code: 'P-3', name: '로도스', squad: ['gaeul', 'iai', 'byeol', 'simhae'], life: 3, startDp: 16, deployLimit: 6,
+      desc: '지하도 밖. 사방에서 몰려오는 리유니온 잔당을 버텨라.',
+      map: ['##############', 'R-.....^^^^^^#', '#^^^^^.^^^^^^#', '#^^^^^......-B', '#^^^^^.^^^^^^#', 'R-.....^^^^^^#', '##############'],
+      waves: [{ t: 3, enemy: 'soldier', count: 3, gap: 3 }, { t: 8, enemy: 'hound', count: 3, gap: 2, spawn: 1 }, { t: 20, enemy: 'crossbow', count: 2, gap: 4 },
+        { t: 28, enemy: 'caster', count: 2, gap: 5, spawn: 1 }, { t: 40, enemy: 'soldier', count: 4, gap: 2.5 }, { t: 48, enemy: 'hound', count: 4, gap: 1.5, spawn: 1 },
+        { t: 62, enemy: 'heavy', count: 1, gap: 2 }, { t: 66, enemy: 'soldier', count: 3, gap: 3, spawn: 1 }],
+      before: [
+        { who: 'iai', text: '……이건 좀 많은데요.' },
+        { who: 'byeol', text: '……사방에서… 와요… 막기… 어려울지도…' },
+        { who: 'gaeul', text: '어려운 거지, 못 막는 건 아니야.' },
+      ],
+      amiya: true,   // 전투 중 아미야 합류
+      tutorial: [
+        { when: 'start', hint: '이제 안내 없이 싸워 보세요. 버티다 보면 지원이 올지도 모릅니다. (화면을 누르면 시작합니다)', wait: 'tap' },
+        { when: { t: 38 }, name: '아미야', text: '박사님! 무사하셨군요……! 통신이 끊겨서 다들 찾고 있었어요! 지금 지원할게요!', hint: '아미야가 합류했습니다. 아미야를 배치할 수 있고, 배치 코스트를 20 얻었습니다.', wait: 'tap', run: 'amiya' },
+        { when: 'next', who: 'simhae', text: '박사님? 이분 이름이 박사예요?', wait: 'tap' },
+        { when: 'next', who: 'iai', text: '그거 이름 아닐 검다, 안심해.', wait: 'tap' },
+      ],
+      after: [
+        { text: '리유니온 잔당이 물러나고, 로도스 아일랜드의 차량이 폐허 앞에 멈춰 섰다.' },
+        { name: '아미야', text: '저는 로도스 아일랜드의 아미야예요. 이분은 저희 로도스 아일랜드의 박사님이시고요. 박사님을 지켜 주셔서 정말 감사합니다.' },
+        { who: 'simhae', text: '로도스면, 그 감염자 돕는 제약회사?' },
+        { who: 'iai', text: '그럼 저희, 엄청 높은 분을 「그쪽」이라고 부른 검까.' },
+        { who: 'gaeul', text: '처음부터 지휘하는 거 보고 알았어. 보통 사람은 아니라고.' },
+        { text: '당신은 넷에게 고맙다고 말했다. 그리고 물었다. 너희는 누구냐고.' },
+        { who: 'simhae', text: '소개가 늦었네요! 저는 안심해, 전직 방송인이고요. 이쪽은 사별 씨, 저희 반 저격수예요.' },
+        { who: 'byeol', text: '……천사별, 이에요… 아, 안녕하세요…' },
+        { who: 'iai', text: '이아이임다. 이쪽은 김가을, 프로게이머임다.' },
+        { who: 'gaeul', text: '김가을이에요. 다들 같은 반이에요.' },
+        { name: '아미야', text: '같은 반 학생분들이시군요. 혹시… 로도스와 함께해 주실 생각은 없으신가요? 학생 신분은 그대로 지키면서, 외부 협력 행동대로요.' },
+        { who: 'simhae', text: '학교 다니면서 로도스 오퍼레이터? 이거 콘텐츠 각인데요?' },
+        { who: 'iai', text: '수업 빠져도 되는 거면 찬성임다.' },
+        { name: '아미야', text: '수업은 빠지시면 안 돼요……. 그럼 행동대 이름이랑 대장을 정해야 하는데요.' },
+        { who: 'simhae', text: '대장은 제가 하죠. 리더십, 진행 능력, 화면발. 땅땅땅. 결정.' },
+        { who: 'byeol', text: '……차, 찬성이에요… 심해 씨가… 잘할 거예요…' },
+        { who: 'iai', text: '반대임다. 안심해한테 시키느니 김가을이 하는 게 낫겠슴다.' },
+        { who: 'simhae', text: '아니 왜! 김가을은 말을 안 하잖아!' },
+        { who: 'iai', text: '필요한 말은 함다. 그리고 김가을은 경기 전에 팀 브리핑도 했었음다. 안심해는 방송만 했고.' },
+        { who: 'simhae', text: '방송도 브리핑이야! 봐, 사별 씨도 내 편이잖아. 2대1!' },
+        { who: 'byeol', text: '……네… 저는… 심해 씨요…' },
+        { who: 'gaeul', text: '시끄러운 사람이 대장 하면 작전이 다 새. 나도 내가 하는 게 낫다고 봐. 그럼 2대2네.' },
+        { who: 'simhae', text: '본인이 본인한테 투표하는 게 어딨어!' },
+        { name: '아미야', text: '저, 저기… 그럼 박사님께서 정해 주시는 건 어떨까요?' },
+        { choice: [
+          { text: '김가을', then: [
+            { who: 'simhae', text: '박사님까지…!' },
+          ] },
+          { text: '안심해', then: [
+            { who: 'simhae', text: '봐 봐! 박사님은 보는 눈이 있으시다니까!' },
+            { who: 'byeol', text: '……역시… 심해 씨…' },
+            { who: 'iai', text: '근데 서류는 이미 김가을 이름으로 냈슴다.' },
+            { who: 'simhae', text: '언제?!' },
+            { who: 'iai', text: '박사님 고르실 때요. 운이 좋았네요, 저.' },
+            { name: '아미야', text: '그, 그럼… 대장은 김가을 씨로…' },
+            { who: 'simhae', text: '이게 민주주의야?!' },
+          ] },
+        ] },
+        { who: 'byeol', text: '……괘, 괜찮아요… 심해 씨는… 부대장, 하면 돼요…' },
+        { who: 'simhae', text: '부대장! 오, 그거 좋다. 실세는 원래 부대장이지.' },
+        { who: 'iai', text: '실세는 저임다.' },
+        { name: '아미야', text: '그럼 이름은… 예비 행동대, 학생 협력이니까 S, 그리고……' },
+        { who: 'simhae', text: '저희 3반이요! 이건 부대장이 정합니다. S-3!' },
+        { who: 'iai', text: '그건 인정임다.' },
+        { who: 'gaeul', text: '예비행동대 S-3, 대장 김가을입니다. 잘 부탁드려요, 박사님.' },
+        { text: '— 프롤로그 「방과후 탐방」 끝. 예비행동대 S-3의 첫 정식 작전은 「1-1 첫 출격」에서 이어집니다.' },
+      ],
+    },
+  ],
+};

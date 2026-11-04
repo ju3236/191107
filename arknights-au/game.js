@@ -123,6 +123,7 @@
       idx, st, squadIds, map, rows: map.length, cols: map[0].length, paths, flyPaths, queue,
       total: queue.length, killed: 0, leaked: 0, time: 0,
       dp: (st.startDp ?? 10) + (mods.startDp || 0), life, maxLife: opts.maxLife ?? life, deployLimit: (st.deployLimit ?? 8) + (mods.deployLimit || 0),
+      tut: opts.tutorial ? { steps: opts.tutorial, i: 0, cur: null } : null, tutHold: false,
       ext: opts, mods, edefs: opts.enemies || null, maxDp: MAX_DP + (mods.maxDp || 0), shield: opts.shield || 0,
       ops: [], enemies: [], effects: [],
       // 하단 카드는 코스트 낮은 순 (같으면 편성 순)
@@ -175,6 +176,53 @@
   // =====================================================================
   //  배치 카드
   // =====================================================================
+  // ---------- 튜토리얼 안내 (프롤로그) ----------
+  //  opts.tutorial: [{ when: 'start'|'next'|'skillReady'|{t}, wait: 'tap'|'skill'|'retreat'|{deploy: id}, who|name, text, hint, run }]
+  //  안내가 떠 있는 동안 시간은 멈추고, 조작은 할 수 있음
+  function tutPanel() {
+    let el = document.getElementById('tut');
+    if (!el) {
+      el = document.createElement('div'); el.id = 'tut'; el.className = 'tut hidden';
+      document.getElementById('screen-battle').appendChild(el);
+      el.addEventListener('click', () => { if (S && S.tut && S.tut.cur && S.tut.cur.wait === 'tap') tutDone(); });
+    }
+    return el;
+  }
+  function tutTick() {
+    const T = S.tut;
+    if (T.cur || T.i >= T.steps.length) return;
+    const st = T.steps[T.i], w = st.when || 'next';
+    const ok = w === 'start' || w === 'next' ? true
+      : w === 'skillReady' ? S.ops.some((op) => op.alive !== false && op.skill && op.skill.trigger !== 'auto' && op.skillT <= 0 && op.sp >= op.skill.sp)
+      : typeof w === 'object' && w.t !== undefined ? S.time >= w.t : false;
+    if (!ok) return;
+    T.cur = st; S.tutHold = true;
+    if (st.run && S.ext.onTutRun) S.ext.onTutRun(st.run, { addOp: tutAddOp, addDp: (n) => { S.dp = Math.min(S.maxDp, S.dp + n); } });
+    const who = st.who && UI.OPS[st.who], name = who ? who.name : st.name || '';
+    const el = tutPanel();
+    el.innerHTML = `${name || st.text ? `<div class="tut-say">${who ? `<span class="tut-face" style="--c:${who.color}">${who.image ? `<img src="${who.image}" alt="">` : UI.esc(who.name[0])}</span>` : ''}<div>${name ? `<b style="color:${who ? who.color : '#ffcf3a'}">${UI.esc(name)}</b>` : ''}${st.text ? `<p>${UI.esc(st.text)}</p>` : ''}</div></div>` : ''}
+      ${st.hint ? `<div class="tut-hint">${UI.esc(st.hint)}</div>` : ''}${st.wait === 'tap' ? '<small class="tut-tap">▶ 눌러서 계속</small>' : ''}`;
+    el.classList.remove('hidden');
+    el.classList.toggle('tap', st.wait === 'tap');
+    const target = st.wait && st.wait.deploy;
+    for (const r of S.roster) if (r.el) r.el.classList.toggle('tut-glow', !!target && r.def.id === target);
+  }
+  function tutDone() {
+    const T = S.tut;
+    T.cur = null; T.i++; S.tutHold = false;
+    tutPanel().classList.add('hidden');
+    for (const r of S.roster) if (r.el) r.el.classList.remove('tut-glow');
+    tutTick();
+  }
+  function tutEvent(kind, id) {
+    const T = S && S.tut, c = T && T.cur;
+    if (!c || !c.wait || c.wait === 'tap') return;
+    if ((c.wait === kind) || (kind === 'deploy' && c.wait.deploy === id)) setTimeout(tutDone, 300);
+  }
+  function tutAddOp(def) {
+    S.roster.push({ def, cd: 0, deployed: false, i: S.roster.length });
+    buildCards();
+  }
   function buildCards() {
     const wrap = $('#cards');
     wrap.innerHTML = '';
@@ -1317,6 +1365,7 @@
     if (def.ammo) { const el = def.trained ? def.trained.elite : 2; op.ammoMax = def.ammo.max[Math.min(2, el)]; op.ammo = op.ammoMax; op.reloadT = 0; }
     setRange(op, def.range);
     S.ops.push(op);
+    tutEvent('deploy', def.id);
     if (r.owner) op.owner = r.owner;
     if (op.owner && op.owner.alive && def.rareDef) {
       const ow = op.owner, df = ow.tal.dreamFish;
@@ -1403,6 +1452,7 @@
     }
   }
   function retreat(op) {
+    tutEvent('retreat', op.def.id);
     S.dp = Math.min(S.maxDp, S.dp + Math.floor(op.def.cost / 2));
     addText(op.x + 0.5, op.y + 0.2, '철수', '#9aa1ab', 0.8, true);
     sfx('retreat');
@@ -1437,6 +1487,7 @@
   function activateSkill(op) {
     const sk = op.skill, ef = sk.effect || {};
     if (op.skillT > 0 || op.sp < sk.sp) return false;
+    if (sk.trigger !== 'auto') tutEvent('skill', op.def.id);
     sfx(ef.strike ? 'strike' : 'skill');
     const atk = op.def.atk * op.tal.atk * (ef.atk || 1);
     if (ef.dp) S.dp = Math.min(S.maxDp, S.dp + ef.dp);
@@ -2653,6 +2704,7 @@
 
   function endBattle(win) {
     S.ended = true;
+    { const tp = document.getElementById('tut'); if (tp) tp.classList.add('hidden'); }
     sfx(win ? 'win' : 'lose');
     setMode('idle');
     const st = S.st;
@@ -2769,7 +2821,8 @@
     const raw = Math.min(0.05, (now - last) / 1000);
     last = now;
     if (S) {
-      if (!S.paused && !S.ended) {
+      if (S.tut && !S.ended) tutTick();
+      if (!S.paused && !S.ended && !S.tutHold) {
         const dt = raw * S.speed * (S.mode === 'idle' ? 1 : SLOW);
         const steps = Math.max(1, Math.ceil(dt / 0.02));
         for (let i = 0; i < steps && !S.ended; i++) update(dt / steps);

@@ -3636,3 +3636,29 @@ var.oi { font-style: normal; }
 .sp-ava b, .sb-art b { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: 30px; color: #fff; }
 .sp-el { top: 58%; transform: translate(-50%, 0); }
 .ins-art img.ins-icon { right: 4%; left: auto; top: 6%; height: 40%; width: auto; opacity: .35; object-fit: contain; }
+
+/* ===== 프롤로그 · 튜토리얼 ===== */
+.tut { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); width: min(640px, 92vw); z-index: 30; background: rgba(12,13,16,.94); border: 1px solid #ffcf3a; box-shadow: 0 6px 24px rgba(0,0,0,.6); color: #fff; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.tut.hidden { display: none; }
+.tut.tap { cursor: pointer; }
+.tut-say { display: flex; gap: 12px; align-items: flex-start; }
+.tut-face { width: 52px; height: 52px; flex: none; overflow: hidden; background: color-mix(in srgb, var(--c) 55%, #222); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 24px; }
+.tut-face img { width: 100%; height: 160%; object-fit: cover; object-position: 50% 6%; }
+.tut-say b { display: block; font-size: 14px; }
+.tut-say p { margin: 2px 0 0; font-size: 15px; line-height: 1.5; }
+.tut-hint { background: rgba(255,207,58,.12); border-left: 3px solid #ffcf3a; padding: 6px 10px; font-size: 13px; line-height: 1.5; color: #ffe9a8; }
+.tut-tap { align-self: flex-end; color: #aaa; font-size: 12px; animation: tutBlink 1.2s infinite; }
+@keyframes tutBlink { 50% { opacity: .35; } }
+.card.tut-glow { box-shadow: 0 0 0 3px #ffcf3a, 0 0 18px #ffcf3a; animation: tutGlow 1s infinite alternate; z-index: 2; }
+@keyframes tutGlow { to { box-shadow: 0 0 0 3px #fff3b0, 0 0 28px #ffcf3a; } }
+@media (max-height: 500px) { .tut { bottom: 96px; padding: 8px 12px; } .tut-face { width: 40px; height: 40px; } .tut-say p { font-size: 13px; } }
+.dlg-choices { display: flex; gap: 12px; flex-wrap: wrap; }
+.dlg-choice { background: rgba(255,255,255,.1); border: 1px solid #ffcf3a; color: #fff; padding: 10px 26px; font-size: 16px; font-weight: 700; }
+.dlg-choice:hover { background: rgba(255,207,58,.25); }
+.oc-card.prologue .oc-ep { color: #ffcf3a; }
+/* 메인 화면 안내 */
+.hguide { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.3); cursor: pointer; }
+.hg-focus { position: relative; z-index: 61 !important; box-shadow: 0 0 0 3px #ffcf3a, 0 0 24px #ffcf3a !important; }
+.hg-bubble { position: fixed; width: 360px; max-width: calc(100vw - 24px); display: flex; gap: 12px; background: rgba(12,13,16,.96); border: 1px solid #ffcf3a; padding: 12px; color: #fff; z-index: 62; }
+.hg-bubble b { font-size: 14px; } .hg-bubble p { margin: 2px 0 4px; font-size: 14px; line-height: 1.5; } .hg-bubble small { color: #999; font-size: 11px; }
+.hg-skip { position: fixed; right: 16px; top: 16px; z-index: 63; background: #2b2d31; color: #fff; padding: 6px 14px; }
