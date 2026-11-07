@@ -2674,6 +2674,42 @@ const liveEvent = (key = 'end') => EVENTS.find((e) => eventLive(e, key)) || null
   STAGES.push(...NC);
 }
 
+// =====================================================================
+//  작전 난이도 — 원작처럼 뒤 챕터 · 뒤 작전일수록 적 레벨(HP · 공격력)과 물량이 늘어남
+//  hp/atk: 적 능력치 배율, more: 웨이브 물량 배율(보스 제외, 간격은 그만큼 촘촘하게)
+// =====================================================================
+const STAGE_DIFF = {
+  chapter: { 1: { hp: 1.15, atk: 1.1, more: 1.3 }, 2: { hp: 1.45, atk: 1.25, more: 1.55 }, 3: { hp: 1.75, atk: 1.4, more: 1.8 }, 4: { hp: 1.95, atk: 1.5, more: 1.9 } },
+  step: 0.04,                                               // 같은 챕터 안에서 작전 번호마다 +4%
+  supply: (lv) => ({ hp: 1.15 + lv * 0.12, atk: 1.1 + lv * 0.07, more: 1.2 + lv * 0.1 }),
+  nc: { hp: 1.5, atk: 1.25, more: 1.3 }, ncEx: { hp: 1.8, atk: 1.4, more: 1.4 },
+  an: { hp: 1.6, atk: 1.35, more: 1 },
+};
+function stageDiff(st) {
+  const D = STAGE_DIFF, code = String(st.code || ''), n = +(code.match(/-(\d+)$/) || [0, 1])[1];
+  let d = null;
+  if (typeof st.chapter === 'number' && D.chapter[st.chapter]) d = { ...D.chapter[st.chapter] };
+  else if (st.event === 'nc') d = { ...(code.includes('EX') ? D.ncEx : D.nc) };
+  else if (code.startsWith('AN')) d = { ...D.an };
+  else if (st.chapter === 'supply') d = D.supply(code.startsWith('PR') ? n * 2.5 : n);
+  if (!d) return null;
+  if (typeof st.chapter === 'number' || st.event) { const k = 1 + D.step * (n - 1); d.hp *= k; d.atk *= 1 + (D.step / 2) * (n - 1); }
+  return d;
+}
+// 난이도를 적용한 웨이브 · 적 정의 (전투와 적 정보 화면 공용). 첫 웨이브(12초 전)와 보스는 물량을 늘리지 않음
+function stageScaled(st, base) {
+  const d = stageDiff(st);
+  if (!d) return null;
+  const enemies = {};
+  for (const [k, e] of Object.entries({ ...ENEMIES, ...(base || {}) })) enemies[k] = { ...e, hp: Math.round(e.hp * d.hp), atk: Math.round(e.atk * d.atk) };
+  const waves = st.waves.map((w) => {
+    const e = enemies[w.enemy], n0 = w.count || 1;
+    const n = w.t >= 12 && !(e && e.boss) ? Math.max(n0, Math.round(n0 * d.more)) : n0;
+    return n > n0 ? { ...w, count: n, gap: (w.gap || 2) * Math.max(0.55, Math.sqrt(n0 / n)) } : w;
+  });
+  return { diff: d, enemies, waves };
+}
+
 // 이벤트 의상 (이벤트 상점에서 교환, 상점이 닫힌 뒤에는 오리지늄으로 구매)
 SKINS.push(
   { id: 'isseo_s2', op: 'isseo', name: '가면제의 사립탐정', brand: '등불 가면제', image: 'img/skin/isseo_2.png', price: 18, event: 'nc',

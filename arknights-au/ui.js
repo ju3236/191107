@@ -2349,8 +2349,11 @@
         <p class="ed-desc">${esc(e.desc || '')}</p></div>`;
   }
   function openEnemies(st, defs) {
+    // 일반 작전은 난이도(적 강화 · 물량)가 적용된 수치로 보여 줌
+    const sc = !defs && STAGES.includes(st) && typeof stageScaled === 'function' ? stageScaled(st) : null;
+    if (sc) defs = sc.enemies;
     const count = {};
-    for (const w of st.waves) count[w.enemy] = (count[w.enemy] || 0) + (w.count || 1);
+    for (const w of sc ? sc.waves : st.waves) count[w.enemy] = (count[w.enemy] || 0) + (w.count || 1);
     const list = Object.entries(count).map(([id, n]) => ({ id, n, e: (defs && defs[id]) || ENEMIES[id] })).filter((x) => x.e)
       .sort((a, b) => (b.e.boss ? 2 : b.e.elite ? 1 : 0) - (a.e.boss ? 2 : a.e.elite ? 1 : 0));
     openModal(`<div class="modal-title">적 정보</div><div class="modal-sub">${esc(st.code || '')} ${esc(st.name)} · 출현 적 ${list.reduce((s, x) => s + x.n, 0)}</div>

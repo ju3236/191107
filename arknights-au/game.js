@@ -107,8 +107,11 @@
       const a = p[0], b = p[p.length - 1], d = Math.hypot(b.x - a.x, b.y - a.y);
       return [{ x: a.x, y: a.y, rem: d }, { x: b.x, y: b.y, rem: 0 }];
     });
+    // 작전 난이도: 적 능력치 배율 · 물량 배율 (통합전략 · 프롤로그 등 객체로 넘긴 작전은 제외)
+    const scaled = idx >= 0 && !opts.noDiff && typeof stageScaled === 'function' ? stageScaled(st, opts.enemies) : null;
+    if (scaled) opts = { ...opts, enemies: scaled.enemies };
     const queue = [];
-    for (const w of st.waves) {
+    for (const w of scaled ? scaled.waves : st.waves) {
       for (let i = 0; i < (w.count || 1); i++) queue.push({ t: w.t + i * (w.gap || 2), enemy: w.enemy, spawn: w.spawn || 0 });
     }
     queue.sort((a, b) => a.t - b.t);
@@ -3895,5 +3898,5 @@
   window.__game = { get state() { return S; }, beginBattle, addFx: (f) => addFx(f), sparks: (...a) => sparks(...a), rise: (...a) => rise(...a), proj: (u, v, h) => proj(u, v, h), deploy: (id, x, y, dir) => {
     const r = S.roster.find((q) => q.def.id === id);
     if (r) deploy(r, x, y, dir || 'right');
-  }, inspect: (i) => { S.inspect = S.ops[i]; setMode('inspect'); refreshInspect(true); }, end: (w) => endBattle(w) };
+  }, step: (dt, n = 1) => { for (let i = 0; i < n && S && !S.ended; i++) update(dt); }, inspect: (i) => { S.inspect = S.ops[i]; setMode('inspect'); refreshInspect(true); }, end: (w) => endBattle(w) };
 })();
