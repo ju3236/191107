@@ -3743,3 +3743,25 @@ var.oi { font-style: normal; }
   .tag-col { width: 120px; }
   .tag-col .tg-pos, .tag-col .tg-main { font-size: 14px; }
 }
+
+/* ---------- 오퍼레이터 목록 카드: 원작 카드 부품 (img/ui/card) ---------- */
+.rcard { background: var(--rc-bg) top center / 100% auto no-repeat, #2a2b2e; }
+.rc-art { inset: 0 0 14% 0; container-type: size; align-items: flex-start; }
+.rc-art::before { display: none; }
+.rc-art img { height: 92%; width: 110%; object-fit: contain; object-position: 50% 100%; margin-top: 10%; }
+/* 정식 일러: 얼굴(--fx)이 카드 가운데, 머리~가슴이 보이게 크게 */
+.rc-art img.full { position: absolute; margin: 0; max-width: none; width: 420cqw; height: auto; object-fit: initial; left: calc(50cqw - var(--fx, .5) * 420cqw); top: calc(55cqw - var(--fy, .2) * 560cqw); }
+.rc-band { bottom: 14%; height: 36%; background: var(--rc-light) left bottom / 100% 100% no-repeat; opacity: .95; }
+.rc-band::after { display: none; }
+.rc-low { position: absolute; left: 0; right: 0; bottom: 14%; height: 27%; background: var(--rc-low) left bottom / 108% 100% no-repeat; }
+.rc-name { background: #1c1d20; }
+.rc-top { gap: 0; }
+.rc-top::before { content: ''; position: absolute; left: 0; top: 0; width: 56%; aspect-ratio: 80 / 38; background: var(--rc-up) left top / 100% 100% no-repeat; }
+.rc-class { position: relative; background: rgba(28,29,32,.85); }
+.rc-stars { position: relative; color: #ffd23a; padding: 3px 0 0 4px; }
+.rc-foot { z-index: 1; }
+.rc-elite { z-index: 1; }
+.rc-pot { color: #fff; text-shadow: 0 0 2px #000; }
+/* 편성 등 작은 카드: 정식 일러는 얼굴 위주로 잘라서 */
+.oc-art { overflow: hidden; }
+.oc-art .art.full img { inset: auto; max-width: none; width: 420cqw; height: auto; object-fit: initial; left: calc(50cqw - var(--fx, .5) * 420cqw); top: calc(55cqw - var(--fy, .2) * 560cqw); }
