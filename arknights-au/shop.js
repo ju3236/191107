@@ -324,7 +324,8 @@
 
   // 원작 헤드헌팅 화면: 배너 넘김(« » · 상단 점), 왼쪽 큰 6성, 오른쪽 붉은 패널(나머지 확률 UP), 아래 확률 UP 문구 · 1회/10회
   const opTag = (o, big) => `<div class="hh-tag2 ${big ? 'big' : ''}"><span class="hh-stars">${'★'.repeat(o.rarity || 3)}</span><b>${icon(o.class)}${esc(o.name)}</b></div>`;
-  const opImg = (o) => (o.image ? `<img src="${esc(o.image)}" alt="" draggable="false">` : `<span class="hh-ph" style="--c:${o.color}">${esc(o.name[0])}</span>`);
+  // 정식 일러가 있으면 헤드헌팅 배너도 정식 일러(정예화 0)로
+  const opImg = (o) => (o.art ? `<img class="hh-full" src="${esc(o.art)}" alt="" draggable="false" style="--fx:${o.artFace ?? 0.5}">` : o.image ? `<img src="${esc(o.image)}" alt="" draggable="false">` : `<span class="hh-ph" style="--c:${o.color}">${esc(o.name[0])}</span>`);
   RENDER.headhunt = () => {
     UI.renderResources();
     $('#hh-res').innerHTML = [['permit', 'permit'], ['permit10', 'permit10'], ['originite', 'originite'], ['orundum', 'orundum']].map(([k]) => `<span class="hh-r">${ico(k)}<b>${fmt(ACCOUNT.bal(k))}</b></span>`).join('');

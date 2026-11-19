@@ -3773,3 +3773,9 @@ var.oi { font-style: normal; }
 .rc-sk img { width: 100%; height: 100%; display: block; }
 .rc-sk em { position: absolute; right: -2px; bottom: -2px; font-style: normal; font-family: var(--f-en); font-size: 11px; line-height: 1; background: #ffcf3a; color: #1a1205; padding: 1px 3px; font-weight: 700; }
 @media (max-height: 500px) { .rc-sk { width: 26px; height: 26px; } }
+/* 헤드헌팅: 정식 일러는 원작 배너처럼 머리~허벅지 정도로 크게 (얼굴 --fx를 칸 가운데로) */
+.hh-lead-art:has(img.hh-full), .hh-sub:has(img.hh-full) { container-type: size; }
+.hh-lead-art img.hh-full, .hh-sub img.hh-full { position: absolute; max-width: none; height: auto; object-fit: initial; }
+.hh-lead-art img.hh-full { width: 150cqw; left: calc(50cqw - var(--fx, .5) * 150cqw); top: calc(18cqh - .2 * 200cqw); }
+.hh-sub img.hh-full { width: 230cqw; left: calc(50cqw - var(--fx, .5) * 230cqw); top: calc(16cqh - .2 * 307cqw); }
+.hh-sub:has(img.hh-full) > :not(img) { position: relative; }
