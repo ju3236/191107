@@ -3767,7 +3767,9 @@ var.oi { font-style: normal; }
 .oc-art .art.full img { inset: auto; max-width: none; width: 420cqw; height: auto; object-fit: initial; left: calc(50cqw - var(--fx, .5) * 420cqw); top: calc(55cqw - var(--fy, .2) * 560cqw); }
 /* 전투 중 오퍼 정보: 정식 일러 */
 .ins-art { container-type: size; }
-.ins-art img.ins-full { right: auto; height: auto; width: 170cqw; max-width: none; opacity: .5; left: calc(64cqw - var(--fx, .5) * 170cqw); top: calc(26cqh - var(--fy, .2) * 227cqw); }
+.ins-art img.ins-full { right: auto; height: auto; width: 200cqw; max-width: none; opacity: .88; left: calc(58cqw - var(--fx, .5) * 200cqw); top: calc(26cqh - var(--fy, .2) * 267cqw); }
+/* 원작처럼 일러를 선명하게 두고, 글자가 있는 왼쪽만 살짝 어둡게 */
+.ins-art:has(img.ins-full)::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,11,13,.55) 0, rgba(10,11,13,.15) 45%, transparent 70%); }
 /* 목록 카드 아래 스킬 아이콘 (원작처럼 고른 스킬의 아이콘) */
 .rc-sk { position: relative; width: 38px; height: 38px; padding: 0; background: #111; border: 2px solid #e8e8e8; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
 .rc-sk img { width: 100%; height: 100%; display: block; }
@@ -3779,3 +3781,19 @@ var.oi { font-style: normal; }
 .hh-lead-art img.hh-full { width: 150cqw; left: calc(50cqw - var(--fx, .5) * 150cqw); top: calc(18cqh - .2 * 200cqw); }
 .hh-sub img.hh-full { width: 230cqw; left: calc(50cqw - var(--fx, .5) * 230cqw); top: calc(16cqh - .2 * 307cqw); }
 .hh-sub:has(img.hh-full) > :not(img) { position: relative; }
+/* 편성 카드: 원작 카드 부품 */
+.op-card.form { background: var(--rc-bg) top center / 100% auto no-repeat, #2a2b2e; }
+.op-card.form .oc-art { inset: 0 0 20% 0; }
+.op-card.form .oc-art .art { background: none !important; }
+.op-card.form .oc-art .art-en { display: none; }
+.op-card.form .oc-band { position: absolute; left: 0; right: 0; bottom: 20%; height: 20%; background: var(--rc-light) left bottom / 100% 100% no-repeat; pointer-events: none; }
+.op-card.form .oc-low { position: absolute; left: 0; right: 0; bottom: 0; height: 34%; background: var(--rc-low) left top / 108% 62% no-repeat, linear-gradient(180deg, transparent 58%, #1c1d20 58%); pointer-events: none; }
+.op-card.form .oc-foot { background: none; height: 22%; z-index: 1; }
+.op-card.form .oc-foot::before { display: none; }
+.op-card.form .oc-top, .op-card.form .oc-sk { z-index: 1; }
+.op-card.form .oc-top { background: none; }
+/* 정식 일러가 있으면 원작처럼 위 영역을 넓게: 일러가 크게 보이고, 스탯 · 공격 범위는 일러 아래쪽에 겹침 */
+.inspect:has(.ins-full) .ins-top { grid-template-rows: auto auto 1fr; min-height: min(40vh, 300px); }
+.inspect:has(.ins-full) .ins-row { align-self: end; }
+.inspect:has(.ins-full) .ins-art img.ins-full { left: calc(62cqw - var(--fx, .5) * 200cqw); top: calc(min(40vh, 300px) * .3 - var(--fy, .2) * 267cqw); }
+.inspect:has(.ins-full) .ins-art { height: calc(min(40vh, 300px) + 70px); }

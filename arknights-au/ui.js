@@ -199,8 +199,11 @@
   const durText = (sk) => (sk.duration > 0 ? ` · ${sk.duration}초` : sk.duration === -1 ? ' · 지속' : '');
   function cardHTML(def, extra = '') {
     const t = window.TRAIN && !def.trained && !def.summoned ? TRAIN.trained(def) : def, form = / form\b|^form\b/.test(extra);
-    return `<div class="op-card ${extra}" style="--c:${def.color}">
-      <div class="oc-art">${artHTML(def)}</div>
+    // 편성 카드: 원작 카드 부품(등급별 배경 · 하프톤 빛 · 아래 장식)
+    const r = Math.max(1, Math.min(6, def.rarity || 1)), rb = r <= 3 ? 1 : r;
+    const parts = form ? `;--rc-bg:url(img/ui/card/bg_${rb}.webp);--rc-light:url(img/ui/card/light_${r}.webp);--rc-low:url(img/ui/card/low_${rb}.webp)` : '';
+    return `<div class="op-card ${extra} rk${r}" style="--c:${def.color}${parts}">
+      <div class="oc-art">${artHTML(def)}</div>${form ? '<div class="oc-band"></div><div class="oc-low"></div>' : ''}
       <div class="oc-top"><span class="oc-class">${icon(def.class)}</span><span class="oc-stars">${stars(def.rarity)}</span></div>
       ${form && skillsOf(def).length ? `<span class="oc-sk"><img src="${skillIcon(skillsOf(def)[skillIndex(def)], skillIndex(def), def)}" alt=""></span>` : skillsOf(def).length > 1 ? `<span class="oc-skill">S${skillIndex(def) + 1}</span>` : ''}
       <div class="oc-foot">
@@ -232,7 +235,7 @@
     // 원작 카드 부품(등급별 배경 · 하프톤 빛 · 위/아래 장식). 정식 일러가 있으면 얼굴 위주로 잘라 넣음
     const r = Math.max(1, Math.min(6, def.rarity || 1)), rb = r <= 3 ? 1 : r, fa = fullArt(def);
     const art = fa ? `<img class="full" src="${esc(fa.src)}" alt="" style="--fx:${fa.face ?? 0.5}">` : def.image ? `<img src="${esc(def.image)}" alt="">` : `<b>${esc(def.name[0])}</b>`;
-    return `<div class="rcard r${r}" style="--c:${def.color};--rc-bg:url(img/ui/card/bg_${rb}.webp);--rc-light:url(img/ui/card/light_${r}.webp);--rc-up:url(img/ui/card/up_${r}.webp);--rc-low:url(img/ui/card/low_${rb}.webp)">
+    return `<div class="rcard rk${r}" style="--c:${def.color};--rc-bg:url(img/ui/card/bg_${rb}.webp);--rc-light:url(img/ui/card/light_${r}.webp);--rc-up:url(img/ui/card/up_${r}.webp);--rc-low:url(img/ui/card/low_${rb}.webp)">
       <div class="rc-art">${art}</div>
       <div class="rc-band"></div><div class="rc-low"></div>
       <div class="rc-top"><span class="rc-class">${icon(def.class)}</span><span class="rc-stars">${stars(def.rarity)}</span></div>
