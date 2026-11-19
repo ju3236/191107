@@ -3682,9 +3682,13 @@ var.oi { font-style: normal; }
 .art.full .art-en { display: none; }
 .art.full img { inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: bottom center; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45)); }
 .home-art:has(.art.full) { clip-path: none; -webkit-mask-image: none; mask-image: none; left: 14%; width: min(48%, 82vh); height: 100%; }
-.detail-art:has(.art.full) { clip-path: none; -webkit-mask-image: none; mask-image: none; left: 20%; right: 18%; }
+/* 상세: 원작처럼 일러를 화면 전체 뒤에 크게 (머리는 위쪽 1/4, 다리는 아래로 잘림) · 패널이 위에 겹침
+   오퍼마다 --dz(그림 높이, 화면 높이 대비) · --dx(가로 중심) · --dy(위 여백)로 조정 */
+.detail-art:has(.art.full) { clip-path: none; -webkit-mask-image: none; mask-image: none; left: 0; right: 0; overflow: hidden; }
+.detail-art .art.full img { inset: auto; top: var(--dy, 1%); left: var(--dx, 56%); width: auto; height: var(--dz, 160%); max-width: none; transform: translateX(-50%); object-fit: contain; }
 .art.full.wide img { inset: 0 !important; width: 100% !important; height: 100% !important; margin: 0 !important; object-fit: cover !important; object-position: var(--apos, 50% 25%) !important; }
 @media (max-width: 760px) and (orientation: portrait) {
   .home-art:has(.art.full) { left: auto; width: 62%; height: 46vh; }
   .detail-art:has(.art.full) { left: auto; right: auto; }
+  .detail-art .art.full img { top: 0; left: 50%; height: 100%; }
 }
