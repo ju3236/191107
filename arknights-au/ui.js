@@ -132,7 +132,18 @@
 
   // ---------- 공통 그림 ----------
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // 정예화 일러스트: 의상을 입지 않았으면 큰 그림 자리에 정식 일러스트(정예화 2 달성 시 2정 일러, 의상 화면에서 고를 수 있음)
+  const eliteOf = (id) => (((ACCOUNT.player || {}).prog || {})[id] || {}).elite || 0;
+  function fullArt(def) {
+    const o = (typeof OPS !== 'undefined' && OPS[def.id]) || def;
+    if (o.skin || !o.art) return null;
+    const pick = ((save.skins || {}).art || {})[o.id];
+    const e2 = o.art2 && eliteOf(o.id) >= 2 && pick !== 'e0';
+    return e2 ? { src: o.art2, wide: true, pos: o.art2Pos || '50% 25%' } : { src: o.art };
+  }
   function artHTML(def) {
+    const fa = fullArt(def);
+    if (fa) return `<div class="art has-img full ${fa.wide ? 'wide' : ''}" style="--c:${def.color}${fa.pos ? `;--apos:${fa.pos}` : ''}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(fa.src)}" alt="${esc(def.name)}"></div>`;
     if (def.image) return `<div class="art has-img" style="--c:${def.color}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(def.image)}" alt="${esc(def.name)}"></div>`;
     return `<div class="art" style="--c:${def.color}">
       <span class="art-ico">${icon(def.class)}</span>
@@ -1540,29 +1551,32 @@
   // 13. 의상 화면 (원작: 왼쪽 큰 그림, 가운데 의상 설명, 오른쪽 컬렉션 목록)
   let skinSel = null;
   function openSkins(id, pick) {
-    const o = OPS[id], list = skinsOf(id), cur = o.skin || 'base';
+    const o = OPS[id], list = skinsOf(id), fa = fullArt(o), e2ok = !!o.art2 && eliteOf(id) >= 2;
+    const cur = o.skin || (fa && fa.wide ? 'e2' : 'base');
     skinSel = pick || skinSel || cur;
-    if (skinSel !== 'base' && !list.some((k) => k.id === skinSel)) skinSel = cur;
-    const sk = list.find((k) => k.id === skinSel), img = sk ? sk.image : o.baseImage;
+    if (skinSel !== 'base' && !(skinSel === 'e2' && o.art2) && !list.some((k) => k.id === skinSel)) skinSel = cur;
+    const isE2 = skinSel === 'e2';
+    const sk = list.find((k) => k.id === skinSel), img = sk ? sk.image : isE2 ? o.art2 : o.art || o.baseImage;
     const v = $('#train-view');
     v.className = 'train-view skinv';
     v.style.setProperty('--c', o.color);
-    const own = skinSel === 'base' || ownsSkin(skinSel), ev = sk && !own && skinShopOf(sk);
+    const own = skinSel === 'base' || (isE2 ? e2ok : ownsSkin(skinSel)), ev = sk && !own && skinShopOf(sk);
     const act = skinSel === cur ? '<button class="sk-act" disabled>현재 복장</button>'
+      : isE2 && !e2ok ? '<button class="sk-act" disabled>정예화 2 달성 시 해금</button>'
       : own ? `<button class="sk-act go" data-skwear>착용</button>`
       : ev ? `<button class="sk-act ev" data-skev="${esc(ev.id)}">이벤트 상점</button>`
       : sk && sk.event ? '<button class="sk-act" disabled>획득 기간 종료</button>'
       : `<button class="sk-act buy" data-skbuy><i class="ri originite"></i>${sk.price} 구매</button>`;
-    const thumb = (sid, im, name) => `<button class="sk-th ${sid === skinSel ? 'on' : ''} ${sid === cur ? 'cur' : ''} ${sid === 'base' || ownsSkin(sid) ? '' : 'nown'}" data-skv="${esc(sid)}" title="${esc(name)}">${im ? `<img src="${esc(im)}" alt="">` : ''}${sid === cur ? '<i>착용 중</i>' : ''}</button>`;
+    const thumb = (sid, im, name) => `<button class="sk-th ${sid === skinSel ? 'on' : ''} ${sid === cur ? 'cur' : ''} ${sid === 'base' || (sid === 'e2' ? e2ok : ownsSkin(sid)) ? '' : 'nown'}" data-skv="${esc(sid)}" title="${esc(name)}">${im ? `<img src="${esc(im)}" alt="">` : ''}${sid === cur ? '<i>착용 중</i>' : ''}</button>`;
     v.innerHTML = `<button class="nav-btn tv-back" data-tvclose aria-label="뒤로">${icon('back')}</button>
       <div class="sk-art">${img ? `<img src="${esc(img)}" alt="">` : ''}</div>
       <div class="sk-info">
         <div class="sk-crop">${img ? `<img src="${esc(img)}" alt="">` : ''}</div>
-        <div class="skv-card"><small>${sk ? esc(sk.brand || 'OUTFIT') : 'DEFAULT OUTFIT'}</small><b>${esc(sk ? sk.name : '기본 의상')}</b>
-          <p>${esc(sk ? sk.desc || '' : `${o.name}의 기본 복장.`)}</p>${sk && sk.event ? `<em>이벤트 상점 의상</em>` : ''}</div>
+        <div class="skv-card"><small>${sk ? esc(sk.brand || 'OUTFIT') : o.art ? (isE2 ? 'ELITE 2' : 'ELITE 0') : 'DEFAULT OUTFIT'}</small><b>${esc(sk ? sk.name : o.art ? (isE2 ? '정예화 2' : '정예화 0') : '기본 의상')}</b>
+          <p>${esc(sk ? sk.desc || '' : isE2 ? `정예화 2를 달성한 ${o.name}의 모습.` : `${o.name}의 기본 복장.`)}</p>${sk && sk.event ? `<em>이벤트 상점 의상</em>` : ''}</div>
         ${act}<small class="sk-note">변경한 복장은 다른 화면에도 적용됩니다</small>
       </div>
-      <div class="sk-side"><h4>${esc(o.name)}의 컬렉션</h4><div class="sk-list">${thumb('base', o.baseImage, '기본 의상')}${list.map((k) => thumb(k.id, k.image, k.name)).join('')}</div></div>`;
+      <div class="sk-side"><h4>${esc(o.name)}의 컬렉션</h4><div class="sk-list">${thumb('base', o.art || o.baseImage, o.art ? '정예화 0' : '기본 의상')}${o.art2 ? thumb('e2', o.art2, '정예화 2') : ''}${list.map((k) => thumb(k.id, k.image, k.name)).join('')}</div></div>`;
   }
   $('#train-view').addEventListener('click', (e) => {
     const v = $('#train-view');
@@ -1572,7 +1586,8 @@
     if (th) { openSkins(detailId, th.dataset.skv); return; }
     if (e.target.closest('[data-skwear]')) {
       if (!owned(detailId)) { toast('보유한 오퍼레이터만 갈아입을 수 있습니다'); return; }
-      if (skinSel === 'base') delete sv.wear[detailId]; else sv.wear[detailId] = skinSel;
+      sv.art = sv.art || {};
+      if (skinSel === 'base' || skinSel === 'e2') { delete sv.wear[detailId]; sv.art[detailId] = skinSel === 'e2' ? 'e2' : 'e0'; } else sv.wear[detailId] = skinSel;
       writeSave(); applySkins(); sfx('select'); openSkins(detailId); return;
     }
     const evb = e.target.closest('[data-skev]');
