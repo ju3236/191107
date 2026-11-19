@@ -240,7 +240,7 @@
         <span class="rc-elite e${pg.elite}">${eliteIcon(pg.elite)}</span>
         <div class="rc-lv"><small>LV</small><b>${pg.level}</b></div>
         <span class="rc-pot" title="잠재">${pot > 1 ? 'P' + pot : ''}</span>
-        ${list.length ? `<span class="rc-sk" style="--c:${def.color}">S${si + 1}</span>` : ''}
+        ${list.length ? `<span class="rc-sk" title="${esc(list[si].name || '')}"><img src="${skillIcon(list[si], si, def)}" alt="S${si + 1}">${pg.mst && pg.mst[si] ? `<em>${pg.mst[si]}</em>` : ''}</span>` : ''}
       </div>
       <div class="rc-name">${esc(def.name)}</div>
     </div>`;

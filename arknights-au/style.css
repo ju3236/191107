@@ -3768,3 +3768,8 @@ var.oi { font-style: normal; }
 /* 전투 중 오퍼 정보: 정식 일러 */
 .ins-art { container-type: size; }
 .ins-art img.ins-full { right: auto; height: auto; width: 170cqw; max-width: none; opacity: .5; left: calc(64cqw - var(--fx, .5) * 170cqw); top: calc(26cqh - var(--fy, .2) * 227cqw); }
+/* 목록 카드 아래 스킬 아이콘 (원작처럼 고른 스킬의 아이콘) */
+.rc-sk { position: relative; width: 38px; height: 38px; padding: 0; background: #111; border: 2px solid #e8e8e8; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.rc-sk img { width: 100%; height: 100%; display: block; }
+.rc-sk em { position: absolute; right: -2px; bottom: -2px; font-style: normal; font-family: var(--f-en); font-size: 11px; line-height: 1; background: #ffcf3a; color: #1a1205; padding: 1px 3px; font-weight: 700; }
+@media (max-height: 500px) { .rc-sk { width: 26px; height: 26px; } }
