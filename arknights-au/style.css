@@ -3677,6 +3677,14 @@ var.oi { font-style: normal; }
 .att-pk .art-en { display: none; }
 .att-pk b { font-size: 15px; } .att-pk small { color: #aaa; font-size: 11px; }
 
-/* 정예화 일러스트 (정식 그림) */
-.art.full img { filter: drop-shadow(0 8px 14px rgba(0,0,0,.4)); }
+/* 정예화 일러스트 (정식 그림): 뒤 카드 배경 · 영문 이름 · 비스듬한 틀 없이 그림만 크게 (원작처럼) */
+.art.full { background: none; overflow: visible; }
+.art.full .art-en { display: none; }
+.art.full img { inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: bottom center; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45)); }
+.home-art:has(.art.full) { clip-path: none; -webkit-mask-image: none; mask-image: none; left: 14%; width: min(48%, 82vh); height: 100%; }
+.detail-art:has(.art.full) { clip-path: none; -webkit-mask-image: none; mask-image: none; left: 20%; right: 18%; }
 .art.full.wide img { inset: 0 !important; width: 100% !important; height: 100% !important; margin: 0 !important; object-fit: cover !important; object-position: var(--apos, 50% 25%) !important; }
+@media (max-width: 760px) and (orientation: portrait) {
+  .home-art:has(.art.full) { left: auto; width: 62%; height: 46vh; }
+  .detail-art:has(.art.full) { left: auto; right: auto; }
+}
