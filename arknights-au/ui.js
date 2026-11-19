@@ -139,7 +139,7 @@
     if (o.skin || !o.art) return null;
     const pick = ((save.skins || {}).art || {})[o.id];
     const e2 = o.art2 && eliteOf(o.id) >= 2 && pick !== 'e0';
-    return e2 ? { src: o.art2, wide: true, pos: o.art2Pos || '50% 25%' } : { src: o.art };
+    return e2 ? { src: o.art2, e2: true, wide: !!o.art2Wide, pos: o.art2Wide ? o.art2Pos || '50% 25%' : null } : { src: o.art };
   }
   function artHTML(def) {
     const fa = fullArt(def);
@@ -1552,7 +1552,7 @@
   let skinSel = null;
   function openSkins(id, pick) {
     const o = OPS[id], list = skinsOf(id), fa = fullArt(o), e2ok = !!o.art2 && eliteOf(id) >= 2;
-    const cur = o.skin || (fa && fa.wide ? 'e2' : 'base');
+    const cur = o.skin || (fa && fa.e2 ? 'e2' : 'base');
     skinSel = pick || skinSel || cur;
     if (skinSel !== 'base' && !(skinSel === 'e2' && o.art2) && !list.some((k) => k.id === skinSel)) skinSel = cur;
     const isE2 = skinSel === 'e2';
