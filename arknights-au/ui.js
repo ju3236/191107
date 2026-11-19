@@ -139,11 +139,11 @@
     if (o.skin || !o.art) return null;
     const pick = ((save.skins || {}).art || {})[o.id];
     const e2 = o.art2 && eliteOf(o.id) >= 2 && pick !== 'e0';
-    return e2 ? { src: o.art2, e2: true, wide: !!o.art2Wide, pos: o.art2Wide ? o.art2Pos || '50% 25%' : null } : { src: o.art };
+    return e2 ? { src: o.art2, e2: true, wide: !!o.art2Wide, pos: o.art2Wide ? o.art2Pos || '50% 25%' : null, face: o.art2Face } : { src: o.art, face: o.artFace };
   }
   function artHTML(def) {
     const fa = fullArt(def);
-    if (fa) return `<div class="art has-img full ${fa.wide ? 'wide' : ''} ${fa.e2 ? 'e2' : 'e0'}" style="--c:${def.color}${fa.pos ? `;--apos:${fa.pos}` : ''}${def.artView ? Object.entries(def.artView).map(([k, v]) => `;--d${k}:${v}`).join('') : ''}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(fa.src)}" alt="${esc(def.name)}"></div>`;
+    if (fa) return `<div class="art has-img full ${fa.wide ? 'wide' : ''} ${fa.e2 ? 'e2' : 'e0'}" style="--c:${def.color}${fa.pos ? `;--apos:${fa.pos}` : ''}${fa.face != null ? `;--fx:${fa.face}` : ''}${def.artView ? Object.entries(def.artView).map(([k, v]) => `;--d${k}:${v}`).join('') : ''}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(fa.src)}" alt="${esc(def.name)}"></div>`;
     if (def.image) return `<div class="art has-img" style="--c:${def.color}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(def.image)}" alt="${esc(def.name)}"></div>`;
     return `<div class="art" style="--c:${def.color}">
       <span class="art-ico">${icon(def.class)}</span>
@@ -362,6 +362,7 @@
     fixPlayer();
     const a = OPS[save.assistant];
     $('#home-art').innerHTML = artHTML(a);
+    applyHomePos();
     renderHomeEvent();
     mailDot();
     const ts = totalStars();
@@ -488,17 +489,62 @@
   $('#btn-feedback2').addEventListener('click', () => openFeedback());
   $('#home-news').addEventListener('click', () => { sfx('select'); go('store', 'packages'); });
   $('#btn-hideui').innerHTML = '<span class="oi ho_hide"></span>';
-  $('#btn-asst').innerHTML = icon('swap');
   // 그림 보기: UI를 숨기고 아무 데나 누르면 돌아옴
+  // ---------- 메인 화면 비서 위치 · 크기 조정 (원작처럼 그림을 드래그해서 옮기고, 오른쪽 막대로 크기 조절) ----------
+  // save.homeArt[오퍼 id] = { x, y: 화면 너비 · 높이 대비 % 이동, s: 배율 }
+  function homePos(id) { return { x: 0, y: 0, s: 1, ...((save.homeArt || {})[id] || {}) }; }
+  function applyHomePos(p = homePos(save.assistant)) {
+    const el = $('#home-art');
+    el.style.setProperty('--hx', p.x); el.style.setProperty('--hy', p.y); el.style.setProperty('--hs', p.s);
+  }
+  $('#btn-hpos').innerHTML = icon('swap');
+  function openHomePos() {
+    const scr = $('#screen-home'), id = save.assistant, start = homePos(id);
+    let cur = { ...start }, drag = null;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    scr.classList.add('hp-edit');
+    const ov = document.createElement('div');
+    ov.className = 'hp-ov';
+    ov.innerHTML = `<button class="hp-btn cancel" data-hp="cancel"><i>✕</i>취소</button>
+      <div class="hp-size"><em>사이즈</em><small>200</small><input type="range" id="hp-s" min="50" max="200" step="1" aria-label="크기"><small>50</small><b id="hp-sv"></b></div>
+      <div class="hp-foot"><button class="hp-btn reset" data-hp="reset"><i>⟲</i>초기화</button><button class="hp-btn ok" data-hp="ok"><i>✓</i>확인</button></div>
+      <p class="hp-tip">그림을 끌어서 위치를 옮기고, 오른쪽 막대로 크기를 조절하세요</p>`;
+    scr.appendChild(ov);
+    const sync = () => { applyHomePos(cur); $('#hp-s').value = Math.round(cur.s * 100); $('#hp-sv').textContent = Math.round(cur.s * 100); };
+    sync();
+    $('#hp-s').addEventListener('input', (e) => { cur.s = +e.target.value / 100; sync(); });
+    ov.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.hp-btn, .hp-size')) return;
+      drag = { x: e.clientX, y: e.clientY, ox: cur.x, oy: cur.y };
+      try { ov.setPointerCapture(e.pointerId); } catch {}
+    });
+    ov.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      cur.x = clamp(drag.ox + ((e.clientX - drag.x) / innerWidth) * 100, -70, 70);
+      cur.y = clamp(drag.oy + ((e.clientY - drag.y) / innerHeight) * 100, -70, 70);
+      sync();
+    });
+    const end = () => { drag = null; };
+    ov.addEventListener('pointerup', end); ov.addEventListener('pointercancel', end);
+    ov.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const b = e.target.closest('[data-hp]');
+      if (!b) return;
+      const k = b.dataset.hp;
+      sfx('select');
+      if (k === 'reset') { cur = { x: 0, y: 0, s: 1 }; sync(); return; }
+      if (k === 'ok') {
+        save.homeArt = save.homeArt || {};
+        if (cur.x || cur.y || cur.s !== 1) save.homeArt[id] = { x: Math.round(cur.x * 10) / 10, y: Math.round(cur.y * 10) / 10, s: cur.s }; else delete save.homeArt[id];
+        writeSave(); toast('비서 위치를 저장했습니다');
+      } else applyHomePos(start);
+      ov.remove(); scr.classList.remove('hp-edit');
+    });
+  }
+  $('#btn-hpos').addEventListener('click', (e) => { e.stopPropagation(); openHomePos(); });
   $('#btn-hideui').addEventListener('click', (e) => { e.stopPropagation(); $('#screen-home').classList.add('ui-hidden'); });
-  $('#screen-home').addEventListener('click', (e) => { if ($('#screen-home').classList.contains('ui-hidden')) { e.stopPropagation(); $('#screen-home').classList.remove('ui-hidden'); } }, true);
+  $('#screen-home').addEventListener('click', (e) => { if ($('#screen-home').classList.contains('ui-hidden') && !$('#screen-home').classList.contains('hp-edit')) { e.stopPropagation(); $('#screen-home').classList.remove('ui-hidden'); } }, true);
   // 비서 교체: 등록한 비서들을 차례로
-  $('#btn-asst').addEventListener('click', () => {
-    const list = (save.assistants || []).filter((id) => OPS[id]);
-    if (list.length < 2) { toast('오퍼레이터 상세에서 비서를 더 추가하면 바꿀 수 있습니다'); return; }
-    save.assistant = list[(list.indexOf(save.assistant) + 1) % list.length];
-    writeSave(); sfx('select'); greeted = false; RENDER.home();
-  });
   $('#home-event').addEventListener('click', () => { sfx('select'); go('event'); });
 
   // ---------- 우편함 ----------
@@ -1094,9 +1140,14 @@
     $('#detail-en').textContent = o.en || '';
     $('#detail-name').textContent = o.name;
     fitName($('#detail-name'));
-    $('#detail-class').innerHTML = `${icon(o.class)}<b>${cls.name}</b>${arch ? `<small>${PRO_IMG.has(o.class) ? `<img class="sub-ico" src="${PK(`img/ui/sub_${o.archetype}.png`)}" alt="">` : ''}${esc(arch.name)}</small>` : ''}`;
+    $('#detail-class').innerHTML = icon(o.class);
+    $('#detail-class').title = `${cls.name}${arch ? ` · ${arch.name}` : ''}`;
     $('#detail-range').innerHTML = rangeGridHTML(o.range, 12);
-    $('#detail-tags').innerHTML = [(o.tile || cls.tile) === 'any' ? '지면 · 고지대 배치' : (o.tile || cls.tile) === 'ground' ? '지면 배치' : '고지대 배치', ...(o.tags || [])].map((t) => `<span>${esc(t)}</span>`).join('');
+    // 원작처럼: 위에 근거리/원거리, 아래에 대표 태그 두 개 (mainTags로 직접 지정 가능)
+    const POS_TAGS = ['근거리', '원거리'], tg = o.tags || [];
+    const posTag = tg.find((t) => POS_TAGS.includes(t)) || ((o.tile || cls.tile) === 'ground' ? '근거리' : '원거리');
+    const mainTags = (o.mainTags || tg.filter((t) => !POS_TAGS.includes(t))).slice(0, 2);
+    $('#detail-tags').innerHTML = `<span class="tg-pos">${esc(posTag)}</span><span class="tg-main">${mainTags.map((t) => `<i>${esc(t)}</i>`).join(' ')}</span>`;
     $('#detail-cost').textContent = o.cost;
     const list = skillsOf(base), cur = skillIndex(base), tlist = skillsOf(o);
     // 원작처럼: 스킬 아이콘(이름 · SP) 중 하나를 눌러 보고, 「디폴트 스킬」로 전투에 쓸 스킬을 정한다
