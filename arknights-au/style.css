@@ -211,12 +211,15 @@ button:focus-visible { outline: 2px solid var(--beacon); outline-offset: 2px; }
 #screen-detail { background: #24262a; }
 .detail-bg {
   position: absolute; inset: 0;
+  /* 원작 상세 화면 배경(로도스 등대 로고 · 사선 무늬) 위에 오른쪽으로 갈수록 어둡게 */
   background:
-    radial-gradient(ellipse 50% 70% at 55% 45%, color-mix(in srgb, var(--c, #888) 45%, transparent), transparent 70%),
-    linear-gradient(100deg, #e9e9ea 0 18%, #b9bbbf 18% 18.4%, transparent 18.4%),
-    repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 2px, transparent 2px 22px),
-    linear-gradient(180deg, #34363b, #1a1b1e);
+    linear-gradient(90deg, transparent 0 30%, rgba(18,19,22,.35) 48%, rgba(14,15,17,.8) 72%, rgba(10,11,12,.92) 100%),
+    url(img/ui/char_info_bkg.webp) left center / auto 100% no-repeat,
+    linear-gradient(180deg, #b4b5b7, #8d8f92);
 }
+/* 원작처럼 위에서 내려오는 검은 사선 면 + 흰 빛줄기 */
+.detail-bg::before { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 0 40%, rgba(255,255,255,.55) 40% 52%, transparent 52%); clip-path: polygon(30% 0, 64% 0, 30% 100%, 0 100%); opacity: .55; }
+.detail-bg::after { content: ''; position: absolute; inset: 0; background: #0d0e10; clip-path: polygon(60% 0, 100% 0, 100% 62%); opacity: .85; }
 .detail-art { position: absolute; left: 30%; right: 26%; top: 0; bottom: 0; clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%); -webkit-mask-image: linear-gradient(180deg, #000 85%, transparent); mask-image: linear-gradient(180deg, #000 85%, transparent); }
 .detail-left { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 70px; bottom: 14px; width: min(400px, 38%); display: flex; flex-direction: column; gap: 6px; z-index: 2; overflow-y: auto; scrollbar-width: none; }
 .detail-left > :first-child { margin-top: auto; }
@@ -3694,3 +3697,6 @@ var.oi { font-style: normal; }
   .detail-art:has(.art.full) { left: auto; right: auto; }
   .detail-art .art.full img { top: 0; left: 50%; height: 100%; }
 }
+/* 밝은 원작 배경 위에서도 스탯 글자가 보이도록 칩 배경 */
+.stat-grid span { background: linear-gradient(90deg, rgba(20,21,24,.72), rgba(20,21,24,.3)); padding-right: 8px; }
+.stat-grid b { background: none; }
