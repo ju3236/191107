@@ -143,7 +143,7 @@
   }
   function artHTML(def) {
     const fa = fullArt(def);
-    if (fa) return `<div class="art has-img full ${fa.wide ? 'wide' : ''}" style="--c:${def.color}${fa.pos ? `;--apos:${fa.pos}` : ''}${def.artView ? Object.entries(def.artView).map(([k, v]) => `;--d${k}:${v}`).join('') : ''}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(fa.src)}" alt="${esc(def.name)}"></div>`;
+    if (fa) return `<div class="art has-img full ${fa.wide ? 'wide' : ''} ${fa.e2 ? 'e2' : 'e0'}" style="--c:${def.color}${fa.pos ? `;--apos:${fa.pos}` : ''}${def.artView ? Object.entries(def.artView).map(([k, v]) => `;--d${k}:${v}`).join('') : ''}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(fa.src)}" alt="${esc(def.name)}"></div>`;
     if (def.image) return `<div class="art has-img" style="--c:${def.color}"><span class="art-en">${esc(def.en || '')}</span><img src="${esc(def.image)}" alt="${esc(def.name)}"></div>`;
     return `<div class="art" style="--c:${def.color}">
       <span class="art-ico">${icon(def.class)}</span>

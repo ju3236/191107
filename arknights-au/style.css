@@ -3686,6 +3686,8 @@ var.oi { font-style: normal; }
    오퍼마다 --dz(그림 높이, 화면 높이 대비) · --dx(가로 중심) · --dy(위 여백)로 조정 */
 .detail-art:has(.art.full) { clip-path: none; -webkit-mask-image: none; mask-image: none; left: 0; right: 0; overflow: hidden; }
 .detail-art .art.full img { inset: auto; top: var(--dy, 1%); left: var(--dx, 56%); width: auto; height: var(--dz, 160%); max-width: none; transform: translateX(-50%); object-fit: contain; }
+/* 정예화 0 · 1 일러는 원작처럼 조금 작게: 머리부터 무릎 아래까지 거의 전신 */
+.detail-art .art.full.e0 img { top: var(--dy, 10%); height: var(--dz, 115%); left: var(--dx, 54%); }
 .art.full.wide img { inset: 0 !important; width: 100% !important; height: 100% !important; margin: 0 !important; object-fit: cover !important; object-position: var(--apos, 50% 25%) !important; }
 @media (max-width: 760px) and (orientation: portrait) {
   .home-art:has(.art.full) { left: auto; width: 62%; height: 46vh; }
