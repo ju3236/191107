@@ -2574,7 +2574,7 @@
   window.UI = {
     applySkins, buySkin, skinsOf, ownsSkin,
     save, writeSave, go, back, icon, toast, playDialog, startOperation, skillIndex, onBattleEnd, onBattleQuit,
-    openFeedback, skillIcon, openModal, confirmBuy, volRowsHTML, bindVolRows, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
+    openFeedback, skillIcon, openModal, confirmBuy, volRowsHTML, bindVolRows, closeModal, openSource, jumpStage, cardHTML, enemyRowsHTML, openEnemies, openMap, artHTML, fullArt, esc, stars, OPS, RENDER, renderResources, hydrateIcons, skillsOf, line, say,
     get current() { return current; },
     get lastResult() { return lastResult; },
   };

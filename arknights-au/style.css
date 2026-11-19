@@ -3765,3 +3765,6 @@ var.oi { font-style: normal; }
 /* 편성 등 작은 카드: 정식 일러는 얼굴 위주로 잘라서 */
 .oc-art { overflow: hidden; }
 .oc-art .art.full img { inset: auto; max-width: none; width: 420cqw; height: auto; object-fit: initial; left: calc(50cqw - var(--fx, .5) * 420cqw); top: calc(55cqw - var(--fy, .2) * 560cqw); }
+/* 전투 중 오퍼 정보: 정식 일러 */
+.ins-art { container-type: size; }
+.ins-art img.ins-full { right: auto; height: auto; width: 170cqw; max-width: none; opacity: .5; left: calc(64cqw - var(--fx, .5) * 170cqw); top: calc(26cqh - var(--fy, .2) * 227cqw); }

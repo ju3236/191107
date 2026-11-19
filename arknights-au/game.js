@@ -460,7 +460,9 @@
     if (full || insKey !== key) {
       insKey = key;
       const arch = d.archetype && ARCHETYPES[d.archetype];
-      $('#ins-art').innerHTML = d.image ? `<img src="${d.image}" alt="">` : d.icon ? `<img class="ins-icon" src="${d.icon}" alt="">` : `<b style="color:${d.color}">${d.name[0]}</b>`;
+      // 정식 일러가 있으면 원작처럼 크게 (얼굴 위주로 잘라서), 없으면 SD 그림
+      const fa = window.UI && UI.fullArt ? UI.fullArt(d) : null;
+      $('#ins-art').innerHTML = fa ? `<img class="ins-full" src="${fa.src}" alt="" style="--fx:${fa.face ?? 0.5}">` : d.image ? `<img src="${d.image}" alt="">` : d.icon ? `<img class="ins-icon" src="${d.icon}" alt="">` : `<b style="color:${d.color}">${d.name[0]}</b>`;
       $('#ins-art').style.setProperty('--c', d.color);
       $('#ins-cls').innerHTML = UI.icon(d.class);
       $('#ins-name').textContent = d.name;
